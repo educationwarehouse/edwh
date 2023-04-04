@@ -27,7 +27,12 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  'invoke'
+]
+
+[project.scripts]
+edwh = "edwh.cli:program.run"
 
 [project.urls]
 Documentation = "https://github.com/educationwarehouse/edwh#readme"
