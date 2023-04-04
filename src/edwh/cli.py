@@ -9,6 +9,20 @@ import importlib
 
 collection = Collection.from_module(tasks)
 
+if sys.version_info < (3, 10):
+    from importlib_metadata import entry_points
+else:
+    from importlib.metadata import entry_points
+
+discovered_plugins = entry_points(group='edwh.tasks')
+for plugin in discovered_plugins:
+    plugin_module = plugin.load()
+    plugin_collection = Collection.from_module(plugin_module)
+    collection.add_collection(plugin_collection, plugin.name)
+
+import os
+print('plugins:',discovered_plugins)
+
 old_path = sys.path[:]
 
 for path in ['.', '..', '../..']:
@@ -24,4 +38,8 @@ for path in ['.', '..', '../..']:
         if 'No module named \'tasks\'' not in str(e):
             raise e
 sys.path = old_path
+
+
+
+
 program = Program(namespace=collection, version=__version__)
