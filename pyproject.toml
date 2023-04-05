@@ -39,6 +39,7 @@ omgeving = [
 ]
 plugins = [
   'edwh-multipass-plugin',
+  'edwh-demo-tasks-plugin',
 ]
 
 [project.scripts]
