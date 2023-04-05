@@ -37,6 +37,9 @@ omgeving = [
   'tabulate',
   'pyyaml',
 ]
+plugins = [
+  'edwh-multipass-plugin',
+]
 
 [project.scripts]
 edwh = "edwh.cli:program.run"
