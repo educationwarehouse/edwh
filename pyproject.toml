@@ -52,6 +52,13 @@ Documentation = "https://github.com/educationwarehouse/edwh#readme"
 Issues = "https://github.com/educationwarehouse/edwh/issues"
 Source = "https://github.com/educationwarehouse/edwh"
 
+[tool.semantic_release]
+branch = "main"
+version_variable = "src/edwh/__about__.py:__version__"
+change_log = "CHANGELOG.md"
+upload_to_repository = false
+
+
 [tool.hatch.version]
 path = "src/edwh/__about__.py"
 
