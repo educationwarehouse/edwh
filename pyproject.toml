@@ -67,10 +67,16 @@ path = "src/edwh/__about__.py"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  'python-semantic-release'
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
+publish = [
+  'semantic-release publish',
+  'hatch build -c',
+  'hatch publish',
+]
 cov-report = [
   "- coverage combine",
   "coverage report",
