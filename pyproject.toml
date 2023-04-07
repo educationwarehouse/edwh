@@ -57,7 +57,8 @@ branch = "main"
 version_variable = "src/edwh/__about__.py:__version__"
 change_log = "CHANGELOG.md"
 upload_to_repository = false
-
+upload_to_release = false
+build_command = "hatch build"
 
 [tool.hatch.version]
 path = "src/edwh/__about__.py"
