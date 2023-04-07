@@ -23,4 +23,4 @@ pipx install edwh
 
 ## Changelog 
 
-![](CHANGELOG.md)
+[See CHANGELOG.md](CHANGELOG.md)
