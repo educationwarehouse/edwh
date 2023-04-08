@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.2 (2023-04-08)
+
+
 ## v0.2.1 (2023-04-07)
 ### Fix
 * **pyproject.toml:** Use `hatch run publish` to use python-semantic-release to patch the changelog and versioning. ([`639dbff`](https://github.com/educationwarehouse/edwh/commit/639dbff3a67d8dd273863551780a69b4934debbf))
