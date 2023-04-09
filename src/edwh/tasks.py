@@ -1,3 +1,5 @@
+import diceware
+
 try:
     import glob
     import csv
@@ -273,10 +275,10 @@ def search_adjacent_setting(c, key, silent=False):
     return adjacent_settings
 
 
-@task(help=dict(dice="how many dice to use", silent="do not echo the password"))
-def generate_password(c, dice=6, silent=False):
-    """Generate a diceware password using --dice (default 6) dice."""
-    password = c.run(f"diceware --num {dice}", hide=True).stdout.strip()
+@task(help=dict(silent="do not echo the password"))
+def generate_password(c, silent=False):
+    """Generate a diceware password using --dice 6."""
+    password = diceware.get_passphrase()
     if not silent:
         print("Password:", password)
     return password
