@@ -2,8 +2,9 @@
 
 <!--next-version-placeholder-->
 
-## v0.2.2 (2023-04-08)
-
+## v0.3.1 (2023-04-10)
+### Feature
+* Added and upgraded: settings, up, ps, logs, stop, down, build, rebuild, docs, search_adjacent_setting, generate_password, settings, volumes and helpers. ([`9f80e25`](https://github.com/educationwarehouse/edwh/commit/9f80e25953a37a333ce4a0b73e355864d6c26fb1))
 
 ## v0.2.1 (2023-04-07)
 ### Fix
