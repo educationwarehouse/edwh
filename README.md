@@ -9,6 +9,7 @@
 
 - [Installation](#installation)
 - [License](#license)
+- [Changelog](#changelog)
 
 ## Installation
 
@@ -19,3 +20,7 @@ pipx install edwh
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+
+## Changelog 
+
+[See CHANGELOG.md](CHANGELOG.md)

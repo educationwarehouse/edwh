@@ -21,7 +21,7 @@ for plugin in discovered_plugins:
     collection.add_collection(plugin_collection, plugin.name)
 
 import os
-print('plugins:',discovered_plugins)
+print('Discovered plugins:',[_.value.split('.')[0] for _ in discovered_plugins])
 
 old_path = sys.path[:]
 

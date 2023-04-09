@@ -36,6 +36,7 @@ omgeving = [
   'humanize',
   'tabulate',
   'pyyaml',
+  'tomlkit'
 ]
 plugins = [
   'edwh-multipass-plugin',
