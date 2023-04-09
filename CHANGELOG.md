@@ -3,6 +3,10 @@
 <!--next-version-placeholder-->
 
 ## v0.3.1 (2023-04-10)
+### Fix
+* Missing changelog entry ([`4fe91e4`](https://github.com/educationwarehouse/edwh/commit/4fe91e400a8b64197b7a1c7df55777c13787b2d7))
+
+## v0.3.1 (2023-04-10)
 ### Feature
 * Added and upgraded: settings, up, ps, logs, stop, down, build, rebuild, docs, search_adjacent_setting, generate_password, settings, volumes and helpers. ([`9f80e25`](https://github.com/educationwarehouse/edwh/commit/9f80e25953a37a333ce4a0b73e355864d6c26fb1))
 
