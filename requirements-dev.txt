@@ -1,1 +1,2 @@
 hatch
+python-semantic-release
