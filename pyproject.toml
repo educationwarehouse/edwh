@@ -46,7 +46,7 @@ plugins = [
   'edwh-multipass-plugin',
   'edwh-demo-tasks-plugin',
   'edwh-restic-plugin',
-  #'edwh-pipcompile-plugin'
+  'edwh-pipcompile-plugin'
 ]
 
 restic = [
@@ -55,6 +55,10 @@ restic = [
 
 multipass = [
   'edwh-multipass-plugin',
+]
+
+pip = [
+  'edwh-pipcompile-plugin',
 ]
 
 [project.scripts]
