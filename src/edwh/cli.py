@@ -20,8 +20,7 @@ for plugin in discovered_plugins:
     plugin_collection = Collection.from_module(plugin_module)
     collection.add_collection(plugin_collection, plugin.name)
 
-import os
-print('Discovered plugins:',[_.value.split('.')[0] for _ in discovered_plugins])
+# print('Discovered plugins:',[_.value.split('.')[0] for _ in discovered_plugins])
 
 old_path = sys.path[:]
 
@@ -38,8 +37,5 @@ for path in ['.', '..', '../..']:
         if 'No module named \'tasks\'' not in str(e):
             raise e
 sys.path = old_path
-
-
-
 
 program = Program(namespace=collection, version=__version__)

@@ -25,9 +25,7 @@ try:
 
 except ImportError as e:
     if sys.argv[0].split("/")[-1] in ("inv", "invoke"):
-        print(
-            "WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n"
-        )
+        print("WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n")
     print("ImportError:", e)
     exit(1)
 
@@ -48,9 +46,7 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(
-        init=False, default=None
-    )  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
 
     @classmethod
     def load(cls):
@@ -175,9 +171,7 @@ def check_env(
     env = read_dotenv()
     if key not in env:
         with config.dotenv_path.open(mode="r+") as env_file:
-            response = input(
-                f"Enter value for {key} ({comment})\n default=`{default}`: "
-            )
+            response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
             value = response.strip() or default
             if prefix:
                 value = prefix + value
@@ -290,11 +284,7 @@ def settings(ctx, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [
-        (k, v)
-        for k, v in read_dotenv().items()
-        if find is None or find.upper() in k.upper() or find in v
-    ]
+    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
@@ -306,16 +296,12 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in (
-        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
-    ):
+    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
-            for volume in [
-                _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
-            ]:
+            for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]:
                 lines.append(dict(container=container, volume=volume))
         else:
             print(ran.stderr)
@@ -360,13 +346,9 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(
-            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
-        )
+        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
     if "py4web" in services_ls:
-        ctx.run(
-            f"docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph"
-        )
+        ctx.run(f"docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph")
     if tail:
         ctx.run(f"docker-compose logs --tail=10 -f {services_ls}")
 
@@ -382,9 +364,7 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(
-        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
-    )
+    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
 
 
 @task(
@@ -412,9 +392,7 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def stop(ctx, service=None):
     """
@@ -426,9 +404,7 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def down(ctx, service=None):
     """
@@ -459,9 +435,7 @@ def build(ctx, yes=False):
 
         with_compile = True
     except ImportError:
-        print(
-            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
-        )
+        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -476,18 +450,14 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print(
-                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
-                )
+                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pcl.compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (
-        not with_compile and confirm("Build docker images? [yN]", default=False)
-    ):
+    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
         ctx.run("docker-compose build")
 
 
@@ -510,10 +480,7 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(
-        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
-        + " ".join(services)
-    )
+    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
 
 
 @task()
