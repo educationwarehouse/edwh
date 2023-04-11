@@ -46,7 +46,8 @@ plugins = [
   'edwh-multipass-plugin',
   'edwh-demo-tasks-plugin',
   'edwh-restic-plugin',
-  'edwh-pipcompile-plugin'
+  'edwh-pipcompile-plugin',
+  'edwh-bundler-plugin'
 ]
 
 restic = [
