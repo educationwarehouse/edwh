@@ -61,6 +61,18 @@ pip = [
   'edwh-pipcompile-plugin',
 ]
 
+pip-compile = [
+  'edwh-pipcompile-plugin',
+]
+
+bundler = [
+  "edwh-bundler-plugin"
+]
+
+bundle = [
+  "edwh-bundler-plugin"
+]
+
 [project.scripts]
 edwh = "edwh.cli:program.run"
 ew = "edwh.cli:program.run"
