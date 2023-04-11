@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.4 (2023-04-11)
+### Fix
+* **edwh:** Include bundler-plugin in edwh[plugins] as well ([`df4424d`](https://github.com/educationwarehouse/edwh/commit/df4424d37c225c3e6c89010a3186fc225d13e354))
+
 ## v0.3.2 (2023-04-10)
 ### Fix
 * Diceware was included as a dependency, but used as a pipx installed application. ([`2f6bc9f`](https://github.com/educationwarehouse/edwh/commit/2f6bc9f7c7aabafbab0b857d84905be13d3973f0))
