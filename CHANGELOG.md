@@ -3,8 +3,24 @@
 <!--next-version-placeholder-->
 
 ## v0.4.4 (2023-04-11)
+### Feature
+* **edwh:** Include bundler-plugin in `edwh[plugins]` as well ([`df4424d`](https://github.com/educationwarehouse/edwh/commit/df4424d37c225c3e6c89010a3186fc225d13e354))
+
+## 0.4.3 (2023-04-11)
+### Feature
+* allow bundle(r) extra and alias for pip-compile extra
+
+## 0.4.2 (2023-04-11)
+### Feature
+* allow installing edwh-pipcompile-plugin as `edwh[pip]`
+
+## 0.4.1 (2023-04-11)
 ### Fix
-* **edwh:** Include bundler-plugin in edwh[plugins] as well ([`df4424d`](https://github.com/educationwarehouse/edwh/commit/df4424d37c225c3e6c89010a3186fc225d13e354))
+* added python-semantic-release as dev dependency
+
+## 0.4.0 (2023-04-11)
+### Feat
+*  allow pip install `edwh[multipass,restic]`
 
 ## v0.3.2 (2023-04-10)
 ### Fix
