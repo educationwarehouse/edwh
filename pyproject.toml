@@ -43,6 +43,14 @@ plugins = [
   'edwh-restic-plugin',
 ]
 
+restic = [
+  'edwh-restic-plugin',
+]
+
+multipass = [
+  'edwh-multipass-plugin',
+]
+
 [project.scripts]
 edwh = "edwh.cli:program.run"
 ew = "edwh.cli:program.run"
