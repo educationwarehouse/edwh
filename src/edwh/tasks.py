@@ -1,4 +1,4 @@
-import diceware
+# import diceware
 
 try:
     import glob
@@ -302,7 +302,7 @@ def get_services_from_user(services: list, input_string: str):
     chosen_services = ""
 
     while (chosen_id := input(input_string)) != "":
-        chosen_services += services[int(chosen_id) - 1] + "\n"
+        chosen_services += '"' + services[int(chosen_id) - 1] + '",\n'
 
     return chosen_services
 
@@ -319,8 +319,8 @@ def write_user_input_to_config_toml(services: list):
         chosen_services = get_services_from_user(services, "select a service by number(default is 'discover'): ")
 
         # services you can choose from by minimal and logs
-        if "discover" not in chosen_services:
-            services_to_choose_from = chosen_services.split("\n")
+        if len(chosen_services.replace(" ", "")) != 0:
+            services_to_choose_from = chosen_services.replace(",", "").replace('"', '').split("\n")
         else:
             services_to_choose_from = services
 
