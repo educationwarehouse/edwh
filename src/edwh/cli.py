@@ -1,9 +1,12 @@
-import sys
 import pathlib
-from invoke import Program, Collection
-from .__about__ import __version__
+import sys
+
+from invoke import Collection
+from fabric.main import Fab  # instanceof invoke.Program
+from fabric import Config, Executor
+
 from . import tasks
-import importlib
+from .__about__ import __version__
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
@@ -34,8 +37,14 @@ for path in ['.', '..', '../..']:
         collection.add_collection(local, 'local')
         break
     except ImportError as e:
-        if 'No module named \'tasks\'' not in str(e):
+        if "No module named 'tasks'" not in str(e):
             raise e
+
 sys.path = old_path
 
-program = Program(namespace=collection, version=__version__)
+program = Fab(
+    executor_class=Executor,
+    config_class=Config,
+    namespace=collection,
+    version=__version__,
+)
