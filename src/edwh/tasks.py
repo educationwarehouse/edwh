@@ -461,7 +461,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -565,7 +565,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -662,3 +662,8 @@ def zen(ctx):
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
     import this
+
+
+@task
+def whoami(ctx):
+    print(ctx.run("whoami", hide=True).stdout, "@", ctx.run("hostname", hide=True).stdout)
