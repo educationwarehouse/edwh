@@ -1,11 +1,7 @@
-# import diceware
-
 try:
     import glob
     import csv
     import shlex
-    from statistics import median
-    from invoke import task, Result, Context
     import datetime
     import io
     import os
@@ -16,13 +12,20 @@ try:
     import time
     import typing
     import json
-    import tabulate
-    import yaml
-    import tomlkit
+    import importlib.util
+    from collections import defaultdict, OrderedDict
     from dataclasses import dataclass, field
     from pathlib import Path
-    from collections import defaultdict, OrderedDict
-    import importlib.util
+    from statistics import median
+
+    import tabulate
+    import yaml
+    from invoke import task, Result, Context
+
+    if sys.version_info > (3, 11):
+        import tomllib
+    else:
+        import tomlkit
 
 except ImportError as e:
     if sys.argv[0].split("/")[-1] in ("inv", "invoke"):
@@ -31,12 +34,27 @@ except ImportError as e:
     exit(1)
 
 
+def load_toml(file: Path) -> dict:
+    """
+    Depends on Python version
+    """
+    with file.open() as f:
+        contents = f.read()
+        if sys.version_info > (3, 11):
+            return tomllib.loads(contents)
+        else:
+            return tomlkit.parse(contents)
+
+
 def confirm(prompt: str, default=False) -> bool:
     allowed = {"y", "1"}
     if default:
-        allowed.add("")
+        allowed.add(" ")
 
-    return (input(prompt).lower().strip() + " ")[0] in allowed
+    answer = input(prompt).lower().strip()
+    answer += " "
+
+    return answer[0] in allowed
 
 
 @dataclass
@@ -50,7 +68,7 @@ class TomlConfig:
     __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
 
     @classmethod
-    def load(cls):
+    def load(cls, fname="config.toml"):
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -60,8 +78,8 @@ class TomlConfig:
         if TomlConfig.__loaded:
             return TomlConfig.__loaded
 
-        with Path("config.toml").open() as config_file:
-            config = tomlkit.parse(config_file.read())
+        config_path = Path(fname)
+        config = load_toml(config_path)
 
         if config["services"]["services"] == "discover":
             with open("docker-compose.yml", "r") as compose:
@@ -98,16 +116,16 @@ def service_names(service_arg: list[str]) -> list[str]:
     import fnmatch
 
     config = TomlConfig.load()
-    selected = []
+    selected = set()
     for service in service_arg:
-        selected.extend(fnmatch.filter(config.all_services, service))
-    matched = list(set(selected))
-    if service_arg and not matched:
+        selected.update(fnmatch.filter(config.all_services, service))
+
+    if service_arg and not selected:
         # when no service matches the name, don't return an empty list, as that would `up` all services
         # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
         print(f"ERROR: No services found matching: {service_arg!r}")
         exit(1)
-    return matched
+    return list(selected)
 
 
 def executes_correctly(c: Context, argument: str) -> bool:
@@ -159,11 +177,11 @@ def read_dotenv(env_path: Path = None) -> dict:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        prefix: str | None = None,
-        postfix: str | None = None,
+    key: str,
+    default: typing.Optional[str],
+    comment: str,
+    prefix: str | None = None,
+    postfix: str | None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -264,8 +282,10 @@ def exec_setup_in_other_task(run_setup):
                 if run_setup:
                     local_tasks.setup()
             except:
-                print("the setup in you're local tasks.py crashed, to not run the setup please give up the argument "
-                      "--no-run-setup")
+                print(
+                    "the setup in you're local tasks.py crashed, to not run the setup please give up the argument "
+                    "--no-run-setup"
+                )
                 raise
             break
         except ImportError:
@@ -328,18 +348,23 @@ def write_user_input_to_config_toml(services: list):
         chosen_minimal_services = get_services_from_user(services_to_choose_from, "select minimal services by number: ")
 
         # check if user wants to include celeries
-        include_celeries = "true" if input("do you want to include celeries(Y/n): ").replace(" ", "") \
-                                    in ["", "y", "Y"] else "false"
+        include_celeries = (
+            "true" if input("do you want to include celeries(Y/n): ").replace(" ", "") in ["", "y", "Y"] else "false"
+        )
 
-        chosen_log_services = get_services_from_user(services_to_choose_from,
-                                                     "select services to be logged by number: ")
+        chosen_log_services = get_services_from_user(
+            services_to_choose_from, "select services to be logged by number: "
+        )
 
-        config_toml.writelines(["[services]\n",
-                                f"services = [\n{chosen_services if len(chosen_services) != 0 else 'discover'}\n]\n",
-                                f"minimal = [\n{chosen_minimal_services}\n]\n",
-                                f"include_celeries_in_minimal = {include_celeries}\n",
-                                f"logs = [\n{chosen_log_services}]\n"
-                                ])
+        config_toml.writelines(
+            [
+                "[services]\n",
+                f"services = [\n{chosen_services if len(chosen_services) != 0 else 'discover'}\n]\n",
+                f"minimal = [\n{chosen_minimal_services}\n]\n",
+                f"include_celeries_in_minimal = {include_celeries}\n",
+                f"logs = [\n{chosen_log_services}]\n",
+            ]
+        )
 
         config_toml.close()
 
@@ -446,13 +471,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -592,9 +617,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.

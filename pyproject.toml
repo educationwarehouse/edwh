@@ -29,7 +29,7 @@ dependencies = [
   'importlib_metadata >=3.6 ; python_version < "3.10"',
   'tabulate',
   'pyyaml',
-  'tomlkit',
+  'tomlkit ; python_version < "3.11"',
   'diceware',
 ]
 [project.optional-dependencies]
