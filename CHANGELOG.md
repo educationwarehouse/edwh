@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2023-04-17)
+
+
 ## v0.4.5 (2023-04-11)
 ### Documentation
 * **changelog:** Manual fix changelog for missing versions pt2 ([`488982d`](https://github.com/educationwarehouse/edwh/commit/488982d604266d1b54adfc02782fd876f8c9c6b5))
