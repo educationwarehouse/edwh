@@ -51,7 +51,12 @@ plugins = [
   'edwh-demo-tasks-plugin',
   'edwh-restic-plugin',
   'edwh-pipcompile-plugin',
-  'edwh-bundler-plugin'
+  'edwh-bundler-plugin',
+  'edwh-server-provisioning-plugin',
+]
+
+server-provisioning = [
+  "edwh-server-provisioning-plugin"
 ]
 
 restic = [
