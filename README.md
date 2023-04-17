@@ -55,6 +55,12 @@ ew --help
 - plugin name: `edwh[bundler]`
 - subcommand namespace: `bundle`
 
+### Server Provisioning 
+- pip name: [`edwh-server-provisioning-plugin`](https://pypi.org/project/edwh-server-provisioning-plugin/)
+- github: [`educationwarehouse/server_provisioning`](https://github.com/educationwarehouse/server_provisioning)
+- plugin name: `edwh[server-provisioning]`
+- subcommand namespace: `remote`
+
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
