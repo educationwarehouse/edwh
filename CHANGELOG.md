@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.1 (2023-04-17)
+
+
 ## v0.6.0 (2023-04-17)
 ### Feature
 * **core:** Replaced invoke with fabric for possibly more plugin functionality ([`85838ea`](https://github.com/educationwarehouse/edwh/commit/85838ea3b4cd2a50dc6e8a90e3955d9d82778b0f))
