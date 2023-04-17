@@ -34,7 +34,6 @@ dependencies = [
   'pyyaml',
   'tomlkit',
   'diceware',
-  'importlib',
 ]
 [project.optional-dependencies]
 omgeving = [
