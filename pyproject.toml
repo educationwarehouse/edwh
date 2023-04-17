@@ -33,6 +33,12 @@ dependencies = [
   'diceware',
 ]
 [project.optional-dependencies]
+dev = [
+  "hatch",
+  "python-semantic-release",
+  "black",
+]
+
 omgeving = [
   'humanize',
   'tabulate',
