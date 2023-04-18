@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.4 (2023-04-18)
+### Fix
+* **dev:** Remove demo plugin from [plugins] extra ([`582dc89`](https://github.com/educationwarehouse/edwh/commit/582dc89ce4f81b6ccb6cb99517e73fa996dfd764))
+
 ## v0.6.3 (2023-04-18)
 ### Fix
 * **project:** Update dependency versions for invoke 2.0 so py3.11+ works again ([`cd406be`](https://github.com/educationwarehouse/edwh/commit/cd406be2adab4c7a04fbd15cde5229d672cf7892))
