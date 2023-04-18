@@ -37,7 +37,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "hatch",
-  "python-semantic-release >= 8.0.0a5",
+  # "python-semantic-release >= 8.0.0a5",
   "black",
 ]
 
@@ -108,7 +108,7 @@ path = "src/edwh/__about__.py"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
-  'python-semantic-release >= 8.0.0a5'
+  # 'python-semantic-release >= 8.0.0a5'
 ]
 [tool.hatch.envs.default.scripts]
 # semver
@@ -117,6 +117,9 @@ test-semver = [
   'semantic-release --version',
 ]
 
+# note: don't run `hatch run publish` right now,
+# because semantic release v7 (stable) is not compatible with invoke 2 (which is required for python3.11+)
+# and semantic release v8 (alpha) is not compatible with the tool.semantic_release config in this file!
 publish = [
   'semantic-release publish',
   'hatch build -c',
