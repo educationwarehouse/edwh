@@ -83,7 +83,7 @@ class TomlConfig:
             return TomlConfig.__loaded
 
         config_path = Path(fname)
-        if not os.path.isfile(config_path):
+        if not pathlib.Path.exists(config_path):
             setup(invoke.Context())
         config = load_toml(config_path)
 
@@ -319,7 +319,6 @@ def print_services(c, services, selected_services=None, warn: str = None):
     :param services: docker services that are in the docker-compose.yml
     :return: a list of all services in the docker-compose.yml
     """
-    c.run("clear")
     if warn is not None:
         print(warn)
 
@@ -328,12 +327,11 @@ def print_services(c, services, selected_services=None, warn: str = None):
         if services[index] == "":
             continue
         print(f"{index + 1}: {services[index]}")
-    print("Press enter when you're done.\n")
 
     if selected_services is None:
         return
 
-    print("selected services:")
+    print("\nselected services:")
     for index in range(len(selected_services)):
         print(f"{index + 1}:", selected_services[index])
 
@@ -357,6 +355,9 @@ def get_services_from_user(c, services: list, input_string: str, warn: str = Non
                                services[int(cid) - 1] not in chosen_services)
 
         print_services(c, services, chosen_services)
+
+    print("\n\n-----------------------------------------\n\n")
+
     return chosen_services
 
 
@@ -367,6 +368,7 @@ def write_user_input_to_config_toml(c, services: list):
 
     :param services: list of all docker services that are in the docker-compose.yml
     :return:
+
     """
 
     doc = tomlkit.loads(Path("config.toml").read_text())
@@ -380,6 +382,11 @@ def write_user_input_to_config_toml(c, services: list):
 
         warn = "\033[93m" + "[services] has been found in the existing config.toml, changing [services] to " + \
                f"{new_services_name} \033[0m"
+
+    print("\nTo input multiple services please use ',' inbetween numbers")
+    print("For example '1, 2, 3, 4'")
+    print("Press enter when you're done.\n")
+
 
     # let user choose services
     chosen_services = get_services_from_user(c, services, "select a service by number(default is 'discover'): ", warn)
@@ -397,7 +404,6 @@ def write_user_input_to_config_toml(c, services: list):
 
     config_content.add("minimal", chosen_minimal_services)
 
-    c.run("clear")
     # check if user wants to include celeries
     include_celeries = "true" if input("do you want to include celeries(Y/n): ").replace(" ", "") \
                                  in ["", "y", "Y"] else "false"
@@ -425,7 +431,6 @@ def setup(c, run_local_setup=True):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
-    c.run("clear")
     # create config file
     if not Path.is_file(Path("config.toml")):
         with open("config.toml", "x") as config_toml:
@@ -440,7 +445,6 @@ def setup(c, run_local_setup=True):
 
     # get and print all found docker compose services
     services = c.run("docker-compose config --services", hide=True).stdout.split("\n")
-    c.run("clear")
     write_user_input_to_config_toml(c, services)
     exec_setup_in_other_task(c, run_local_setup)
 
