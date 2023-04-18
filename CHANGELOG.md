@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.3 (2023-04-18)
+### Fix
+* **project:** Update dependency versions for invoke 2.0 so py3.11+ works again ([`cd406be`](https://github.com/educationwarehouse/edwh/commit/cd406be2adab4c7a04fbd15cde5229d672cf7892))
+
 ## v0.6.2 (2023-04-17)
 ### Documentation
 * **readme:** Added Server Provisioning plugin in overview of plugins ([`1c20334`](https://github.com/educationwarehouse/edwh/commit/1c203342a7d688750bfb55fc784fa181c05e84e8))
