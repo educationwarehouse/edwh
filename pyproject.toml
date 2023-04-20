@@ -48,8 +48,8 @@ omgeving = [
   'tomlkit'
 ]
 plugins = [
-  # 'edwh-demo-tasks-plugin',
   'edwh-multipass-plugin',
+  'edwh-demo-tasks-plugin',
   'edwh-restic-plugin',
   'edwh-pipcompile-plugin',
   'edwh-bundler-plugin',
@@ -103,6 +103,13 @@ build_command = "hatch build"
 
 [tool.hatch.version]
 path = "src/edwh/__about__.py"
+
+[tool.hatch.envs.semver]
+dependencies = [
+  "python-semantic-release",
+]
+[tool.hatch.envs.semver.scripts]
+semver = "semantic-release"
 
 [tool.hatch.envs.default]
 dependencies = [
