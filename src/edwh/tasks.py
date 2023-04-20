@@ -288,28 +288,36 @@ def exec_setup_in_other_task(c, run_setup):
     # execute local_tasks setup
     old_path = sys.path[:]
 
-    for path in ['.', '..', '../..']:
-        path = pathlib.Path(path)
+    path = pathlib.Path('.').absolute()
+    while path != path.parent:
         sys.path = [str(path)] + old_path
         try:
             import tasks as local_tasks
 
-            try:
-                if run_setup:
+            if run_setup:
+                try:
                     local_tasks.setup(c)
-            except:
-                print(
-                    "the setup in you're local tasks.py crashed, to not run the setup please give up the argument "
-                    "--no-run-setup"
-                )
-                print("the setup in you're local tasks.py crashed, to not run the setup please give up the argument "
-                      "--no-run-local-setup")
-                raise
-            break
+                    break
+                except AttributeError:
+                    # test if there is a setup function in the local tasks.py that caused the error
+                    # or if the error is caused by something else, probably within the setup function.
+                    if not hasattr(local_tasks, "setup"):
+                        print("No setup function found in your nearest tasks.py", local_tasks)
+                        break
+                    else:
+                        # reraise because we can't handle it here, and the user should be informed fully
+                        raise
+            path = path.parent.absolute()
+            del local_tasks
         except ImportError:
-            continue
-
-    sys.path = old_path
+            # silence this error, if the import cannot be performed, that's not a problem
+            if path.exists('tasks.py'):
+                print(f"Could not import tasks.py from {path}")
+                raise
+            else:
+                continue
+        finally:
+            sys.path = old_path
 
 
 def print_services(c, services, selected_services=None, warn: str = None):
