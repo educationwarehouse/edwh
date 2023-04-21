@@ -33,7 +33,9 @@ try:
 
 except ImportError as e:
     if sys.argv[0].split("/")[-1] in ("inv", "invoke"):
-        print("WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n")
+        print(
+            "WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n"
+        )
     print("ImportError:", e)
     exit(1)
 
@@ -117,7 +119,9 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(
+        init=False, default=None
+    )  # cache using class instance singleton
 
     @classmethod
     def load(cls, fname="config.toml"):
@@ -238,11 +242,11 @@ def read_dotenv(env_path: Path = None) -> dict:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        prefix: str | None = None,
-        postfix: str | None = None,
+    key: str,
+    default: typing.Optional[str],
+    comment: str,
+    prefix: str | None = None,
+    postfix: str | None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -251,7 +255,9 @@ def check_env(
     env = read_dotenv()
     if key not in env:
         with config.dotenv_path.open(mode="r+") as env_file:
-            response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+            response = input(
+                f"Enter value for {key} ({comment})\n default=`{default}`: "
+            )
             value = response.strip() or default
             if prefix:
                 value = prefix + value
@@ -336,7 +342,7 @@ def exec_setup_in_other_task(c, run_setup):
     # execute local_tasks setup
     old_path = sys.path[:]
 
-    path = pathlib.Path('.').absolute()
+    path = pathlib.Path(".").absolute()
     while path != path.parent:
         sys.path = [str(path)] + old_path
         try:
@@ -350,7 +356,10 @@ def exec_setup_in_other_task(c, run_setup):
                     # test if there is a setup function in the local tasks.py that caused the error
                     # or if the error is caused by something else, probably within the setup function.
                     if not hasattr(local_tasks, "setup"):
-                        print("No setup function found in your nearest tasks.py", local_tasks)
+                        print(
+                            "No setup function found in your nearest tasks.py",
+                            local_tasks,
+                        )
                         break
                     else:
                         # reraise because we can't handle it here, and the user should be informed fully
@@ -359,7 +368,7 @@ def exec_setup_in_other_task(c, run_setup):
             del local_tasks
         except ImportError:
             # silence this error, if the import cannot be performed, that's not a problem
-            if path.exists('tasks.py'):
+            if path.exists("tasks.py"):
                 print(f"Could not import tasks.py from {path}")
                 raise
             else:
@@ -368,7 +377,7 @@ def exec_setup_in_other_task(c, run_setup):
             sys.path = old_path
 
 
-def print_services(c, services, selected_services=None, warn: str = None):
+def print_services(services, selected_services=None, warn: str = None):
     """
     print all the services that are in the docker-compose.yml
 
@@ -392,32 +401,65 @@ def print_services(c, services, selected_services=None, warn: str = None):
         print(f"{index + 1}:", selected_services[index])
 
 
-def get_services_from_user(c, services: list, input_string: str, warn: str = None):
+def write_content_to_toml_file(content_key, content):
+    if content == "":
+        return
+
+    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    config_toml_file["services"][content_key] = content
+
+    with open("config.toml", "w") as config_file:
+        config_file.write(tomlkit.dumps(config_toml_file))
+        config_file.close()
+
+
+def get_content_from_toml_file(services, toml_file, content_key, content, default):
     """
-    gets the input from the user and writes it to a string
+    Gets content from a TOML file.
 
-    :param services: docker services that are in the docker-compose.yml
-    :param input_string: string that the user will see when choosing dockers
-    :param warn: prints an warning message if set
-    :return: services that are chosen by the user
+    :param services: A list of services.
+    :type services: list
+    :param toml_file: A dictionary representing the TOML file.
+    :type toml_file: dict
+    :param content_key: The key to look for in the TOML file.
+    :type content_key: str
+    :param content: The content to display to the user.
+    :type content: str
+    :param default: The default value to return if the conditions are not met.
+    :type default: Any
+    :return: The content from the TOML file or the default value.
+    :rtype: Any
     """
-    print_services(c, services, warn=warn)
-    chosen_services = []
 
-    while (chosen_id := input(input_string)) != "":
-        chosen_ids = str(chosen_id).split(",")
-        chosen_services.extend(f'{services[int(cid) - 1]}' for cid in chosen_ids
-                               if int(cid) - 1 < len(services) and
-                               services[int(cid) - 1] not in chosen_services)
+    if "services" in toml_file and content_key in toml_file["services"]:
+        return ""
 
-        print_services(c, services, chosen_services)
+    print_services(services)
 
-    print("\n\n-----------------------------------------\n\n")
+    chosen_services_ids = input(content)
+    if "," not in chosen_services_ids:
+        chosen_services_ids = chosen_services_ids.split(" ")
+    else:
+        chosen_services_ids = chosen_services_ids.replace(" ", "").split(",")
 
-    return chosen_services
+    if chosen_services_ids[0] in default or len(chosen_services_ids[0]) == 0:
+        return default
+
+    return [services[int(service_id)] for service_id in chosen_services_ids]
 
 
-def write_user_input_to_config_toml(c, services: list):
+def setup_config_file():
+    """
+    sets up config.toml for use
+    """
+    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    if "services" not in config_toml_file:
+        with open("config.toml", "w") as config_file:
+            config_file.write("\n[services]\n")
+            config_file.close()
+
+
+def write_user_input_to_config_toml(c, all_services: list):
     """
     write chosen user dockers to config.toml
 
@@ -426,51 +468,71 @@ def write_user_input_to_config_toml(c, services: list):
     :return:
 
     """
+    setup_config_file()
+    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
 
-    doc = tomlkit.loads(Path("config.toml").read_text())
-
-    config_content = tomlkit.table()
-    warn = None
-
-    print("\nTo input multiple services please use ',' inbetween numbers")
+    print("\033[91mNOTE: \033[00m")
+    print(
+        "To input multiple services please use singel spaces or ',' inbetween numbers"
+    )
     print("For example '1, 2, 3, 4'")
-    print("Press enter when you're done.\n")
+
+    # services
+    services_list = get_content_from_toml_file(
+        all_services,
+        config_toml_file,
+        "services",
+        "select a service by number(default is 'discover'): ",
+        "discover",
+    )
+    write_content_to_toml_file("services", services_list)
+
+    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+
+    # get chosen services for minimal and logs
+    minimal_services = (
+        all_services
+        if config_toml_file["services"]["services"] == "discover"
+        else config_toml_file["services"]["services"]
+    )
+
+    # services
+    content = get_content_from_toml_file(
+        minimal_services,
+        config_toml_file,
+        "minimal",
+        "select minimal services by number: ",
+        [],
+    )
+    write_content_to_toml_file("minimal", content)
+
+    # check if minimal exists if yes add celeries to services
+    if (
+        "services" not in config_toml_file
+        or "include_celeries_in_minimal" not in config_toml_file["services"]
+    ):
+        # check if user wants to include celeries
+        include_celeries = (
+            "true"
+            if input("do you want to include celeries in minimal(Y/n): ").replace(
+                " ", ""
+            )
+            in ["", "y", "Y"]
+            else "false"
+        )
+        write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
+
+    content = get_content_from_toml_file(
+        minimal_services,
+        config_toml_file,
+        "log",
+        "select services to be logged by number: ",
+        [],
+    )
+    write_content_to_toml_file("log", content)
 
 
-    # let user choose services
-    chosen_services = get_services_from_user(c, services, "select a service by number(default is 'discover'): ", warn)
-
-    config_content.add("services", chosen_services if len(chosen_services) != 0 else 'discover')
-
-    # services you can choose from by minimal and logs
-    if len(chosen_services) != 0:
-        services_to_choose_from = chosen_services
-    else:
-        services_to_choose_from = services
-
-    # get chosen services from user
-    chosen_minimal_services = get_services_from_user(c, services_to_choose_from, "select minimal services by number: ")
-
-    config_content.add("minimal", chosen_minimal_services)
-
-    # check if user wants to include celeries
-    include_celeries = "true" if input("do you want to include celeries(Y/n): ").replace(" ", "") \
-                                 in ["", "y", "Y"] else "false"
-
-    config_content.add("include_celeries_in_minimal", include_celeries)
-
-    chosen_log_services = get_services_from_user(c, services_to_choose_from,
-                                                 "select services to be logged by number: ")
-
-    config_content.add("log", chosen_log_services)
-
-    doc.add("services", config_content)
-
-    with open("config.toml", "w") as config_file:
-        config_file.write(tomlkit.dumps(doc))
-
-
-@task(help={'run_local_setup': "executes local_tasks setup(default is True)"})
+@task(help={"run_local_setup": "executes local_tasks setup(default is True)"})
 def setup(c, run_local_setup=True):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
@@ -480,12 +542,10 @@ def setup(c, run_local_setup=True):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
-    if Path.is_file(Path("config.toml")):
-        exec_setup_in_other_task(c, run_local_setup)
-        sys.exit(255)
 
-    with open("config.toml", "x") as config_toml:
-        config_toml.close()
+    if not Path.is_file(Path("config.toml")):
+        with open("config.toml", "x") as config_toml:
+            config_toml.close()
 
     print("getting services...")
 
@@ -530,7 +590,11 @@ def settings(ctx, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
+    rows = [
+        (k, v)
+        for k, v in read_dotenv().items()
+        if find is None or find.upper() in k.upper() or find in v
+    ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
@@ -542,12 +606,16 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
+    for container_id in (
+        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
+    ):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
-            for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]:
+            for volume in [
+                _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
+            ]:
                 lines.append(dict(container=container, volume=volume))
         else:
             print(ran.stderr)
@@ -559,7 +627,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -569,13 +637,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -592,7 +660,9 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(
+            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
+        )
     if "py4web" in services_ls:
         ctx.run(
             "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph"
@@ -612,7 +682,9 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ctx.run(
+        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
+    )
 
 
 @task(
@@ -640,7 +712,9 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def stop(ctx, service=None):
     """
@@ -652,7 +726,9 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def down(ctx, service=None):
     """
@@ -665,7 +741,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -683,7 +759,9 @@ def build(ctx, yes=False):
 
         with_compile = True
     except ImportError:
-        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
+        print(
+            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
+        )
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -698,14 +776,18 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
+                print(
+                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
+                )
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pcl.compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
+    if yes or (
+        not with_compile and confirm("Build docker images? [yN]", default=False)
+    ):
         ctx.run("docker-compose build")
 
 
@@ -717,9 +799,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -728,7 +810,10 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+    ctx.run(
+        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
+        + " ".join(services)
+    )
 
 
 @task()
@@ -766,4 +851,6 @@ def zen(ctx):
 
 @task
 def whoami(ctx):
-    print(ctx.run("whoami", hide=True).stdout, "@", ctx.run("hostname", hide=True).stdout)
+    print(
+        ctx.run("whoami", hide=True).stdout, "@", ctx.run("hostname", hide=True).stdout
+    )
