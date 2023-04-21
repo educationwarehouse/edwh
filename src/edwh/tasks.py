@@ -16,6 +16,7 @@ try:
     import typing
     import json
     import importlib.util
+    from termcolor import colored
     from collections import defaultdict, OrderedDict
     from dataclasses import dataclass, field
     from pathlib import Path
@@ -435,8 +436,8 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
         return ""
 
     print_services(services)
-    print("\031[91mNOTE: \031[00m To input multiple services please use single spaces or ',' inbetween numbers\n"
-          "For example '1, 2, 3, 4'")
+    print(colored("NOTE: To input multiple services please use single spaces or ',' inbetween numbers\n"
+          "For example '1, 2, 3, 4'", 'green'))
     chosen_services_ids = input(content)
     if "," not in chosen_services_ids:
         chosen_services_ids = chosen_services_ids.split(" ")
