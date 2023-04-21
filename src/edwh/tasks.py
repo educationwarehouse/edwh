@@ -81,7 +81,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path:Path):
         |    email: yep@thatsme.com # template: {EMAIL}
     """
     env = os.environ.copy()
-    env.update(edwh.tasks.read_dotenv(dotenv_path))
+    env |= read_dotenv(dotenv_path)
     needle = re.compile(r'# *template:')
     env_variable_re = re.compile(r'\$[A-Z0-9]')
     with yaml_path.open(mode='r+') as yaml_file:
