@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.6 (2023-04-21)
+
+
 ## v0.6.5 (2023-04-20)
 ### Fix
 * Semver testing + demo plugin re-included ([`3e96848`](https://github.com/educationwarehouse/edwh/commit/3e968480ab67596a961a219bb3f7b900fbe7fa1f))
