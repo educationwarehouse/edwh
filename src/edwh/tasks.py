@@ -60,6 +60,54 @@ def confirm(prompt: str, default=False) -> bool:
 
     return answer[0] in allowed
 
+# used for treafik config
+def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path:Path):
+    """Indention preserving templating of yaml files, uses dotenv_path for variables.
+
+    Pythong formatting is used with a dictionary of environment variables used from os environment variables
+    updated by the dotenv_path parsed .dotenv entries.
+    Templating is found using `# template:`
+    indention is saved, everything after the above indicator is python string formatted and written back.
+
+    Example:
+        |config:
+        |    email: some@one.com # template: {EMAIL}
+
+    assuming dotenv file contains:
+        |EMAIL=yep@thatsme.com
+
+    applying this function will result in:
+        |config:
+        |    email: yep@thatsme.com # template: {EMAIL}
+    """
+    env = os.environ.copy()
+    env.update(edwh.tasks.read_dotenv(dotenv_path))
+    needle = re.compile(r'# *template:')
+    env_variable_re = re.compile(r'\$[A-Z0-9]')
+    with yaml_path.open(mode='r+') as yaml_file:
+        source_lines = yaml_file.read().split('\n')
+        new_lines = []
+        for line in source_lines:
+            if len(needle.findall(line)):
+                # split on template definition:
+                old, template = needle.split(line)
+                template = template.strip()
+                # save the indention part, add an addition if no indention was found
+                indention = (re.findall(r'^[\s]*',old)+[''])[0]
+                if not old.lstrip().startswith('#'):
+                    # skip comment only lines
+                    new = template.format(**env)
+                    # reconstruct the line for the yaml file
+                    line = f'{indention}{new} # template: {template}'
+            new_lines.append(line)
+        # move filepointer to the start of the file
+        yaml_file.seek(0,0)
+        # write all lines and newlines to the file
+        yaml_file.write('\n'.join(new_lines))
+        # and remove any part that might be left over (when the new file is shorter than the old one)
+        yaml_file.truncate()
+
+
 
 @dataclass
 class TomlConfig:
