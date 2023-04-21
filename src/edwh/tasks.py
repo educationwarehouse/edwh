@@ -62,8 +62,9 @@ def confirm(prompt: str, default=False) -> bool:
 
     return answer[0] in allowed
 
+
 # used for treafik config
-def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path:Path):
+def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
     """Indention preserving templating of yaml files, uses dotenv_path for variables.
 
     Pythong formatting is used with a dictionary of environment variables used from os environment variables
@@ -95,7 +96,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path:Path):
                 old, template = needle.split(line)
                 template = template.strip()
                 # save the indention part, add an addition if no indention was found
-                indention = (re.findall(r'^[\s]*',old)+[''])[0]
+                indention = (re.findall(r'^[\s]*', old) + [''])[0]
                 if not old.lstrip().startswith('#'):
                     # skip comment only lines
                     new = template.format(**env)
@@ -103,12 +104,11 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path:Path):
                     line = f'{indention}{new} # template: {template}'
             new_lines.append(line)
         # move filepointer to the start of the file
-        yaml_file.seek(0,0)
+        yaml_file.seek(0, 0)
         # write all lines and newlines to the file
         yaml_file.write('\n'.join(new_lines))
         # and remove any part that might be left over (when the new file is shorter than the old one)
         yaml_file.truncate()
-
 
 
 @dataclass
@@ -242,11 +242,11 @@ def read_dotenv(env_path: Path = None) -> dict:
 
 
 def check_env(
-    key: str,
-    default: typing.Optional[str],
-    comment: str,
-    prefix: str | None = None,
-    postfix: str | None = None,
+        key: str,
+        default: typing.Optional[str],
+        comment: str,
+        prefix: str | None = None,
+        postfix: str | None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -435,7 +435,8 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
         return ""
 
     print_services(services)
-
+    print("\031[91mNOTE: \031[00m To input multiple services please use single spaces or ',' inbetween numbers\n"
+          "For example '1, 2, 3, 4'")
     chosen_services_ids = input(content)
     if "," not in chosen_services_ids:
         chosen_services_ids = chosen_services_ids.split(" ")
@@ -471,12 +472,6 @@ def write_user_input_to_config_toml(c, all_services: list):
     setup_config_file()
     config_toml_file = tomlkit.loads(Path("config.toml").read_text())
 
-    print("\033[91mNOTE: \033[00m")
-    print(
-        "To input multiple services please use singel spaces or ',' inbetween numbers"
-    )
-    print("For example '1, 2, 3, 4'")
-
     # services
     services_list = get_content_from_toml_file(
         all_services,
@@ -508,8 +503,8 @@ def write_user_input_to_config_toml(c, all_services: list):
 
     # check if minimal exists if yes add celeries to services
     if (
-        "services" not in config_toml_file
-        or "include_celeries_in_minimal" not in config_toml_file["services"]
+            "services" not in config_toml_file
+            or "include_celeries_in_minimal" not in config_toml_file["services"]
     ):
         # check if user wants to include celeries
         include_celeries = (
@@ -517,7 +512,7 @@ def write_user_input_to_config_toml(c, all_services: list):
             if input("do you want to include celeries in minimal(Y/n): ").replace(
                 " ", ""
             )
-            in ["", "y", "Y"]
+               in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -607,7 +602,7 @@ def volumes(ctx):
     """
     lines = []
     for container_id in (
-        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
+            ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
     ):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
@@ -627,7 +622,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -637,13 +632,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-    ctx,
-    service=None,
-    build=False,
-    quickest=False,
-    stop_timeout=2,
-    tail=False,
-    clean=False,
+        ctx,
+        service=None,
+        build=False,
+        quickest=False,
+        stop_timeout=2,
+        tail=False,
+        clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -741,7 +736,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -786,7 +781,7 @@ def build(ctx, yes=False):
     else:
         print("Compilation of requirements.in files skipped.")
     if yes or (
-        not with_compile and confirm("Build docker images? [yN]", default=False)
+            not with_compile and confirm("Build docker images? [yN]", default=False)
     ):
         ctx.run("docker-compose build")
 
@@ -799,9 +794,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-    ctx,
-    service=None,
-    force_rebuild=False,
+        ctx,
+        service=None,
+        force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
