@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.8.0 (2023-04-21)
+
+
 ## v0.7.1 (2023-04-21)
 ### Fix
 * Copy/paste error ([`197975f`](https://github.com/educationwarehouse/edwh/commit/197975f23ab6598289cb4dd2131bdeed7dec2918))
