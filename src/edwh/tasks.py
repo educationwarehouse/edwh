@@ -375,13 +375,6 @@ def write_user_input_to_config_toml(c, services: list):
 
     config_content = tomlkit.table()
     warn = None
-    if "[services]" in tomlkit.dumps(doc):
-        now = datetime.datetime.now()
-        new_services_name = f"[services{now.strftime('%d-%m-%Y-%H-%M-%S')}]"
-        doc = tomlkit.loads(tomlkit.dumps(doc).replace("[services]", new_services_name))
-
-        warn = "\033[93m" + "[services] has been found in the existing config.toml, changing [services] to " + \
-               f"{new_services_name} \033[0m"
 
     print("\nTo input multiple services please use ',' inbetween numbers")
     print("For example '1, 2, 3, 4'")
@@ -431,15 +424,12 @@ def setup(c, run_local_setup=True):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
-    # create config file
-    if not Path.is_file(Path("config.toml")):
-        with open("config.toml", "x") as config_toml:
-            config_toml.close()
-    else:
-        continue_setup = input("would you like to config the config.toml(Y/n): ").replace(" ", "")
-        if continue_setup not in ["", "y", "Y"]:
-            exec_setup_in_other_task(c, run_local_setup)
-            sys.exit(255)
+    if Path.is_file(Path("config.toml")):
+        exec_setup_in_other_task(c, run_local_setup)
+        sys.exit(255)
+
+    with open("config.toml", "x") as config_toml:
+        config_toml.close()
 
     print("getting services...")
 
