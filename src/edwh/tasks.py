@@ -155,7 +155,7 @@ class TomlConfig:
 
         celeries = [s for s in all_services if "celery" in s.lower()]
 
-        minimal_services = config["services"]["minimal"] + celeries
+        minimal_services = config["services"]["minimal"]
         if config["services"]["include_celeries_in_minimal"]:
             minimal_services += celeries
         cls.__loaded = TomlConfig(
@@ -437,7 +437,7 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
 
     print_services(services)
     print(colored("NOTE: To input multiple services please use single spaces or ',' inbetween numbers\n"
-          "For example '1, 2, 3, 4'", 'green'))
+          "For example '1, 2, 3, 4'\ndiscover will include all services.", 'green'))
     chosen_services_ids = input(content)
     if "," not in chosen_services_ids:
         chosen_services_ids = chosen_services_ids.split(" ")
@@ -447,7 +447,7 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
     if chosen_services_ids[0] in default or len(chosen_services_ids[0]) == 0:
         return default
 
-    return [services[int(service_id)] for service_id in chosen_services_ids]
+    return [services[int(service_id)-1] for service_id in chosen_services_ids]
 
 
 def setup_config_file():
