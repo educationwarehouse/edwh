@@ -437,7 +437,9 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
 
     print_services(services)
     print(colored("NOTE: To input multiple services please use single spaces or ',' inbetween numbers\n"
-          "For example '1, 2, 3, 4'\ndiscover will include all services.", 'green'))
+          "For example '1, 2, 3, 4'", 'green'))
+    if content_key == "services":
+        print(colored("discover will include all services.\n", "green"))
     chosen_services_ids = input(content)
     if "," not in chosen_services_ids:
         chosen_services_ids = chosen_services_ids.split(" ")
@@ -528,8 +530,9 @@ def write_user_input_to_config_toml(c, all_services: list):
     write_content_to_toml_file("log", content)
 
 
-@task(help={"run_local_setup": "executes local_tasks setup(default is True)"})
-def setup(c, run_local_setup=True):
+@task(help={"run_local_setup": "executes local_tasks setup(default is True)",
+            "new_config_toml": "will REMOVE and create a new config.toml file"})
+def setup(c, run_local_setup=True, new_config_toml=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -538,6 +541,11 @@ def setup(c, run_local_setup=True):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
+
+    if new_config_toml and Path.is_file(Path("config.toml")):
+        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
+        if remove_config.replace(" ", "") in ["y", "Y"]:
+            os.remove("config.toml")
 
     if not Path.is_file(Path("config.toml")):
         with open("config.toml", "x") as config_toml:
