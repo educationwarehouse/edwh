@@ -156,7 +156,7 @@ class TomlConfig:
         celeries = [s for s in all_services if "celery" in s.lower()]
 
         minimal_services = config["services"]["minimal"]
-        if config["services"]["include_celeries_in_minimal"]:
+        if config["services"]["include_celeries_in_minimal"] == "true":
             minimal_services += celeries
         cls.__loaded = TomlConfig(
             config=config,
