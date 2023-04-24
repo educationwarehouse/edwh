@@ -142,8 +142,8 @@ class TomlConfig:
 
         if "services" not in config:
             setup(invoke.Context())
-        for key in config["services"].keys():
-            if key not in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+        for service_name in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+            if service_name not in config["services"].keys():
                 setup(invoke.Context())
 
         if config["services"]["services"] == "discover":
