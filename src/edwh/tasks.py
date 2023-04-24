@@ -436,7 +436,7 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
         return ""
 
     print_services(services)
-    print(colored("NOTE: To input multiple services please use single spaces or ',' inbetween numbers\n"
+    print(colored("NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
           "For example '1, 2, 3, 4'", 'green'))
     if content_key == "services":
         print(colored("discover will include all services.\n", "green"))
