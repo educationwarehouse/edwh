@@ -22,35 +22,18 @@ try:
     from pathlib import Path
     from statistics import median
 
+    import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
     import tabulate
     import warnings
     import yaml
     from invoke import task, Result, Context
 
-    if sys.version_info > (3, 11):
-        import tomllib
-    else:
-        import tomlkit
 
 except ImportError as e:
     if sys.argv[0].split("/")[-1] in ("inv", "invoke"):
-        print(
-            "WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n"
-        )
+        print("WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n")
     print("ImportError:", e)
     exit(1)
-
-
-def load_toml(file: Path) -> dict:
-    """
-    Depends on Python version
-    """
-    with file.open() as f:
-        contents = f.read()
-        if sys.version_info > (3, 11):
-            return tomllib.loads(contents)
-        else:
-            return tomlkit.parse(contents)
 
 
 def confirm(prompt: str, default=False) -> bool:
@@ -62,6 +45,30 @@ def confirm(prompt: str, default=False) -> bool:
     answer += " "
 
     return answer[0] in allowed
+
+
+def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
+    needle = re.compile(r'# *template:')
+
+    new_lines = []
+    for line in source_lines:
+        if not needle.findall(line):
+            # nothing found, try next line
+            new_lines.append(line)
+            continue
+
+        # split on template definition:
+        old, template = needle.split(line)
+        template = template.strip()
+        # save the indention part, add an addition if no indention was found
+        indention = (re.findall(r'^[\s]*', old) + [''])[0]
+        if not old.lstrip().startswith('#'):
+            # skip comment only lines
+            new = template.format(**env)
+            # reconstruct the line for the yaml file
+            line = f'{indention}{new} # template: {template}'
+        new_lines.append(line)
+    return new_lines
 
 
 # used for treafik config
@@ -86,24 +93,10 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
     """
     env = os.environ.copy()
     env |= read_dotenv(dotenv_path)
-    needle = re.compile(r'# *template:')
-    env_variable_re = re.compile(r'\$[A-Z0-9]')
+    # env_variable_re = re.compile(r'\$[A-Z0-9]')
     with yaml_path.open(mode='r+') as yaml_file:
         source_lines = yaml_file.read().split('\n')
-        new_lines = []
-        for line in source_lines:
-            if len(needle.findall(line)):
-                # split on template definition:
-                old, template = needle.split(line)
-                template = template.strip()
-                # save the indention part, add an addition if no indention was found
-                indention = (re.findall(r'^[\s]*', old) + [''])[0]
-                if not old.lstrip().startswith('#'):
-                    # skip comment only lines
-                    new = template.format(**env)
-                    # reconstruct the line for the yaml file
-                    line = f'{indention}{new} # template: {template}'
-            new_lines.append(line)
+        new_lines = _apply_env_vars_to_template(source_lines, env)
         # move filepointer to the start of the file
         yaml_file.seek(0, 0)
         # write all lines and newlines to the file
@@ -120,9 +113,7 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(
-        init=False, default=None
-    )  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
 
     @classmethod
     def load(cls, fname="config.toml"):
@@ -138,7 +129,9 @@ class TomlConfig:
         config_path = Path(fname)
         if not pathlib.Path.exists(config_path):
             setup(invoke.Context())
-        config = load_toml(config_path)
+
+        with config_path.open() as f:
+            config = tomlkit.load(f)
 
         if "services" not in config:
             setup(invoke.Context())
@@ -243,35 +236,33 @@ def read_dotenv(env_path: Path = None) -> dict:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        prefix: str | None = None,
-        postfix: str | None = None,
+    key: str,
+    default: typing.Optional[str],
+    comment: str,
+    prefix: str | None = None,
+    postfix: str | None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
     config = TomlConfig.load()
     env = read_dotenv()
-    if key not in env:
-        with config.dotenv_path.open(mode="r+") as env_file:
-            response = input(
-                f"Enter value for {key} ({comment})\n default=`{default}`: "
-            )
-            value = response.strip() or default
-            if prefix:
-                value = prefix + value
-            if postfix:
-                value += postfix
-            env_file.seek(0, 2)
-            env_file.write(f"\n{key.upper()}={value}\n")
-
-            # update in memory too:
-            env[key] = value
-            return value
-    else:
+    if key in env:
         return env[key]
+
+    with config.dotenv_path.open(mode="r+") as env_file:
+        response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+        value = response.strip() or default
+        if prefix:
+            value = prefix + value
+        if postfix:
+            value += postfix
+        env_file.seek(0, 2)
+        env_file.write(f"\n{key.upper()}={value}\n")
+
+        # update in memory too:
+        env[key] = value
+        return value
 
 
 def set_env_value(path: Path, target: str, value: str) -> None:
@@ -312,7 +303,7 @@ def set_env_value(path: Path, target: str, value: str) -> None:
             # or leave it as it is
             outlines.append(line)
     if not geschreven:
-        outlines.append(f"{target.strip().upper()}={str(value).strip()}")
+        outlines.append(f"{target.strip().upper()}={value.strip()}")
     with path.open(mode="w") as env_file:
         env_file.write("\n".join(outlines))
         env_file.write("\n")
@@ -346,6 +337,8 @@ def exec_setup_in_other_task(c, run_setup):
     path = pathlib.Path(".").absolute()
     while path != path.parent:
         sys.path = [str(path)] + old_path
+
+        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
         try:
             import tasks as local_tasks
 
@@ -354,22 +347,19 @@ def exec_setup_in_other_task(c, run_setup):
                     local_tasks.setup(c)
                     break
                 except AttributeError:
-                    # test if there is a setup function in the local tasks.py that caused the error
-                    # or if the error is caused by something else, probably within the setup function.
-                    if not hasattr(local_tasks, "setup"):
-                        print(
-                            "No setup function found in your nearest tasks.py",
-                            local_tasks,
-                        )
-                        break
-                    else:
+                    if hasattr(local_tasks, "setup"):
                         # reraise because we can't handle it here, and the user should be informed fully
                         raise
-            path = path.parent.absolute()
+
+                    print(
+                        "No setup function found in your nearest tasks.py",
+                        local_tasks,
+                    )
+                    break
             del local_tasks
         except ImportError:
             # silence this error, if the import cannot be performed, that's not a problem
-            if path.exists("tasks.py"):
+            if os.path.exists("tasks.py"):
                 print(f"Could not import tasks.py from {path}")
                 raise
             else:
@@ -436,8 +426,13 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
         return ""
 
     print_services(services)
-    print(colored("NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
-          "For example '1, 2, 3, 4'", 'green'))
+    print(
+        colored(
+            "NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
+            "For example '1, 2, 3, 4'",
+            'green',
+        )
+    )
     if content_key == "services":
         print(colored("discover will include all services.\n", "green"))
     chosen_services_ids = input(content)
@@ -449,7 +444,7 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
     if chosen_services_ids[0] in default or len(chosen_services_ids[0]) == 0:
         return default
 
-    return [services[int(service_id)-1] for service_id in chosen_services_ids]
+    return [services[int(service_id) - 1] for service_id in chosen_services_ids]
 
 
 def setup_config_file():
@@ -505,17 +500,11 @@ def write_user_input_to_config_toml(c, all_services: list):
     write_content_to_toml_file("minimal", content)
 
     # check if minimal exists if yes add celeries to services
-    if (
-            "services" not in config_toml_file
-            or "include_celeries_in_minimal" not in config_toml_file["services"]
-    ):
+    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
         # check if user wants to include celeries
         include_celeries = (
             "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(
-                " ", ""
-            )
-               in ["", "y", "Y"]
+            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -530,8 +519,12 @@ def write_user_input_to_config_toml(c, all_services: list):
     write_content_to_toml_file("log", content)
 
 
-@task(help={"run_local_setup": "executes local_tasks setup(default is True)",
-            "new_config_toml": "will REMOVE and create a new config.toml file"})
+@task(
+    help={
+        "run_local_setup": "executes local_tasks setup(default is True)",
+        "new_config_toml": "will REMOVE and create a new config.toml file",
+    }
+)
 def setup(c, run_local_setup=True, new_config_toml=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
@@ -594,15 +587,11 @@ def settings(ctx, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [
-        (k, v)
-        for k, v in read_dotenv().items()
-        if find is None or find.upper() in k.upper() or find in v
-    ]
+    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
-@task(aliases=tuple(["volume"]))
+@task(aliases=("volume",))
 def volumes(ctx):
     """
     Show container and volume names.
@@ -610,17 +599,15 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in (
-            ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
-    ):
+    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
-            for volume in [
-                _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
-            ]:
-                lines.append(dict(container=container, volume=volume))
+            lines.extend(
+                dict(container=container, volume=volume)
+                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
+            )
         else:
             print(ran.stderr)
 
@@ -641,13 +628,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -664,13 +651,9 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(
-            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
-        )
+        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
     if "py4web" in services_ls:
-        ctx.run(
-            "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph"
-        )
+        ctx.run("docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph")
     if tail:
         ctx.run(f"docker-compose logs --tail=10 -f {services_ls}")
 
@@ -686,13 +669,11 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(
-        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
-    )
+    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
 
 
 @task(
-    aliases=tuple(["log"]),
+    aliases=("log",),
     iterable=["service"],
     help={
         "follow": "Keep scrolling with the output.",
@@ -708,7 +689,7 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None):
         cmdline.append("-f")
     if debug:
         # add timestamps
-        cmdline.append(f"-t")
+        cmdline.append("-t")
     if service:
         cmdline.extend(service_names(service))
     ctx.run(" ".join(cmdline))
@@ -716,9 +697,7 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def stop(ctx, service=None):
     """
@@ -730,9 +709,7 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def down(ctx, service=None):
     """
@@ -763,9 +740,7 @@ def build(ctx, yes=False):
 
         with_compile = True
     except ImportError:
-        print(
-            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
-        )
+        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -780,18 +755,14 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print(
-                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
-                )
+                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pcl.compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (
-            not with_compile and confirm("Build docker images? [yN]", default=False)
-    ):
+    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
         ctx.run("docker-compose build")
 
 
@@ -803,9 +774,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -814,10 +785,7 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(
-        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
-        + " ".join(services)
-    )
+    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
 
 
 @task()
@@ -840,9 +808,8 @@ def docs(ctx, reinstall=False):
         print("result:", ok)
         return ok
     else:
-        if not ctx.run("mkdocs serve", warn=True).ok:
-            if docs(ctx, reinstall=True):
-                docs(ctx)
+        if not ctx.run("mkdocs serve", warn=True).ok and docs(ctx, reinstall=True):
+            docs(ctx)
 
 
 # noinspection PyUnusedLocal
@@ -855,6 +822,6 @@ def zen(ctx):
 
 @task
 def whoami(ctx):
-    print(
-        ctx.run("whoami", hide=True).stdout, "@", ctx.run("hostname", hide=True).stdout
-    )
+    i_am = ctx.run("whoami", hide=True).stdout.strip()
+    my_location = ctx.run("hostname", hide=True).stdout.strip()
+    print(f"{i_am} @ {my_location}")

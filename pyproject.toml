@@ -32,7 +32,7 @@ dependencies = [
   'tabulate',
   'pyyaml',
   'termcolor',
-  'tomlkit ; python_version < "3.11"',
+  'tomlkit', #  ; python_version < "3.11"
   'diceware',
 ]
 [project.optional-dependencies]
