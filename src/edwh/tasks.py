@@ -142,8 +142,8 @@ class TomlConfig:
 
         if "services" not in config:
             setup(invoke.Context())
-        for key in config["services"].keys():
-            if key not in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+        for service_name in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+            if service_name not in config["services"].keys():
                 setup(invoke.Context())
 
         if config["services"]["services"] == "discover":
@@ -155,8 +155,8 @@ class TomlConfig:
 
         celeries = [s for s in all_services if "celery" in s.lower()]
 
-        minimal_services = config["services"]["minimal"] + celeries
-        if config["services"]["include_celeries_in_minimal"]:
+        minimal_services = config["services"]["minimal"]
+        if config["services"]["include_celeries_in_minimal"] == "true":
             minimal_services += celeries
         cls.__loaded = TomlConfig(
             config=config,
@@ -436,8 +436,10 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
         return ""
 
     print_services(services)
-    print(colored("NOTE: To input multiple services please use single spaces or ',' inbetween numbers\n"
+    print(colored("NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
           "For example '1, 2, 3, 4'", 'green'))
+    if content_key == "services":
+        print(colored("discover will include all services.\n", "green"))
     chosen_services_ids = input(content)
     if "," not in chosen_services_ids:
         chosen_services_ids = chosen_services_ids.split(" ")
@@ -447,7 +449,7 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
     if chosen_services_ids[0] in default or len(chosen_services_ids[0]) == 0:
         return default
 
-    return [services[int(service_id)] for service_id in chosen_services_ids]
+    return [services[int(service_id)-1] for service_id in chosen_services_ids]
 
 
 def setup_config_file():
@@ -528,8 +530,9 @@ def write_user_input_to_config_toml(c, all_services: list):
     write_content_to_toml_file("log", content)
 
 
-@task(help={"run_local_setup": "executes local_tasks setup(default is True)"})
-def setup(c, run_local_setup=True):
+@task(help={"run_local_setup": "executes local_tasks setup(default is True)",
+            "new_config_toml": "will REMOVE and create a new config.toml file"})
+def setup(c, run_local_setup=True, new_config_toml=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -538,6 +541,11 @@ def setup(c, run_local_setup=True):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
+
+    if new_config_toml and Path.is_file(Path("config.toml")):
+        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
+        if remove_config.replace(" ", "") in ["y", "Y"]:
+            os.remove("config.toml")
 
     if not Path.is_file(Path("config.toml")):
         with open("config.toml", "x") as config_toml:
