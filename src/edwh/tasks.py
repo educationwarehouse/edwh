@@ -1,39 +1,19 @@
+import json
+import os
+import pathlib
+import re
+import sys
+import typing
+from dataclasses import dataclass, field
+from pathlib import Path
+
 import diceware
 import invoke
-
-try:
-    import glob
-    import csv
-    import shlex
-    import datetime
-    import io
-    import os
-    import pathlib
-    import random
-    import re
-    import sys
-    import time
-    import typing
-    import json
-    import importlib.util
-    from termcolor import colored
-    from collections import defaultdict, OrderedDict
-    from dataclasses import dataclass, field
-    from pathlib import Path
-    from statistics import median
-
-    import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
-    import tabulate
-    import warnings
-    import yaml
-    from invoke import task, Result, Context
-
-
-except ImportError as e:
-    if sys.argv[0].split("/")[-1] in ("inv", "invoke"):
-        print("WARNING: this tasks.py works best using the edwh command instead of using inv[oke] directly.\n")
-    print("ImportError:", e)
-    exit(1)
+import tabulate
+import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
+import yaml
+from invoke import task, Context
+from termcolor import colored
 
 
 def confirm(prompt: str, default=False) -> bool:
@@ -585,6 +565,26 @@ def search_adjacent_setting(c, key, silent=False):
             print(f"{project :>20} : {value}")
         adjacent_settings[project] = value
     return adjacent_settings
+
+def next_value(c, key, lowest):
+    """Find all other project settings using key, adding 1 to max of all values, or defaults to lowest.
+
+    next_value(c, 'REDIS_PORT', 6379) -> might result 6379, or 6381 if this is the third project to be initialised
+    """
+    settings = search_adjacent_setting(c, key)
+    values = {int(v) for v in settings.values() if v}
+    return max(values) + 1 if any(values) else lowest
+
+
+def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
+    # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
+    # command.
+    c.sudo(f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}')
+    # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
+    c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
+    # simply apply new ownership to each and every directory
+    c.sudo(f'chown -R {uid}:{gid} "{path}" ')
+
 
 
 @task(help=dict(silent="do not echo the password"))
