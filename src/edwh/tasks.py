@@ -265,6 +265,21 @@ def check_env(
         return value
 
 
+def get_env_value(key: str, default: str = KeyError):
+    """
+    Get a specific env value by name.
+    If no default is given and the key is not found, a KeyError is raised.
+    """
+    env = read_dotenv()
+    if key in env:
+        return env[key]
+    elif default is KeyError:
+        # sourcery skip: compare-via-equals
+        raise KeyError(key)
+
+    return default
+
+
 def set_env_value(path: Path, target: str, value: str) -> None:
     """update/set environment variables in the .env file, keeping comments intact
 
@@ -618,7 +633,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -653,7 +668,10 @@ def up(
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
     if "py4web" in services_ls:
-        ctx.run("docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph")
+        ctx.run(
+            "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
+            warn=True,
+        )
     if tail:
         ctx.run(f"docker-compose logs --tail=10 -f {services_ls}")
 
@@ -722,7 +740,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
