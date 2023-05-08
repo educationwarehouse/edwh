@@ -881,12 +881,12 @@ def _determine_outdated(installed_plugins: typing.Iterable[str]):
     return old_plugins
 
 
-def _plugins(c, pip_command="pip", clean_version=False):
+def _plugins(c, pip_command="pip") -> list[str]:
     return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
 
 
 def _self_update(c, pip_command="pip"):
-    edwh_packages = _plugins(c)
+    edwh_packages = _plugins(c, pip_command)
     if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
 
