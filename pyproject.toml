@@ -32,6 +32,8 @@ dependencies = [
   'tabulate',
   'pyyaml',
   'termcolor',
+  'requests',
+  'packaging',
   'tomlkit', #  ; python_version < "3.11"
   'diceware',
 ]
