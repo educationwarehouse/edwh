@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.12.2 (2023-05-08)
+### Documentation
+* **locust:** Added edwh-locust-plugin as plugin extra ([`c33dd33`](https://github.com/educationwarehouse/edwh/commit/c33dd33c1547fd303af931075c2172b5516c6840))
+
 ## v0.12.1 (2023-05-08)
 ### Documentation
 * **b2:** Added b2 as possible plugin ([`7cd7378`](https://github.com/educationwarehouse/edwh/commit/7cd73789c47b93ed3cc1caa77b97a945be20dda4))
