@@ -1,26 +1,15 @@
 """
 This file contains re-usable helpers.
 """
-import json
-import os
-import pathlib
-import re
-import sys
-import typing
-from dataclasses import dataclass, field
-from pathlib import Path
 
-import diceware
-import invoke
-import tabulate
-import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
-import yaml
-from invoke import task, Context
-
-from termcolor import colored
+from invoke import Context
 
 
-def confirm(prompt: str, default=False) -> bool:
+def confirm(prompt: str, default: bool = False) -> bool:
+    """
+    Prompt a user to confirm a (dangerous) action.
+    By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
+    """
     allowed = {"y", "1"}
     if default:
         allowed.add(" ")

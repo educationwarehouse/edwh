@@ -385,7 +385,9 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
         config_file.close()
 
 
-def get_content_from_toml_file(services: list, toml_contents: dict, content_key: str, content: str, default: str):
+def get_content_from_toml_file(
+    services: list, toml_contents: dict, content_key: str, content: str, default: typing.Container
+):
     """
     Gets content from a TOML file.
 
@@ -434,12 +436,12 @@ def setup_config_file(filename="config.toml"):
             config_file.close()
 
 
-def write_user_input_to_config_toml(c, all_services: list):
+def write_user_input_to_config_toml(c: Context, all_services: list):
     """
     write chosen user dockers to config.toml
 
-
-    :param services: list of all docker services that are in the docker-compose.yml
+    :param c: invoke Context
+    :param all_services: list of all docker services that are in the docker-compose.yml
     :return:
 
     """
@@ -614,7 +616,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -721,7 +723,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -735,7 +737,7 @@ def build(ctx, yes=False):
 
     try:
         # noinspection PyUnresolvedReferences
-        import edwh_pipcompile_plugin as pcl
+        from edwh_pipcompile_plugin import compile as pip_compile
 
         with_compile = True
     except ImportError:
@@ -746,6 +748,7 @@ def build(ctx, yes=False):
         for req in reqs:
             print("  ", req)
         with_compile = False
+        pip_compile = None  # will not be called due to with_compile is False
 
     if with_compile:
         for idx, req in enumerate(reqs, 1):
@@ -756,7 +759,7 @@ def build(ctx, yes=False):
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
                 print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
-                    pcl.compile(ctx, str(req.parent))
+                    pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
@@ -819,15 +822,15 @@ def zen(ctx):
     import this
 
 
-@task
+@task()
 def whoami(ctx):
     i_am = ctx.run("whoami", hide=True).stdout.strip()
     my_location = ctx.run("hostname", hide=True).stdout.strip()
     print(f"{i_am} @ {my_location}")
 
 
-@task
-def completions(ctx):
+@task()
+def completions(_):
     print("Put this in your .bashrc:")
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
@@ -838,9 +841,7 @@ PYPI_URL_PATTERN = 'https://pypi.python.org/pypi/{package}/json'
 
 
 def _get_pypi_info(package: str):
-    return requests.get(
-        PYPI_URL_PATTERN.format(package=package)
-    ).json()
+    return requests.get(PYPI_URL_PATTERN.format(package=package)).json()
 
 
 def _get_latest_version_from_pypi(package: str):
@@ -916,7 +917,7 @@ def _self_update(c, pip_command="pip"):
 PIP_COMMAND_FOR_PIPX = "pipx runpip edwh"
 
 
-@task
+@task()
 def plugins(c):
     """
     List installed plugins
@@ -938,20 +939,26 @@ def plugins(c):
 
     for plugin in available_plugins:
         if plugin in old_plugins:
-            print(colored(
-                f"• {plugin}",
-                'yellow',
-            ))
+            print(
+                colored(
+                    f"• {plugin}",
+                    'yellow',
+                )
+            )
         elif plugin in installed_plugins:
-            print(colored(
-                f"• {plugin}",
-                'green',
-            ))
+            print(
+                colored(
+                    f"• {plugin}",
+                    'green',
+                )
+            )
         else:
-            print(colored(
-                f"◦ {plugin}",
-                'red',
-            ))
+            print(
+                colored(
+                    f"◦ {plugin}",
+                    'red',
+                )
+            )
 
     if old_plugins:
         print()
@@ -960,7 +967,7 @@ def plugins(c):
         print(colored(f"{len(old_plugins)} plugin{s} are out of date. Try `edwh {cmd}` to fix this.", "yellow"))
 
 
-@task
+@task()
 def self_update_pipx(c):
     """
     Updates `edwh` and all plugins.
@@ -977,7 +984,7 @@ def self_update_pipx(c):
         exit(1)
 
 
-@task
+@task()
 def self_update(c):
     """
     Updates `edwh` and all plugins.
