@@ -867,8 +867,12 @@ def _determine_outdated(installed_plugins: list[str]):
     return old_plugins
 
 
+def _plugins(c, pip_command="pip"):
+    return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
+
+
 def _self_update(c, pip_command="pip"):
-    edwh_packages = c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
+    edwh_packages = _plugins(c)
     if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
 
@@ -893,6 +897,14 @@ def _self_update(c, pip_command="pip"):
     print(f"{len(success)}/{len(old_plugins)} updated successfully.")
     if failure:
         print(f"{', '.join(failure)} failed updating")
+
+
+@task
+def plugins(c):
+    """
+    List installed plugins
+    """
+    print("\n - ".join(_plugins(c)))
 
 
 @task
