@@ -3,9 +3,6 @@
 <!--next-version-placeholder-->
 
 ## v0.13.0 (2023-05-08)
-
-
-## v0.13.0-beta.1 (2023-05-08)
 ### Feature
 * Added self-update and self-update-pipx to manage plugin updates ([`2fa61ff`](https://github.com/educationwarehouse/edwh/commit/2fa61ff71277ec063564404e77ec2378f8f81fb6))
 
