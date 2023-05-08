@@ -56,6 +56,7 @@ plugins = [
   'edwh-bundler-plugin',
   'edwh-server-provisioning-plugin',
   'edwh-b2-plugin',
+  'edwh-locust-plugin',
 ]
 
 server-provisioning = [
@@ -88,6 +89,10 @@ bundle = [
 
 b2 = [
   "edwh-b2-plugin"
+]
+
+locust = [
+  "edwh-locust-plugin"
 ]
 
 [project.scripts]

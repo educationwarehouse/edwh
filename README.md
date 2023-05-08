@@ -67,6 +67,12 @@ ew --help
 - plugin name: `edwh[b2]`
 - subcommand namespace: `b2`
 
+### Locust
+- pip name: [`edwh-locust-plugin`](https://pypi.org/project/edwh-locust-plugin/)
+- github: [`educationwarehouse/edwh-locust-plugin`](https://github.com/educationwarehouse/edwh-locust-plugin)
+- plugin name: `edwh[locust]`
+- subcommand namespace: `locust`
+
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
