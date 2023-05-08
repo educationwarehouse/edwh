@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.14.0-beta.1 (2023-05-08)
+### Feature
+* **plugins:** New command `edwh plugins` to show installed and available plugins ([`669d923`](https://github.com/educationwarehouse/edwh/commit/669d9236cc143ea2e0df0d26b9ce9d4123ee119c))
+
+### Fix
+* **plugins:** Works with pipx again too ([`20cd67a`](https://github.com/educationwarehouse/edwh/commit/20cd67acab29818bd328d930585d3fa53b862103))
+* **plugins:** Also allow listing installed plugins ([`a0c317b`](https://github.com/educationwarehouse/edwh/commit/a0c317b9a7f3608fadd7077ac955098b2a2fab1d))
+
 ## v0.13.0 (2023-05-08)
 ### Feature
 * Added self-update and self-update-pipx to manage plugin updates ([`2fa61ff`](https://github.com/educationwarehouse/edwh/commit/2fa61ff71277ec063564404e77ec2378f8f81fb6))
