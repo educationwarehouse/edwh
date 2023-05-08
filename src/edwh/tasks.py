@@ -15,16 +15,96 @@ import yaml
 from invoke import task, Context
 from termcolor import colored
 
+# noinspection PyUnresolvedReferences
+# ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
+from .helpers import confirm, execution_fails, executes_correctly
 
-def confirm(prompt: str, default=False) -> bool:
-    allowed = {"y", "1"}
-    if default:
-        allowed.add(" ")
 
-    answer = input(prompt).lower().strip()
-    answer += " "
+def service_names(service_arg: list[str]) -> list[str]:
+    """
+    Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
 
-    return answer[0] in allowed
+    Use service_names(['*celery*','pg*']) to select all celery services, and all of pg related instances.
+    :param service_arg: list of services or service selectors using wildcards
+    :type service_arg: list of strings
+    :return: list of unique services names that match the given list
+    :rtype: list of string
+    """
+    import fnmatch
+
+    config = TomlConfig.load()
+    selected = set()
+    for service in service_arg:
+        selected.update(fnmatch.filter(config.all_services, service))
+
+    if service_arg and not selected:
+        # when no service matches the name, don't return an empty list, as that would `up` all services
+        # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
+        print(f"ERROR: No services found matching: {service_arg!r}")
+        exit(1)
+    return list(selected)
+
+
+def calculate_schema_hash():
+    """
+    Calculates the sha1 digest of the files in the shared_code folder.
+
+    When anything is changed, it will have a different hash, so migrate will be triggered.
+    """
+    import hashlib
+
+    filenames = sorted(Path("./shared_code").glob("**/*"))
+    # ignore those pesky __pycache__ folders
+    filenames = [_ for _ in filenames if "__pycache__" not in str(_) and _.is_file()]
+    hasher = hashlib.sha256(b"")
+    for filename in filenames:
+        hasher.update(filename.read_bytes())
+    print("schema hash: ", hasher.hexdigest())
+    return hasher.hexdigest()
+
+
+def exec_setup_in_other_task(c: Context, run_setup: bool):
+    """
+    Run a setup function in another task.py.
+    """
+    # execute local_tasks setup
+    old_path = sys.path[:]
+
+    path = pathlib.Path(".").absolute()
+    while path != path.parent:
+        sys.path = [str(path)] + old_path
+
+        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
+        try:
+            import tasks as local_tasks
+
+            if run_setup:
+                try:
+                    local_tasks.setup(c)
+                    break
+                except AttributeError:
+                    if hasattr(local_tasks, "setup"):
+                        # reraise because we can't handle it here, and the user should be informed fully
+                        raise
+
+                    print(
+                        "No setup function found in your nearest tasks.py",
+                        local_tasks,
+                    )
+                    break
+            del local_tasks
+        except ImportError:
+            # silence this error, if the import cannot be performed, that's not a problem
+            if os.path.exists("tasks.py"):
+                print(f"Could not import tasks.py from {path}")
+                raise
+            else:
+                continue
+        finally:
+            sys.path = old_path
+
+
+_dotenv_settings = {}
 
 
 def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
@@ -140,44 +220,6 @@ class TomlConfig:
             dotenv_path=Path(config.get("dotenv", {}).get("path", ".env")),
         )
         return cls.__loaded
-
-
-def service_names(service_arg: list[str]) -> list[str]:
-    """
-    Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
-
-    Use service_names(['*celery*','pg*']) to select all celery services, and all of pg related instances.
-    :param service_arg: list of services or service selectors using wildcards
-    :type service_arg: list of strings
-    :return: list of unique services names that match the given list
-    :rtype: list of string
-    """
-    import fnmatch
-
-    config = TomlConfig.load()
-    selected = set()
-    for service in service_arg:
-        selected.update(fnmatch.filter(config.all_services, service))
-
-    if service_arg and not selected:
-        # when no service matches the name, don't return an empty list, as that would `up` all services
-        # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
-        print(f"ERROR: No services found matching: {service_arg!r}")
-        exit(1)
-    return list(selected)
-
-
-def executes_correctly(c: Context, argument: str) -> bool:
-    """returns True if the execution was without error level"""
-    return c.run(argument, warn=True, hide=True).ok
-
-
-def execution_fails(c: Context, argument: str) -> bool:
-    """Returns true if the execution fails based on error level"""
-    return not executes_correctly(c, argument)
-
-
-_dotenv_settings = {}
 
 
 def read_dotenv(env_path: Path = None) -> dict:
@@ -304,66 +346,7 @@ def set_env_value(path: Path, target: str, value: str) -> None:
         env_file.write("\n")
 
 
-def calculate_schema_hash():
-    """
-    Calculates the sha1 digest of the files in the shared_code folder.
-
-    When anything is changed, it will have a different hash, so migrate will be triggered.
-    """
-    import hashlib
-
-    filenames = sorted(Path("./shared_code").glob("**/*"))
-    # ignore those pesky __pycache__ folders
-    filenames = [_ for _ in filenames if "__pycache__" not in str(_) and _.is_file()]
-    hasher = hashlib.sha256(b"")
-    for filename in filenames:
-        hasher.update(filename.read_bytes())
-    print("schema hash: ", hasher.hexdigest())
-    return hasher.hexdigest()
-
-
-def exec_setup_in_other_task(c, run_setup):
-    """
-    Run a setup function in another task.py.
-    """
-    # execute local_tasks setup
-    old_path = sys.path[:]
-
-    path = pathlib.Path(".").absolute()
-    while path != path.parent:
-        sys.path = [str(path)] + old_path
-
-        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
-        try:
-            import tasks as local_tasks
-
-            if run_setup:
-                try:
-                    local_tasks.setup(c)
-                    break
-                except AttributeError:
-                    if hasattr(local_tasks, "setup"):
-                        # reraise because we can't handle it here, and the user should be informed fully
-                        raise
-
-                    print(
-                        "No setup function found in your nearest tasks.py",
-                        local_tasks,
-                    )
-                    break
-            del local_tasks
-        except ImportError:
-            # silence this error, if the import cannot be performed, that's not a problem
-            if os.path.exists("tasks.py"):
-                print(f"Could not import tasks.py from {path}")
-                raise
-            else:
-                continue
-        finally:
-            sys.path = old_path
-
-
-def print_services(services, selected_services=None, warn: str = None):
+def print_services(services: list, selected_services: list = None, warn: str = None):
     """
     print all the services that are in the docker-compose.yml
 
@@ -387,11 +370,11 @@ def print_services(services, selected_services=None, warn: str = None):
         print(f"{index + 1}:", selected_services[index])
 
 
-def write_content_to_toml_file(content_key, content):
-    if content == "":
+def write_content_to_toml_file(content_key: str, content: str, filename="config.toml"):
+    if not content:
         return
 
-    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    config_toml_file = tomlkit.loads(Path(filename).read_text())
     config_toml_file["services"][content_key] = content
 
     with open("config.toml", "w") as config_file:
@@ -399,25 +382,20 @@ def write_content_to_toml_file(content_key, content):
         config_file.close()
 
 
-def get_content_from_toml_file(services, toml_file, content_key, content, default):
+def get_content_from_toml_file(services: list, toml_contents: dict, content_key: str, content: str, default: str):
     """
     Gets content from a TOML file.
 
     :param services: A list of services.
-    :type services: list
-    :param toml_file: A dictionary representing the TOML file.
-    :type toml_file: dict
+    :param toml_contents: A dictionary representing the TOML file.
     :param content_key: The key to look for in the TOML file.
-    :type content_key: str
     :param content: The content to display to the user.
-    :type content: str
     :param default: The default value to return if the conditions are not met.
-    :type default: Any
     :return: The content from the TOML file or the default value.
     :rtype: Any
     """
 
-    if "services" in toml_file and content_key in toml_file["services"]:
+    if "services" in toml_contents and content_key in toml_contents["services"]:
         return ""
 
     print_services(services)
@@ -442,13 +420,13 @@ def get_content_from_toml_file(services, toml_file, content_key, content, defaul
     return [services[int(service_id) - 1] for service_id in chosen_services_ids]
 
 
-def setup_config_file():
+def setup_config_file(filename="config.toml"):
     """
     sets up config.toml for use
     """
-    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    config_toml_file = tomlkit.loads(Path(filename).read_text())
     if "services" not in config_toml_file:
-        with open("config.toml", "w") as config_file:
+        with open(filename, "w") as config_file:
             config_file.write("\n[services]\n")
             config_file.close()
 
@@ -566,6 +544,7 @@ def search_adjacent_setting(c, key, silent=False):
         adjacent_settings[project] = value
     return adjacent_settings
 
+
 def next_value(c, key, lowest):
     """Find all other project settings using key, adding 1 to max of all values, or defaults to lowest.
 
@@ -584,7 +563,6 @@ def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, d
     c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
     # simply apply new ownership to each and every directory
     c.sudo(f'chown -R {uid}:{gid} "{path}" ')
-
 
 
 @task(help=dict(silent="do not echo the password"))
