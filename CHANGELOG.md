@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.13.0-beta.1 (2023-05-08)
+### Feature
+* Added self-update and self-update-pipx to manage plugin updates ([`2fa61ff`](https://github.com/educationwarehouse/edwh/commit/2fa61ff71277ec063564404e77ec2378f8f81fb6))
+
 ## v0.12.2 (2023-05-08)
 ### Documentation
 * **locust:** Added edwh-locust-plugin as plugin extra ([`c33dd33`](https://github.com/educationwarehouse/edwh/commit/c33dd33c1547fd303af931075c2172b5516c6840))
