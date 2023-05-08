@@ -837,15 +837,29 @@ def completions(ctx):
 PYPI_URL_PATTERN = 'https://pypi.python.org/pypi/{package}/json'
 
 
-def _get_latest_version_from_pypi(package: str):
-    data = requests.get(
+def _get_pypi_info(package: str):
+    return requests.get(
         PYPI_URL_PATTERN.format(package=package)
     ).json()
+
+
+def _get_latest_version_from_pypi(package: str):
+    data = _get_pypi_info(package)
 
     return parse_package_version(data["info"]["version"])
 
 
-def _determine_outdated(installed_plugins: list[str]):
+def _get_available_plugins_from_pypi(package: str, extra: str = None):
+    data = _get_pypi_info(package)
+    extras = data["info"]["requires_dist"]
+
+    if extra:
+        extras = [_.split(";")[0] for _ in extras if _.endswith(f"; extra == '{extra}'")]
+
+    return list(extras)
+
+
+def _determine_outdated(installed_plugins: typing.Iterable[str]):
     old_plugins: dict[str, Version] = {}
     for pkg in installed_plugins:
         try:
@@ -867,7 +881,7 @@ def _determine_outdated(installed_plugins: list[str]):
     return old_plugins
 
 
-def _plugins(c, pip_command="pip"):
+def _plugins(c, pip_command="pip", clean_version=False):
     return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
 
 
@@ -899,12 +913,48 @@ def _self_update(c, pip_command="pip"):
         print(f"{', '.join(failure)} failed updating")
 
 
+PIP_COMMAND_FOR_PIPX = "pipx runpip edwh"
+
+
 @task
 def plugins(c):
     """
     List installed plugins
     """
-    print("\n - ".join(_plugins(c)))
+    available_plugins = _get_available_plugins_from_pypi('edwh', 'plugins')
+
+    try:
+        installed_plugins_raw = _plugins(c)
+        pipx_used = False
+    except ModuleNotFoundError:
+        installed_plugins_raw = _plugins(c, PIP_COMMAND_FOR_PIPX)
+        pipx_used = True
+
+    installed_plugins = {_.split(" @ ")[0].split("==")[0] for _ in installed_plugins_raw}
+    old_plugins = _determine_outdated(installed_plugins_raw)
+
+    for plugin in available_plugins:
+        if plugin in old_plugins:
+            print(colored(
+                f"• {plugin}",
+                'yellow',
+            ))
+        elif plugin in installed_plugins:
+            print(colored(
+                f"• {plugin}",
+                'green',
+            ))
+        else:
+            print(colored(
+                f"◦ {plugin}",
+                'red',
+            ))
+
+    if old_plugins:
+        print()
+        cmd = "self-update-pipx" if pipx_used else "self-update"
+        s = "" if len(old_plugins) == 1 else "s"
+        print(colored(f"{len(old_plugins)} plugin{s} are out of date. Try `edwh {cmd}` to fix this.", "yellow"))
 
 
 @task
@@ -918,7 +968,7 @@ def self_update_pipx(c):
     :return:
     """
     try:
-        _self_update(c, "pipx runpip edwh")
+        _self_update(c, PIP_COMMAND_FOR_PIPX)
     except ModuleNotFoundError:
         print("WARN: No `edwh` modules found. Perhaps you are NOT using pipx? Try ew self-update")
         exit(1)
