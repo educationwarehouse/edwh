@@ -55,6 +55,7 @@ plugins = [
   'edwh-pipcompile-plugin',
   'edwh-bundler-plugin',
   'edwh-server-provisioning-plugin',
+  'edwh-b2-plugin',
 ]
 
 server-provisioning = [
@@ -83,6 +84,10 @@ bundler = [
 
 bundle = [
   "edwh-bundler-plugin"
+]
+
+b2 = [
+  "edwh-b2-plugin"
 ]
 
 [project.scripts]

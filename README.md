@@ -61,6 +61,12 @@ ew --help
 - plugin name: `edwh[server-provisioning]`
 - subcommand namespace: `remote`
 
+### b2 
+- pip name: [`edwh-b2-plugin`](https://pypi.org/project/edwh-b2-plugin/)
+- github: [`educationwarehouse/edwh-b2-plugin`](https://github.com/educationwarehouse/edwh-b2-plugin)
+- plugin name: `edwh[b2]`
+- subcommand namespace: `b2`
+
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
