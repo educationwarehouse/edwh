@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.14.0-beta.3 (2023-05-08)
+
+
 ## v0.14.0-beta.2 (2023-05-08)
 ### Fix
 * **update:** Fix pip-command for pipx ([`df5d615`](https://github.com/educationwarehouse/edwh/commit/df5d6154c2ab5ad011380b601d24a1715f3b7356))
