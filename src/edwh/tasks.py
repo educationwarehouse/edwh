@@ -973,7 +973,7 @@ def self_update_pipx(c):
     try:
         _self_update(c, PIP_COMMAND_FOR_PIPX)
     except ModuleNotFoundError:
-        print("WARN: No `edwh` modules found. Perhaps you are NOT using pipx? Try ew self-update")
+        print(colored("WARN: No `edwh` modules found. Perhaps you are NOT using pipx? Try ew self-update", "yellow"))
         exit(1)
 
 
@@ -990,5 +990,5 @@ def self_update(c):
     try:
         _self_update(c, "pip")
     except ModuleNotFoundError:
-        print("WARN: No `edwh` modules found. Perhaps you are using pipx? Try ew self-update-pipx")
+        print(colored("WARN: No `edwh` modules found. Perhaps you are using pipx? Try ew self-update-pipx", "yellow"))
         exit(1)
