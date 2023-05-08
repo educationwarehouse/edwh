@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.14.0-beta.2 (2023-05-08)
+### Fix
+* **update:** Fix pip-command for pipx ([`df5d615`](https://github.com/educationwarehouse/edwh/commit/df5d6154c2ab5ad011380b601d24a1715f3b7356))
+
 ## v0.14.0-beta.1 (2023-05-08)
 ### Feature
 * **plugins:** New command `edwh plugins` to show installed and available plugins ([`669d923`](https://github.com/educationwarehouse/edwh/commit/669d9236cc143ea2e0df0d26b9ce9d4123ee119c))
