@@ -926,6 +926,9 @@ def plugins(c):
     try:
         installed_plugins_raw = _plugins(c)
         pipx_used = False
+
+        if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
+            raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
     except ModuleNotFoundError:
         installed_plugins_raw = _plugins(c, PIP_COMMAND_FOR_PIPX)
         pipx_used = True
