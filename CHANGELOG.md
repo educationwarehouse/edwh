@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.15.2 (2023-05-11)
+### Fix
+* **plugins:** Swapped latest and custom version, docs for upgrade arguments ([`350aacc`](https://github.com/educationwarehouse/edwh/commit/350aacc592162e2420d9c07a03e0b7f9be6ad91a))
+
 ## v0.15.1 (2023-05-11)
 ### Fix
 * Fix grammar in case of 1 out of date plugin (are -> is) ([`009f531`](https://github.com/educationwarehouse/edwh/commit/009f53125acd84a9fc5cb4cedfbc9d3ee2fbba36))
