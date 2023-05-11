@@ -7,9 +7,6 @@ import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import requests
-from packaging.version import parse as parse_package_version, InvalidVersion, Version
-
 import diceware
 import invoke
 import tabulate
@@ -21,6 +18,10 @@ from termcolor import colored
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import confirm, execution_fails, executes_correctly
+
+# noinspection PyUnresolvedReferences
+# ^ keep imports for other tasks to register them!
+from .plugins import self_update_pipx, self_update, plugins
 
 
 def service_names(service_arg: list[str]) -> list[str]:
@@ -739,6 +740,7 @@ def build(ctx, yes=False):
         # noinspection PyUnresolvedReferences
         from edwh_pipcompile_plugin import compile as pip_compile
 
+        pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
         with_compile = True
     except ImportError:
         print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
@@ -837,165 +839,4 @@ def completions(_):
     print("---")
 
 
-PYPI_URL_PATTERN = 'https://pypi.python.org/pypi/{package}/json'
-
-
-def _get_pypi_info(package: str):
-    return requests.get(PYPI_URL_PATTERN.format(package=package)).json()
-
-
-def _get_latest_version_from_pypi(package: str):
-    data = _get_pypi_info(package)
-
-    return parse_package_version(data["info"]["version"])
-
-
-def _get_available_plugins_from_pypi(package: str, extra: str = None):
-    data = _get_pypi_info(package)
-    extras = data["info"]["requires_dist"]
-
-    if extra:
-        extras = [_.split(";")[0] for _ in extras if _.endswith(f"; extra == '{extra}'")]
-
-    return list(extras)
-
-
-def _determine_outdated(installed_plugins: typing.Iterable[str]):
-    old_plugins: dict[str, Version] = {}
-    for pkg in installed_plugins:
-        try:
-            if "==" not in pkg:
-                raise InvalidVersion
-
-            name, raw_version = pkg.split("==")
-            version = parse_package_version(raw_version)
-
-            latest = _get_latest_version_from_pypi(name)
-
-            if version != latest:
-                old_plugins[name] = latest
-
-        except InvalidVersion:
-            # probably installed locally, skip!
-            continue
-
-    return old_plugins
-
-
-def _plugins(c, pip_command="pip") -> list[str]:
-    return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
-
-
-def _self_update(c, pip_command="pip"):
-    edwh_packages = _plugins(c, pip_command)
-    if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
-        raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
-
-    old_plugins = _determine_outdated(edwh_packages)
-
-    if not old_plugins:
-        print("Nothing to update")
-        exit()
-
-    print(f"Will try to updated {len(old_plugins)} packages.")
-
-    success = []
-    failure = []
-    for plugin, version in old_plugins.items():
-        result = c.run(f"{pip_command} install {plugin}=={version}", warn=True).stdout
-
-        if f"Successfully installed {plugin}" in result:
-            success.append(plugin)
-        else:
-            failure.append(plugin)
-
-    print(f"{len(success)}/{len(old_plugins)} updated successfully.")
-    if failure:
-        print(f"{', '.join(failure)} failed updating")
-
-
-PIP_COMMAND_FOR_PIPX = "pipx runpip edwh"
-
-
-@task()
-def plugins(c):
-    """
-    List installed plugins
-    """
-    available_plugins = _get_available_plugins_from_pypi('edwh', 'plugins')
-
-    try:
-        installed_plugins_raw = _plugins(c)
-        pipx_used = False
-
-        if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
-            raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
-    except ModuleNotFoundError:
-        installed_plugins_raw = _plugins(c, PIP_COMMAND_FOR_PIPX)
-        pipx_used = True
-
-    installed_plugins = {_.split(" @ ")[0].split("==")[0] for _ in installed_plugins_raw}
-    old_plugins = _determine_outdated(installed_plugins_raw)
-
-    for plugin in available_plugins:
-        if plugin in old_plugins:
-            print(
-                colored(
-                    f"• {plugin}",
-                    'yellow',
-                )
-            )
-        elif plugin in installed_plugins:
-            print(
-                colored(
-                    f"• {plugin}",
-                    'green',
-                )
-            )
-        else:
-            print(
-                colored(
-                    f"◦ {plugin}",
-                    'red',
-                )
-            )
-
-    if old_plugins:
-        print()
-        cmd = "self-update-pipx" if pipx_used else "self-update"
-        s = "" if len(old_plugins) == 1 else "s"
-        print(colored(f"{len(old_plugins)} plugin{s} are out of date. Try `edwh {cmd}` to fix this.", "yellow"))
-
-
-@task()
-def self_update_pipx(c):
-    """
-    Updates `edwh` and all plugins.
-    Use this only when you installed `edwh` via pipx
-
-    :param c:
-    :type c: Context
-    :return:
-    """
-    try:
-        _self_update(c, PIP_COMMAND_FOR_PIPX)
-    except ModuleNotFoundError:
-        print(colored("WARN: No `edwh` modules found. Perhaps you are NOT using pipx? Try ew self-update", "yellow"))
-        exit(1)
-
-
-@task()
-def self_update(c):
-    """
-    Updates `edwh` and all plugins.
-    Only use this command when using a virtualenv (not pipx!)
-
-    :param c: invoke ctx
-    :type c: Context
-    :return:
-    """
-    try:
-        _self_update(c, "pip")
-    except ModuleNotFoundError:
-        print(colored("WARN: No `edwh` modules found. Perhaps you are using pipx? Try ew self-update-pipx", "yellow"))
-        exit(1)
+# for meta tasks such as `plugins` and `self-update`, see plugins.py
