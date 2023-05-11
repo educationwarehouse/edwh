@@ -1,3 +1,5 @@
+import importlib
+import os
 import pathlib
 import sys
 
@@ -17,30 +19,53 @@ if sys.version_info < (3, 10):
 else:
     from importlib.metadata import entry_points
 
-discovered_plugins = entry_points(group='edwh.tasks')
-for plugin in discovered_plugins:
-    plugin_module = plugin.load()
-    plugin_collection = Collection.from_module(plugin_module)
-    collection.add_collection(plugin_collection, plugin.name)
 
-# print('Discovered plugins:',[_.value.split('.')[0] for _ in discovered_plugins])
+### extra's tasks ###
+def include_plugins():
+    discovered_plugins = entry_points(group='edwh.tasks')
+    for plugin in discovered_plugins:
+        plugin_module = plugin.load()
+        plugin_collection = Collection.from_module(plugin_module)
+        collection.add_collection(plugin_collection, plugin.name)
 
-old_path = sys.path[:]
 
-for path in ['.', '..', '../..']:
-    path = pathlib.Path(path)
-    sys.path = [str(path)] + old_path
-    try:
-        import tasks as local_tasks
+### included 'plugins' in edwh/local_tasks ###
+def include_packaged_plugins():
+    from . import local_tasks
+    from .local_tasks import plugin
 
-        local = Collection.from_module(local_tasks)
-        collection.add_collection(local, 'local')
-        break
-    except ImportError as e:
-        if "No module named 'tasks'" not in str(e):
-            raise e
+    tasks_dir = os.path.dirname(local_tasks.__file__)
+    discovered_plugins = os.listdir(tasks_dir)
+    discovered_plugins = [_.removesuffix(".py") for _ in discovered_plugins if not _.startswith("_")]
+    for plugin in discovered_plugins:
+        module = importlib.import_module(f'.local_tasks.{plugin}', package="edwh")
+        plugin_collection = Collection.from_module(module)
+        collection.add_collection(plugin_collection, plugin)
 
-sys.path = old_path
+
+### tasks in user cwd ###
+def include_cwd_tasks():
+    old_path = sys.path[:]
+
+    for path in ['.', '..', '../..']:
+        path = pathlib.Path(path)
+        sys.path = [str(path)] + old_path
+        try:
+            import tasks as local_tasks
+
+            local = Collection.from_module(local_tasks)
+            collection.add_collection(local, 'local')
+            break
+        except ImportError as e:
+            if "No module named 'tasks'" not in str(e):
+                raise e
+
+    sys.path = old_path
+
+
+include_plugins()
+include_packaged_plugins()
+include_cwd_tasks()
 
 program = Fab(
     executor_class=Executor,

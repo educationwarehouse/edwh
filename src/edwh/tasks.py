@@ -21,7 +21,7 @@ from .helpers import confirm, execution_fails, executes_correctly
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
-from .plugins import self_update_pipx, self_update, plugins
+from .meta import self_update, plugins
 
 
 def service_names(service_arg: list[str]) -> list[str]:
@@ -839,4 +839,4 @@ def completions(_):
     print("---")
 
 
-# for meta tasks such as `plugins` and `self-update`, see plugins.py
+# for meta tasks such as `plugins` and `self-update`, see meta.py
