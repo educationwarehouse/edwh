@@ -86,7 +86,10 @@ def list_plugins(c):
     if old_plugins:
         print()
         s = "" if len(old_plugins) == 1 else "s"
-        print(colored(f"{len(old_plugins)} plugin{s} are out of date. Try `edwh self-update` to fix this.", "yellow"))
+        verb = "is" if len(old_plugins) == 1 else "are"
+        print(
+            colored(f"{len(old_plugins)} plugin{s} {verb} out of date. Try `edwh self-update` to fix this.", "yellow")
+        )
 
     if not_all_installed:
         print()
@@ -155,7 +158,7 @@ def add(c, plugin_name: str):
 
 
 @task(aliases=("upgrade",))
-def update(c, plugin_name: str, version: str=None):
+def update(c, plugin_name: str, version: str = None):
     """
     Update a plugin (or 'all') to the latest version
 
