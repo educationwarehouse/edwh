@@ -63,7 +63,7 @@ def list_plugins(c):
             old_plugins.append(plugin)
             print(
                 colored(
-                    f"• {clean_name} ({latest_version} > {current_version}) - {github_url}",
+                    f"• {clean_name} ({current_version} < {latest_version}) - {github_url}",
                     'yellow',
                 )
             )
@@ -164,7 +164,8 @@ def update(c, plugin_name: str, version: str = None):
 
     Args:
         c (Context): invoke ctx
-        plugin_name:
+        plugin_name: the edwh plugin name (can be supplied without edwh- prefix or -plugin suffix)
+        version: optional custom version string (e.g. 0.14.0b1 for a beta pre-release)
     """
     if plugin_name == "all":
         from ..tasks import self_update
