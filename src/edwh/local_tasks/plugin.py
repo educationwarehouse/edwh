@@ -136,7 +136,7 @@ def remove_all(c):
     c.run(f"{pip} uninstall --yes {plugins}")
 
 
-@task()
+@task(aliases=('install',))
 def add(c, plugin_name: str):
     """
     Install a new plugin
@@ -155,7 +155,7 @@ def add(c, plugin_name: str):
 
 
 @task(aliases=("upgrade",))
-def update(c, plugin_name: str):
+def update(c, plugin_name: str, version: str=None):
     """
     Update a plugin (or 'all') to the latest version
 
@@ -170,12 +170,13 @@ def update(c, plugin_name: str):
 
     pip = _pip()
     plugin_name = _require_affixes(plugin_name)
-    version = _get_latest_version_from_pypi(plugin_name)
+    # if version is supplied, choose that. Otherwise use the latest
+    version = version or _get_latest_version_from_pypi(plugin_name)
 
     c.run(f"{pip} install {plugin_name}=={version}")
 
 
-@task()
+@task(aliases=('uninstall',))
 def remove(c, plugin_name: str):
     """
     Remove a plugin (or 'all')
