@@ -10,8 +10,13 @@ import requests
 from invoke import task, Context
 from packaging.version import parse as parse_package_version, InvalidVersion, Version
 from termcolor import colored
-from ..meta import _pip, _get_available_plugins_from_pypi, _parse_versions, _gather_package_metadata_threaded, \
-    _get_latest_version_from_pypi
+from ..meta import (
+    _pip,
+    _get_available_plugins_from_pypi,
+    _parse_versions,
+    _gather_package_metadata_threaded,
+    _get_latest_version_from_pypi,
+)
 
 
 def _plugins(c: Context, pip_command=_pip()) -> list[str]:
@@ -24,11 +29,11 @@ def _plugins(c: Context, pip_command=_pip()) -> list[str]:
 @task(name="list")
 def list_plugins(c):
     """
-        List installed plugins
+    List installed plugins
 
-        :param c: invoke ctx
-        :type c: Context
-        """
+    :param c: invoke ctx
+    :type c: Context
+    """
     available_plugins = ["edwh"] + _get_available_plugins_from_pypi('edwh', 'plugins')
 
     installed_plugins_raw = _plugins(c)
@@ -41,6 +46,7 @@ def list_plugins(c):
     plugin_info = _gather_package_metadata_threaded(available_plugins)
 
     old_plugins = []
+    not_all_installed = False
     for plugin in available_plugins:
         metadata = plugin_info[plugin]
         current_version = installed_plugins.get(plugin, None)
@@ -75,11 +81,21 @@ def list_plugins(c):
                     'red',
                 )
             )
+            not_all_installed = clean_name
 
     if old_plugins:
         print()
         s = "" if len(old_plugins) == 1 else "s"
         print(colored(f"{len(old_plugins)} plugin{s} are out of date. Try `edwh self-update` to fix this.", "yellow"))
+
+    if not_all_installed:
+        print()
+        print(
+            colored(
+                f"Tip: not all plugins are installed. For example, try `edwh plugin.add {not_all_installed}` or `edwh plugin.add all`",
+                "blue",
+            )
+        )
 
 
 def _require_affixes(package: str, prefix="edwh-", suffix="-plugin"):
@@ -149,6 +165,7 @@ def update(c, plugin_name: str):
     """
     if plugin_name == "all":
         from ..tasks import self_update
+
         return self_update(c)
 
     pip = _pip()

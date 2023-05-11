@@ -133,6 +133,7 @@ def plugins(c):
     alias for plugin.list
     """
     from .local_tasks.plugin import list_plugins
+
     return list_plugins(c)
 
 
@@ -145,6 +146,7 @@ def self_update(c):
     :type c: Context
     """
     from .local_tasks.plugin import _plugins
+
     pip_command = _pip()
 
     edwh_packages = _plugins(c, pip_command)
