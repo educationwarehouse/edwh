@@ -52,6 +52,7 @@ omgeving = [
 ]
 plugins = [
   'edwh-multipass-plugin',
+  'edwh-sshkey-plugin',
   'edwh-demo-tasks-plugin',
   'edwh-restic-plugin',
   'edwh-pipcompile-plugin',
@@ -63,6 +64,10 @@ plugins = [
 
 server-provisioning = [
   "edwh-server-provisioning-plugin"
+]
+
+sshkey = [
+  "edwh-sshkey-plugin"
 ]
 
 restic = [
