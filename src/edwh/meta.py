@@ -128,13 +128,13 @@ def _parse_versions(installed: list[str]) -> dict[str, Version | None]:
 
 
 @task()
-def plugins(c):
+def plugins(c, verbose=False):
     """
     alias for plugin.list
     """
     from .local_tasks.plugin import list_plugins
 
-    return list_plugins(c)
+    return list_plugins(c, verbose=verbose)
 
 
 @task()

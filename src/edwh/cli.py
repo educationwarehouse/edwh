@@ -59,9 +59,11 @@ def include_cwd_tasks():
             break
         except ImportError as e:
             if "No module named 'tasks'" not in str(e):
-                warnings.warn(f"\nWARN: Could not import local tasks.py: `{e}`",
-                              # ImportWarning, # <- will be ignored by most Python installations!
-                              source=e)
+                warnings.warn(
+                    f"\nWARN: Could not import local tasks.py: `{e}`",
+                    # ImportWarning, # <- will be ignored by most Python installations!
+                    source=e,
+                )
                 print(file=sys.stderr)  # 1 newline padding before actual stdout content
 
     sys.path = old_path

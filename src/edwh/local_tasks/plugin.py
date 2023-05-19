@@ -27,12 +27,14 @@ def _plugins(c: Context, pip_command=_pip()) -> list[str]:
 
 
 @task(name="list")
-def list_plugins(c):
+def list_plugins(c, verbose=False):
     """
     List installed plugins
 
     :param c: invoke ctx
     :type c: Context
+
+    :param verbose: should all info such as installed version always be shown?
     """
     available_plugins = ["edwh"] + _get_available_plugins_from_pypi('edwh', 'plugins')
 
@@ -57,27 +59,46 @@ def list_plugins(c):
             is_outdated = False
 
         github_url = metadata["info"]["project_urls"]["Documentation"]
+        requires_python = metadata["info"]["requires_python"]
 
         clean_name = plugin.removeprefix("edwh-").removesuffix("-plugin")
         if is_outdated:
             old_plugins.append(plugin)
+
+            if verbose:
+                plugin_details = (
+                    f"• {clean_name} ({current_version} < {latest_version}) - {github_url} - Python {requires_python}"
+                )
+            else:
+                plugin_details = f"• {clean_name} ({current_version} < {latest_version}) - {github_url}"
+
             print(
                 colored(
-                    f"• {clean_name} ({current_version} < {latest_version}) - {github_url}",
+                    plugin_details,
                     'yellow',
                 )
             )
         elif plugin in installed_plugins:
+            if verbose:
+                plugin_details = f"• {clean_name} ({latest_version}) - {github_url} - Python {requires_python}"
+            else:
+                plugin_details = f"• {clean_name} - {github_url}"
+
             print(
                 colored(
-                    f"• {clean_name} - {github_url}",
+                    plugin_details,
                     'green',
                 )
             )
         else:
+            if verbose:
+                plugin_details = f"◦ {clean_name} ({latest_version}) - {github_url} - Python {requires_python}"
+            else:
+                plugin_details = f"◦ {clean_name} - {github_url}"
+
             print(
                 colored(
-                    f"◦ {clean_name} - {github_url}",
+                    plugin_details,
                     'red',
                 )
             )
