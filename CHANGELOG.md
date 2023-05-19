@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.17.1 (2023-05-19)
+### Fix
+* **local:** Warn instead of crash if local tasks.py is incorrect (raises importerror) ([`614ced6`](https://github.com/educationwarehouse/edwh/commit/614ced6fb46ae158968d40c5b8ffd23a55264442))
+
 ## v0.17.0 (2023-05-19)
 ### Fix
 * Renamed removed edwh-demo-tasks-plugin to existing (new) edwh-demo-plugin ([`cc4b2e8`](https://github.com/educationwarehouse/edwh/commit/cc4b2e8970aaf33adc2c2097de6514835dd61b77))
