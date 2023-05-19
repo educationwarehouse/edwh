@@ -2,6 +2,7 @@ import importlib
 import os
 import pathlib
 import sys
+import warnings
 
 from invoke import Collection
 from fabric.main import Fab  # instanceof invoke.Program
@@ -58,7 +59,10 @@ def include_cwd_tasks():
             break
         except ImportError as e:
             if "No module named 'tasks'" not in str(e):
-                raise e
+                warnings.warn(f"\nWARN: Could not import local tasks.py: `{e}`",
+                              # ImportWarning, # <- will be ignored by most Python installations!
+                              source=e)
+                print(file=sys.stderr)  # 1 newline padding before actual stdout content
 
     sys.path = old_path
 
