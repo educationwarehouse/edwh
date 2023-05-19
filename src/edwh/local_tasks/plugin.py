@@ -1,21 +1,21 @@
 """
 Extra namespace for plugin tasks such as plugin.add
 """
-import concurrent.futures
-import datetime
-import sys
+import json
 import typing
+from dataclasses import dataclass
 
-import requests
 from invoke import task, Context
-from packaging.version import parse as parse_package_version, InvalidVersion, Version
+from packaging.version import parse as parse_package_version
 from termcolor import colored
+
 from ..meta import (
     _pip,
     _get_available_plugins_from_pypi,
     _parse_versions,
     _gather_package_metadata_threaded,
     _get_latest_version_from_pypi,
+    Version,
 )
 
 
@@ -24,6 +24,103 @@ def _plugins(c: Context, pip_command=_pip()) -> list[str]:
     List installed edwh-plugins
     """
     return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
+
+
+@dataclass
+class Plugin:
+    raw_name: str
+    installed_version: typing.Optional[Version]
+    latest_version: typing.Optional[Version]
+    metadata: dict
+
+    is_installed: bool
+    clean_name: str = ""
+    is_outdated: bool = False
+
+    def __post_init__(self):
+        if self.latest_version and self.installed_version:
+            self.is_outdated = self.latest_version > self.installed_version
+
+        self.clean_name = self.raw_name.removeprefix("edwh-").removesuffix("-plugin")
+        self.github_url = self.metadata["info"]["project_urls"]["Documentation"]
+        self.requires_python = self.metadata["info"]["requires_python"]
+
+    def __repr__(self):
+        return f"<EW Plugin: {self.clean_name}-{(self.installed_version if self.is_installed else self.latest_version) or '?'} {'installed' if self.is_installed else 'available'}>"
+
+    def __str__(self):
+        return json.dumps(self.__dict__)
+
+    def print_details(self, verbose=False):
+        if self.is_outdated:
+            if verbose:
+                plugin_details = f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url} - Python {self.requires_python}"
+            else:
+                plugin_details = (
+                    f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url}"
+                )
+
+            print(
+                colored(
+                    plugin_details,
+                    'yellow',
+                )
+            )
+        elif self.is_installed:
+            if verbose:
+                plugin_details = (
+                    f"• {self.clean_name} ({self.latest_version}) - {self.github_url} - Python {self.requires_python}"
+                )
+            else:
+                plugin_details = f"• {self.clean_name} - {self.github_url}"
+
+            print(
+                colored(
+                    plugin_details,
+                    'green',
+                )
+            )
+        else:
+            if verbose:
+                plugin_details = (
+                    f"◦ {self.clean_name} ({self.latest_version}) - {self.github_url} - Python {self.requires_python}"
+                )
+            else:
+                plugin_details = f"◦ {self.clean_name} - {self.github_url}"
+
+            print(
+                colored(
+                    plugin_details,
+                    'red',
+                )
+            )
+
+
+def get_installed_plugin_info(c: Context) -> list[Plugin]:
+    """
+    For all available plugins, get a Plugin instance with info
+    """
+    available_plugins = ["edwh"] + _get_available_plugins_from_pypi('edwh', 'plugins')
+    installed_plugins_raw = _plugins(c)
+    if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
+        raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
+    installed_plugins = _parse_versions(installed_plugins_raw)
+    plugin_info = _gather_package_metadata_threaded(available_plugins)
+
+    return [
+        Plugin(
+            raw_name=plugin,
+            is_installed=plugin in installed_plugins,
+            installed_version=installed_plugins.get(plugin),
+            latest_version=parse_package_version(plugin_info[plugin]["info"]["version"])
+            if plugin_info.get(plugin)
+            else None,
+            metadata=plugin_info.get(plugin),
+        )
+        for plugin in available_plugins
+    ]
+
+    # return available_plugins, installed_plugins, plugin_info
 
 
 @task(name="list")
@@ -36,73 +133,16 @@ def list_plugins(c, verbose=False):
 
     :param verbose: should all info such as installed version always be shown?
     """
-    available_plugins = ["edwh"] + _get_available_plugins_from_pypi('edwh', 'plugins')
-
-    installed_plugins_raw = _plugins(c)
-
-    if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
-        raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
-
-    installed_plugins = _parse_versions(installed_plugins_raw)
-
-    plugin_info = _gather_package_metadata_threaded(available_plugins)
+    plugins = get_installed_plugin_info(c)
 
     old_plugins = []
     not_all_installed = False
-    for plugin in available_plugins:
-        metadata = plugin_info[plugin]
-        current_version = installed_plugins.get(plugin, None)
-        latest_version = parse_package_version(metadata["info"]["version"]) if metadata else None
-        if latest_version and current_version:
-            is_outdated = latest_version > current_version
-        else:
-            is_outdated = False
-
-        github_url = metadata["info"]["project_urls"]["Documentation"]
-        requires_python = metadata["info"]["requires_python"]
-
-        clean_name = plugin.removeprefix("edwh-").removesuffix("-plugin")
-        if is_outdated:
+    for plugin in plugins:
+        plugin.print_details(verbose=verbose)
+        if plugin.is_outdated:
             old_plugins.append(plugin)
-
-            if verbose:
-                plugin_details = (
-                    f"• {clean_name} ({current_version} < {latest_version}) - {github_url} - Python {requires_python}"
-                )
-            else:
-                plugin_details = f"• {clean_name} ({current_version} < {latest_version}) - {github_url}"
-
-            print(
-                colored(
-                    plugin_details,
-                    'yellow',
-                )
-            )
-        elif plugin in installed_plugins:
-            if verbose:
-                plugin_details = f"• {clean_name} ({latest_version}) - {github_url} - Python {requires_python}"
-            else:
-                plugin_details = f"• {clean_name} - {github_url}"
-
-            print(
-                colored(
-                    plugin_details,
-                    'green',
-                )
-            )
-        else:
-            if verbose:
-                plugin_details = f"◦ {clean_name} ({latest_version}) - {github_url} - Python {requires_python}"
-            else:
-                plugin_details = f"◦ {clean_name} - {github_url}"
-
-            print(
-                colored(
-                    plugin_details,
-                    'red',
-                )
-            )
-            not_all_installed = clean_name
+        if not plugin.is_installed:
+            not_all_installed = plugin.clean_name
 
     if old_plugins:
         print()
