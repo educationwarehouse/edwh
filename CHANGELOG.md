@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.16.1 (2023-05-19)
+### Fix
+* Added sshkey info to readme.md ([`1a9ff59`](https://github.com/educationwarehouse/edwh/commit/1a9ff59f925b3d863355886265528e79d6b223fe))
+
 ## v0.16.0 (2023-05-19)
 ### Feature
 * Added edwh-sshkey-plugin to pyproject.toml ([`afdb0e9`](https://github.com/educationwarehouse/edwh/commit/afdb0e9ab51103cd19a5c8ac0d43fa27506b903d))
