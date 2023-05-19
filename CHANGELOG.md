@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.17.0 (2023-05-19)
+### Fix
+* Renamed removed edwh-demo-tasks-plugin to existing (new) edwh-demo-plugin ([`cc4b2e8`](https://github.com/educationwarehouse/edwh/commit/cc4b2e8970aaf33adc2c2097de6514835dd61b77))
+
 ## v0.16.1 (2023-05-19)
 ### Fix
 * Added sshkey info to readme.md ([`1a9ff59`](https://github.com/educationwarehouse/edwh/commit/1a9ff59f925b3d863355886265528e79d6b223fe))
