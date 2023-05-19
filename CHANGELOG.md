@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.17.2 (2023-05-19)
+
+
 ## v0.17.1 (2023-05-19)
 ### Fix
 * **local:** Warn instead of crash if local tasks.py is incorrect (raises importerror) ([`614ced6`](https://github.com/educationwarehouse/edwh/commit/614ced6fb46ae158968d40c5b8ffd23a55264442))
