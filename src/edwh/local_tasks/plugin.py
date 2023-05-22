@@ -2,6 +2,7 @@
 Extra namespace for plugin tasks such as plugin.add
 """
 import json
+import sys
 import typing
 from dataclasses import dataclass
 
@@ -9,6 +10,7 @@ from invoke import task, Context
 from packaging.version import parse as parse_package_version
 from termcolor import colored
 
+from ..helpers import VerboseLogger, NoopLogger
 from ..meta import (
     _pip,
     _get_available_plugins_from_pypi,
@@ -133,6 +135,9 @@ def list_plugins(c, verbose=False):
 
     :param verbose: should all info such as installed version always be shown?
     """
+    logger = VerboseLogger if verbose else NoopLogger
+    log = logger().log
+
     plugins = get_installed_plugin_info(c)
 
     old_plugins = []
