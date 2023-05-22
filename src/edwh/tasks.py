@@ -78,7 +78,9 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     while path != path.parent:
         sys.path = [str(path)] + old_path
 
-        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
+        path = (
+            path.parent.absolute()
+        )  # before anything that can crash, to prevent infinite loop!
         try:
             import tasks as local_tasks
 
@@ -112,7 +114,7 @@ _dotenv_settings = {}
 
 
 def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
-    needle = re.compile(r'# *template:')
+    needle = re.compile(r"# *template:")
 
     new_lines = []
     for line in source_lines:
@@ -125,12 +127,12 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r'^[\s]*', old) + [''])[0]
-        if not old.lstrip().startswith('#'):
+        indention = (re.findall(r"^[\s]*", old) + [""])[0]
+        if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
             # reconstruct the line for the yaml file
-            line = f'{indention}{new} # template: {template}'
+            line = f"{indention}{new} # template: {template}"
         new_lines.append(line)
     return new_lines
 
@@ -158,13 +160,13 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
     env = os.environ.copy()
     env |= read_dotenv(dotenv_path)
     # env_variable_re = re.compile(r'\$[A-Z0-9]')
-    with yaml_path.open(mode='r+') as yaml_file:
-        source_lines = yaml_file.read().split('\n')
+    with yaml_path.open(mode="r+") as yaml_file:
+        source_lines = yaml_file.read().split("\n")
         new_lines = _apply_env_vars_to_template(source_lines, env)
         # move filepointer to the start of the file
         yaml_file.seek(0, 0)
         # write all lines and newlines to the file
-        yaml_file.write('\n'.join(new_lines))
+        yaml_file.write("\n".join(new_lines))
         # and remove any part that might be left over (when the new file is shorter than the old one)
         yaml_file.truncate()
 
@@ -177,7 +179,9 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(
+        init=False, default=None
+    )  # cache using class instance singleton
 
     @classmethod
     def load(cls, fname="config.toml"):
@@ -199,7 +203,12 @@ class TomlConfig:
 
         if "services" not in config:
             setup(invoke.Context())
-        for service_name in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+        for service_name in [
+            "minimal",
+            "services",
+            "include_celeries_in_minimal",
+            "log",
+        ]:
             if service_name not in config["services"].keys():
                 setup(invoke.Context())
 
@@ -387,7 +396,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-    services: list, toml_contents: dict, content_key: str, content: str, default: typing.Container
+    services: list,
+    toml_contents: dict,
+    content_key: str,
+    content: str,
+    default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -409,7 +422,7 @@ def get_content_from_toml_file(
         colored(
             "NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
             "For example '1, 2, 3, 4'",
-            'green',
+            "green",
         )
     )
     if content_key == "services":
@@ -479,11 +492,17 @@ def write_user_input_to_config_toml(c: Context, all_services: list):
     write_content_to_toml_file("minimal", content)
 
     # check if minimal exists if yes add celeries to services
-    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
+    if (
+        "services" not in config_toml_file
+        or "include_celeries_in_minimal" not in config_toml_file["services"]
+    ):
         # check if user wants to include celeries
         include_celeries = (
             "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
+            if input("do you want to include celeries in minimal(Y/n): ").replace(
+                " ", ""
+            )
+            in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -515,7 +534,9 @@ def setup(c, run_local_setup=True, new_config_toml=False):
     """
 
     if new_config_toml and Path.is_file(Path("config.toml")):
-        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
+        remove_config = input(
+            colored("are you sure you want to remove the config.toml(y/N): ", "red")
+        )
         if remove_config.replace(" ", "") in ["y", "Y"]:
             os.remove("config.toml")
 
@@ -561,10 +582,14 @@ def next_value(c, key, lowest):
     return max(values) + 1 if any(values) else lowest
 
 
-def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
+def set_permissions(
+    c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775
+) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    c.sudo(f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}')
+    c.sudo(
+        f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}'
+    )
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
     c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
     # simply apply new ownership to each and every directory
@@ -586,7 +611,11 @@ def settings(ctx, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
+    rows = [
+        (k, v)
+        for k, v in read_dotenv().items()
+        if find is None or find.upper() in k.upper() or find in v
+    ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
@@ -598,14 +627,18 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
+    for container_id in (
+        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
+    ):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
-                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
+                for volume in [
+                    _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
+                ]
             )
         else:
             print(ran.stderr)
@@ -650,7 +683,9 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(
+            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
+        )
     if "py4web" in services_ls:
         ctx.run(
             "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
@@ -671,7 +706,9 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ctx.run(
+        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
+    )
 
 
 @task(
@@ -699,7 +736,9 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def stop(ctx, service=None):
     """
@@ -711,7 +750,9 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def down(ctx, service=None):
     """
@@ -719,6 +760,14 @@ def down(ctx, service=None):
     """
     service = service_names(service or [])
     ctx.run(f"docker-compose down {' '.join(service)}")
+
+
+@task()
+def upgrade(ctx):
+    ctx.run("docker-compose pull")
+    stop(ctx)
+    ctx.run("docker-compose up -d")
+
 
 
 @task(
@@ -743,7 +792,9 @@ def build(ctx, yes=False):
         pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
         with_compile = True
     except ImportError:
-        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
+        print(
+            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
+        )
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -759,14 +810,18 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
+                print(
+                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
+                )
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
+    if yes or (
+        not with_compile and confirm("Build docker images? [yN]", default=False)
+    ):
         ctx.run("docker-compose build")
 
 
@@ -789,7 +844,10 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+    ctx.run(
+        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
+        + " ".join(services)
+    )
 
 
 @task()
