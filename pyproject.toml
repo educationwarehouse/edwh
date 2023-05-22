@@ -53,7 +53,7 @@ omgeving = [
 plugins = [
   'edwh-multipass-plugin',
   'edwh-sshkey-plugin',
-  'edwh-demo-tasks-plugin',
+  'edwh-demo-plugin',
   'edwh-restic-plugin',
   'edwh-pipcompile-plugin',
   'edwh-bundler-plugin',

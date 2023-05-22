@@ -2,6 +2,21 @@
 
 <!--next-version-placeholder-->
 
+## v0.17.2 (2023-05-19)
+
+
+## v0.17.1 (2023-05-19)
+### Fix
+* **local:** Warn instead of crash if local tasks.py is incorrect (raises importerror) ([`614ced6`](https://github.com/educationwarehouse/edwh/commit/614ced6fb46ae158968d40c5b8ffd23a55264442))
+
+## v0.17.0 (2023-05-19)
+### Fix
+* Renamed removed edwh-demo-tasks-plugin to existing (new) edwh-demo-plugin ([`cc4b2e8`](https://github.com/educationwarehouse/edwh/commit/cc4b2e8970aaf33adc2c2097de6514835dd61b77))
+
+## v0.16.1 (2023-05-19)
+### Fix
+* Added sshkey info to readme.md ([`1a9ff59`](https://github.com/educationwarehouse/edwh/commit/1a9ff59f925b3d863355886265528e79d6b223fe))
+
 ## v0.16.0 (2023-05-19)
 ### Feature
 * Added edwh-sshkey-plugin to pyproject.toml ([`afdb0e9`](https://github.com/educationwarehouse/edwh/commit/afdb0e9ab51103cd19a5c8ac0d43fa27506b903d))

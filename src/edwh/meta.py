@@ -99,7 +99,7 @@ def _determine_outdated_threaded(installed_plugins: typing.Iterable[str]) -> dic
             name, current_version = plugin.split("==")
             current_version = parse_package_version(current_version)
             latest_version = parse_package_version(metadata["info"]["version"])
-        except:
+        except Exception:
             # no current or latest version found? skip
             continue
 
@@ -128,13 +128,13 @@ def _parse_versions(installed: list[str]) -> dict[str, Version | None]:
 
 
 @task()
-def plugins(c):
+def plugins(c, verbose=False):
     """
     alias for plugin.list
     """
     from .local_tasks.plugin import list_plugins
 
-    return list_plugins(c)
+    return list_plugins(c, verbose=verbose)
 
 
 @task()
