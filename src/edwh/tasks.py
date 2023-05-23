@@ -743,11 +743,6 @@ def ps(ctx, quiet=False, service=None):
 def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
-    if follow and sort:
-        print("Cannot sort and follow at the same time.", file=sys.stderr)
-        exit(1)
-    if follow:
-        cmdline.append("-f")
     if sort or debug:
         # add timestamps
         cmdline.append("-t")
@@ -755,6 +750,10 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
         cmdline.extend(service_names(service))
     if sort:
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
+    elif follow:
+        # only allow follow is not sorting
+        cmdline.append("-f")
+
     ctx.run(" ".join(cmdline))
 
 
