@@ -2,6 +2,45 @@
 
 <!--next-version-placeholder-->
 
+## v0.17.2 (2023-05-19)
+
+
+## v0.17.1 (2023-05-19)
+### Fix
+* **local:** Warn instead of crash if local tasks.py is incorrect (raises importerror) ([`614ced6`](https://github.com/educationwarehouse/edwh/commit/614ced6fb46ae158968d40c5b8ffd23a55264442))
+
+## v0.17.0 (2023-05-19)
+### Fix
+* Renamed removed edwh-demo-tasks-plugin to existing (new) edwh-demo-plugin ([`cc4b2e8`](https://github.com/educationwarehouse/edwh/commit/cc4b2e8970aaf33adc2c2097de6514835dd61b77))
+
+## v0.16.1 (2023-05-19)
+### Fix
+* Added sshkey info to readme.md ([`1a9ff59`](https://github.com/educationwarehouse/edwh/commit/1a9ff59f925b3d863355886265528e79d6b223fe))
+
+## v0.16.0 (2023-05-19)
+### Feature
+* Added edwh-sshkey-plugin to pyproject.toml ([`afdb0e9`](https://github.com/educationwarehouse/edwh/commit/afdb0e9ab51103cd19a5c8ac0d43fa27506b903d))
+
+## v0.15.2 (2023-05-11)
+### Fix
+* **plugins:** Swapped latest and custom version, docs for upgrade arguments ([`350aacc`](https://github.com/educationwarehouse/edwh/commit/350aacc592162e2420d9c07a03e0b7f9be6ad91a))
+
+## v0.15.1 (2023-05-11)
+### Fix
+* Fix grammar in case of 1 out of date plugin (are -> is) ([`009f531`](https://github.com/educationwarehouse/edwh/commit/009f53125acd84a9fc5cb4cedfbc9d3ee2fbba36))
+
+## v0.15.0 (2023-05-11)
+### Feature
+* **plugin:** Aliases for add/remove and allow --version for upgrade ([`e3f63ef`](https://github.com/educationwarehouse/edwh/commit/e3f63efdfc2250e2e8cf2eb40ad272caa5d88265))
+* **plugins:** Add 'plugin' namespace (as internal extra) to manage installed plugins ([`7270273`](https://github.com/educationwarehouse/edwh/commit/72702736de9b3defe82f984400793d4f3aad4249))
+
+### Documentation
+* **plugin:** Add explaination about plugin.add when running plugins and not all are present ([`c0ecebd`](https://github.com/educationwarehouse/edwh/commit/c0ecebdc4743a076253cf2e2d9aee11d8b592e0a))
+* **changelog:** Manual editing to remove prerelease commits ([`002e798`](https://github.com/educationwarehouse/edwh/commit/002e7984c8283645c6a2adebd47250948d03e50a))
+
+### Performance
+* **plugins:**  used threading to speed up package metadata collection and split meta tasks to own file ([`cbc8a6d`](https://github.com/educationwarehouse/edwh/commit/cbc8a6df9a52bdfd67254174e76576ec38a3c017))
+
 ## v0.14.0 (2023-05-08)
 ### Feature
 * **plugins:** New command `edwh plugins` to show installed and available plugins ([`669d923`](https://github.com/educationwarehouse/edwh/commit/669d9236cc143ea2e0df0d26b9ce9d4123ee119c))
