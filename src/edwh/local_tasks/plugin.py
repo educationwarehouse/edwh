@@ -166,6 +166,10 @@ def _require_affixes(package: str, prefix="edwh-", suffix="-plugin"):
     """
     affix is 'an addition to the base form or stem of a word in order to modify its meaning or create a new word.'
     """
+    if package == "edwh":
+        # don't require affixes!
+        return package
+
     package = package.removeprefix(prefix).removesuffix(suffix)
     return f"{prefix}{package}{suffix}"
 
