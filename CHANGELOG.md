@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.0 (2023-05-23)
+### Feature
+* Allow `edwh logs --sort` to sort on timestamp. ([`bfc18b7`](https://github.com/educationwarehouse/edwh/commit/bfc18b75e5e8470d0b533d70d209b9704c25024d))
+
 ## v0.18.0-beta.2 (2023-05-23)
 ### Fix
 * **plugin:** Allow updating 'edwh' via plugin.update ([`a27adaa`](https://github.com/educationwarehouse/edwh/commit/a27adaa762b6060ff5d34fb2251d52300ee1c3dc))
