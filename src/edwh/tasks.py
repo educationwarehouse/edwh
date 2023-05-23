@@ -737,18 +737,24 @@ def ps(ctx, quiet=False, service=None):
         "debug": "Add timestamps",
         "tail": "Start with how many lines of history.",
         "service": "What services to follow. Defaults to all, can be applied multiple times. ",
+        "sort":"Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
     },
 )
-def logs(ctx, follow=True, debug=False, tail=500, service=None):
+def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
+    if follow and sort:
+        print("Cannot sort and follow at the same time.", file=sys.stderr)
+        exit(1)
     if follow:
         cmdline.append("-f")
-    if debug:
+    if sort or debug:
         # add timestamps
         cmdline.append("-t")
     if service:
         cmdline.extend(service_names(service))
+    if sort:
+        cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
     ctx.run(" ".join(cmdline))
 
 
