@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.0-beta.2 (2023-05-23)
+### Fix
+* **plugin:** Allow updating 'edwh' via plugin.update ([`a27adaa`](https://github.com/educationwarehouse/edwh/commit/a27adaa762b6060ff5d34fb2251d52300ee1c3dc))
+
 ## v0.18.0-beta.1 (2023-05-23)
 ### Feature
 * Added upgrade feature taiga#1385 ([`72b85e2`](https://github.com/educationwarehouse/edwh/commit/72b85e27f22d30160a25609fb62ce7446444cf03))
