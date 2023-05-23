@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.0-beta.1 (2023-05-23)
+### Feature
+* Added upgrade feature taiga#1385 ([`72b85e2`](https://github.com/educationwarehouse/edwh/commit/72b85e27f22d30160a25609fb62ce7446444cf03))
+
+### Fix
+* **setup:** Docker-compose config --services depends on .env, so run local_setup on crash ([`542a6db`](https://github.com/educationwarehouse/edwh/commit/542a6db385220dfc91fc96052a28b5642c368b44))
+
+### Documentation
+* Added sshfs docs to README.md ([`1cdf1e4`](https://github.com/educationwarehouse/edwh/commit/1cdf1e49a9f788b27545fe2a5538cd93d8bcbf66))
+
 ## v0.17.2 (2023-05-19)
 
 
