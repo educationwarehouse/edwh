@@ -74,6 +74,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     old_path = sys.path[:]
 
     path = pathlib.Path(".").absolute()
+    success = False
     while path != path.parent:
         sys.path = [str(path)] + old_path
 
@@ -84,6 +85,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
             if run_setup:
                 try:
                     local_tasks.setup(c)
+                    success = True
                     break
                 except AttributeError:
                     if hasattr(local_tasks, "setup"):
@@ -105,6 +107,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
                 continue
         finally:
             sys.path = old_path
+    return success
 
 
 _dotenv_settings = {}
@@ -503,7 +506,7 @@ def write_user_input_to_config_toml(c: Context, all_services: list):
         "new_config_toml": "will REMOVE and create a new config.toml file",
     }
 )
-def setup(c, run_local_setup=True, new_config_toml=False):
+def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -525,9 +528,24 @@ def setup(c, run_local_setup=True, new_config_toml=False):
     print("getting services...")
 
     # get and print all found docker compose services
-    services = c.run("docker-compose config --services", hide=True).stdout.split("\n")
-    write_user_input_to_config_toml(c, services)
-    exec_setup_in_other_task(c, run_local_setup)
+    try:
+        services_result = c.run("docker-compose config --services", hide=True, warn=True)
+        if services_result.stderr and "The Compose file './docker-compose.yml' is invalid because" in services_result.stderr:
+            raise EnvironmentError(".env not set up")
+        services = services_result.stdout.split("\n")
+        write_user_input_to_config_toml(c, services)
+        exec_setup_in_other_task(c, run_local_setup)
+    except EnvironmentError as e:
+        # print(e, "docker-compose failed! Probably missing some .env variables.")
+        if _retry:
+            print("Even after retry, setup could not complete. Stopping now!", file=sys.stderr)
+            return
+
+        if exec_setup_in_other_task(c, run_local_setup):
+            # success!
+            setup(c, run_local_setup, new_config_toml, _retry=True)
+        else:
+            print("Local setup could not run. Stopping now!", file=sys.stderr)
 
 
 @task()
@@ -616,7 +634,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -723,7 +741,7 @@ def down(ctx, service=None):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
