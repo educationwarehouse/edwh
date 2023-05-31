@@ -230,9 +230,17 @@ line-length = 120
 #]
 
 select = [
-    "E", # pyflake error
-    "F", # pyflake default
-    "Q"  # quotes
+    "F", # pyflake error
+    "E", # pycodestyle error
+    "W", # pycodestyle warning
+    "Q", # quotes
+    "A", # builtins
+    # "C4", # comprehensions - NO: doesn't allow dict()
+    # "RET", # return - NO: annoying
+    "SIM", # simplify
+    "ARG", # unused arguments
+    # "COM", # comma's - NO: annoying
+    # "PTH", # use pathlib - NO: annoying
 ]
 
 ignore = [

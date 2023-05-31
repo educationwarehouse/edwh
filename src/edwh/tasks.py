@@ -101,7 +101,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
             del local_tasks
         except ImportError:
             # silence this error, if the import cannot be performed, that's not a problem
-            if os.path.exists("tasks.py"):
+            if Path("tasks.py"):
                 print(f"Could not import tasks.py from {path}")
                 raise
             else:
@@ -449,7 +449,7 @@ def setup_config_file(filename="config.toml"):
             config_file.close()
 
 
-def write_user_input_to_config_toml(c: Context, all_services: list):
+def write_user_input_to_config_toml(all_services: list):
     """
     write chosen user dockers to config.toml
 
@@ -546,7 +546,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         ):
             raise EnvironmentError(".env not set up")
         services = services_result.stdout.split("\n")
-        write_user_input_to_config_toml(c, services)
+        write_user_input_to_config_toml(services)
         exec_setup_in_other_task(c, run_local_setup)
     except EnvironmentError:
         # print(e, "docker-compose failed! Probably missing some .env variables.")
@@ -602,7 +602,7 @@ def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, d
 
 
 @task(help=dict(silent="do not echo the password"))
-def generate_password(c, silent=False):
+def generate_password(silent=False):
     """Generate a diceware password using --dice 6."""
     password = diceware.get_passphrase()
     if not silent:
@@ -612,7 +612,7 @@ def generate_password(c, silent=False):
 
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(ctx, find=None):
+def settings(find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -860,7 +860,7 @@ def docs(ctx, reinstall=False):
 
 # noinspection PyUnusedLocal
 @task()
-def zen(ctx):
+def zen():
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
     import this  # noqa
