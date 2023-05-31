@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.3 (2023-05-31)
+### Fix
+* Follow now works again with `ew logs` ([`3d43fbe`](https://github.com/educationwarehouse/edwh/commit/3d43fbe0dfe8bdbbc84e59d96d6d09751ca6732d))
+
 ## v0.18.2 (2023-05-31)
 ### Fix
 * Added sshfs to pyproject.toml so it can be installed using edwh.self-update and can be listen in the plugin ([`2b99fcd`](https://github.com/educationwarehouse/edwh/commit/2b99fcdb5bc2407b5e7daec015e1d71e682155ab))
