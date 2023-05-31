@@ -5,18 +5,13 @@ import json
 import typing
 from dataclasses import dataclass
 
-from invoke import task, Context
+from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored
 
-from ..meta import (
-    _pip,
-    _get_available_plugins_from_pypi,
-    _parse_versions,
-    _gather_package_metadata_threaded,
-    _get_latest_version_from_pypi,
-    Version,
-)
+from ..meta import (Version, _gather_package_metadata_threaded,
+                    _get_available_plugins_from_pypi,
+                    _get_latest_version_from_pypi, _parse_versions, _pip)
 
 
 def _plugins(c: Context, pip_command=_pip()) -> list[str]:

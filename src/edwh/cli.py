@@ -4,9 +4,9 @@ import pathlib
 import sys
 import warnings
 
-from invoke import Collection
-from fabric.main import Fab  # instanceof invoke.Program
 from fabric import Config, Executor
+from fabric.main import Fab  # instanceof invoke.Program
+from invoke import Collection
 
 from . import tasks
 from .__about__ import __version__

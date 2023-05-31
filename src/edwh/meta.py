@@ -8,8 +8,9 @@ import sys
 import typing
 
 import requests
-from invoke import task, Context
-from packaging.version import parse as parse_package_version, InvalidVersion, Version
+from invoke import Context, task
+from packaging.version import InvalidVersion, Version
+from packaging.version import parse as parse_package_version
 from termcolor import colored
 
 PYPI_URL_PATTERN = 'https://pypi.python.org/pypi/{package}/json'
