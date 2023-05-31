@@ -260,4 +260,4 @@ def remove(c, plugin_name: str):
     # ensure the prefix and suffix exist, but not twice:
     plugin_name = _require_affixes(plugin_name)
 
-    c.run(f"{pip} uninstall {plugin_name}")
+    c.run(f"{pip} uninstall --yes {plugin_name}")
