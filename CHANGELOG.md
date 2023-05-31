@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.4 (2023-05-31)
+
+
 ## v0.18.3 (2023-05-31)
 ### Fix
 * Follow now works again with `ew logs` ([`3d43fbe`](https://github.com/educationwarehouse/edwh/commit/3d43fbe0dfe8bdbbc84e59d96d6d09751ca6732d))
