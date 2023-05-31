@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.2 (2023-05-31)
+### Fix
+* Added sshfs to pyproject.toml so it can be installed using edwh.self-update and can be listen in the plugin ([`2b99fcd`](https://github.com/educationwarehouse/edwh/commit/2b99fcdb5bc2407b5e7daec015e1d71e682155ab))
+
 ## v0.18.1 (2023-05-23)
 ### Fix
 * `--sort` now disables `--follow` instead of warning. ([`09c6ca1`](https://github.com/educationwarehouse/edwh/commit/09c6ca1cd7e24d6a16f4ba3a5803f8e7e97f3f3a))
