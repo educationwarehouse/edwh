@@ -9,9 +9,14 @@ from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored
 
-from ..meta import (Version, _gather_package_metadata_threaded,
-                    _get_available_plugins_from_pypi,
-                    _get_latest_version_from_pypi, _parse_versions, _pip)
+from ..meta import (
+    Version,
+    _gather_package_metadata_threaded,
+    _get_available_plugins_from_pypi,
+    _get_latest_version_from_pypi,
+    _parse_versions,
+    _pip,
+)
 
 
 def _plugins(c: Context, pip_command=_pip()) -> list[str]:

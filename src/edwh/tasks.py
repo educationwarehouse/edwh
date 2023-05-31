@@ -18,6 +18,7 @@ from termcolor import colored
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import confirm, executes_correctly, execution_fails
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update
