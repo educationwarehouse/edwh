@@ -17,11 +17,11 @@ from termcolor import colored
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, executes_correctly, execution_fails
+from .helpers import confirm, executes_correctly, execution_fails  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
-from .meta import plugins, self_update
+from .meta import plugins, self_update  # noqa
 
 
 def service_names(service_arg: list[str]) -> list[str]:
@@ -548,7 +548,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         services = services_result.stdout.split("\n")
         write_user_input_to_config_toml(c, services)
         exec_setup_in_other_task(c, run_local_setup)
-    except EnvironmentError as e:
+    except EnvironmentError:
         # print(e, "docker-compose failed! Probably missing some .env variables.")
         if _retry:
             print("Even after retry, setup could not complete. Stopping now!", file=sys.stderr)
@@ -863,7 +863,7 @@ def docs(ctx, reinstall=False):
 def zen(ctx):
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
-    import this
+    import this  # noqa
 
 
 @task()

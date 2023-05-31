@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-from . import tasks
-from .helpers import *
-from .tasks import (  # ... and more?
+from . import tasks  # noqa: this exposes it as a library
+from .helpers import *  # noqa: this exposes it as a library
+from .tasks import (  # noqa: this exposes it as a library
     TomlConfig,
     check_env,
     get_env_value,

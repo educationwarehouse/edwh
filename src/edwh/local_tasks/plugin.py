@@ -19,11 +19,11 @@ from ..meta import (
 )
 
 
-def _plugins(c: Context, pip_command=_pip()) -> list[str]:
+def list_installed_plugins(c: Context, pip_command=_pip()) -> list[str]:
     """
     List installed edwh-plugins
     """
-    return c.run(f'{pip_command} freeze | grep edwh', hide=True, warn=True).stdout.strip().split("\n")
+    return c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
 
 
 @dataclass
@@ -46,7 +46,8 @@ class Plugin:
         self.requires_python = self.metadata["info"]["requires_python"]
 
     def __repr__(self):
-        return f"<EW Plugin: {self.clean_name}-{(self.installed_version if self.is_installed else self.latest_version) or '?'} {'installed' if self.is_installed else 'available'}>"
+        version = (self.installed_version if self.is_installed else self.latest_version) or "?"
+        return f"<EW Plugin: {self.clean_name}-{version} {'installed' if self.is_installed else 'available'}>"
 
     def __str__(self):
         return json.dumps(self.__dict__)
@@ -54,7 +55,12 @@ class Plugin:
     def print_details(self, verbose=False):
         if self.is_outdated:
             if verbose:
-                plugin_details = f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url} - Python {self.requires_python}"
+                plugin_details = (
+                    f"• {self.clean_name} "
+                    f"({self.installed_version} < {self.latest_version}) "
+                    f"- {self.github_url} "
+                    f"- Python {self.requires_python}"
+                )
             else:
                 plugin_details = (
                     f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url}"
@@ -63,7 +69,7 @@ class Plugin:
             print(
                 colored(
                     plugin_details,
-                    'yellow',
+                    "yellow",
                 )
             )
         elif self.is_installed:
@@ -77,7 +83,7 @@ class Plugin:
             print(
                 colored(
                     plugin_details,
-                    'green',
+                    "green",
                 )
             )
         else:
@@ -91,7 +97,7 @@ class Plugin:
             print(
                 colored(
                     plugin_details,
-                    'red',
+                    "red",
                 )
             )
 
@@ -100,8 +106,8 @@ def get_installed_plugin_info(c: Context) -> list[Plugin]:
     """
     For all available plugins, get a Plugin instance with info
     """
-    available_plugins = ["edwh"] + _get_available_plugins_from_pypi('edwh', 'plugins')
-    installed_plugins_raw = _plugins(c)
+    available_plugins = ["edwh"] + _get_available_plugins_from_pypi("edwh", "plugins")
+    installed_plugins_raw = list_installed_plugins(c)
     if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
     installed_plugins = _parse_versions(installed_plugins_raw)
@@ -156,7 +162,8 @@ def list_plugins(c, verbose=False):
         print()
         print(
             colored(
-                f"Tip: not all plugins are installed. For example, try `edwh plugin.add {not_all_installed}` or `edwh plugin.add all`",
+                f"Tip: not all plugins are installed. "
+                f"For example, try `edwh plugin.add {not_all_installed}` or `edwh plugin.add all`",
                 "blue",
             )
         )
@@ -183,7 +190,7 @@ def add_all(c):
         c (Context): invoke ctx
     """
     pip = _pip()
-    plugins = _get_available_plugins_from_pypi('edwh', 'plugins')
+    plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
     plugins = " ".join(plugins)
     c.run(f"{pip} install {plugins}")
@@ -198,13 +205,13 @@ def remove_all(c):
         c (Context): invoke ctx
     """
     pip = _pip()
-    plugins = _get_available_plugins_from_pypi('edwh', 'plugins')
+    plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
     plugins = " ".join(plugins)
     c.run(f"{pip} uninstall --yes {plugins}")
 
 
-@task(aliases=('install',))
+@task(aliases=("install",))
 def add(c, plugin_name: str):
     """
     Install a new plugin
@@ -245,7 +252,7 @@ def update(c, plugin_name: str, version: str = None):
     c.run(f"{pip} install {plugin_name}=={version}")
 
 
-@task(aliases=('uninstall',))
+@task(aliases=("uninstall",))
 def remove(c, plugin_name: str):
     """
     Remove a plugin (or 'all')
