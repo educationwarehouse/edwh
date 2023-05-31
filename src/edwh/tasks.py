@@ -77,7 +77,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     path = pathlib.Path(".").absolute()
     success = False
     while path != path.parent:
-        sys.path = [str(path)] + old_path
+        sys.path = [str(path), *old_path]
 
         path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
         try:
@@ -128,7 +128,7 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r"^[\s]*", old) + [""])[0]
+        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
         if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
@@ -602,7 +602,7 @@ def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, d
 
 
 @task(help=dict(silent="do not echo the password"))
-def generate_password(silent=False):
+def generate_password(_, silent=False):
     """Generate a diceware password using --dice 6."""
     password = diceware.get_passphrase()
     if not silent:
@@ -612,7 +612,7 @@ def generate_password(silent=False):
 
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(find=None):
+def settings(_, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -860,7 +860,7 @@ def docs(ctx, reinstall=False):
 
 # noinspection PyUnusedLocal
 @task()
-def zen():
+def zen(_):
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
     import this  # noqa

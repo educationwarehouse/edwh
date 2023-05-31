@@ -241,6 +241,7 @@ select = [
     "ARG", # unused arguments
     # "COM", # comma's - NO: annoying
     # "PTH", # use pathlib - NO: annoying
+    "RUF", # ruff rules
 ]
 
 ignore = [

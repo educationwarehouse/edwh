@@ -49,7 +49,7 @@ def include_cwd_tasks():
 
     for path in [".", "..", "../.."]:
         path = pathlib.Path(path)
-        sys.path = [str(path)] + old_path
+        sys.path = [str(path), *old_path]
         try:
             import tasks as local_tasks
 

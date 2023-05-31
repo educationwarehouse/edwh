@@ -106,7 +106,7 @@ def get_installed_plugin_info(c: Context) -> list[Plugin]:
     """
     For all available plugins, get a Plugin instance with info
     """
-    available_plugins = ["edwh"] + _get_available_plugins_from_pypi("edwh", "plugins")
+    available_plugins = ["edwh", *_get_available_plugins_from_pypi("edwh", "plugins")]
     installed_plugins_raw = list_installed_plugins(c)
     if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
