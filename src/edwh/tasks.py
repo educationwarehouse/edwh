@@ -752,7 +752,7 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
     elif follow:
         # only allow follow is not sorting
-        cmdline.append("-f")
+        cmdline.insert(2,"-f")
 
     ctx.run(" ".join(cmdline))
 
