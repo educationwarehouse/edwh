@@ -19,10 +19,13 @@ from ..meta import (
 )
 
 
-def list_installed_plugins(c: Context, pip_command=_pip()) -> list[str]:
+def list_installed_plugins(c: Context, pip_command=None) -> list[str]:
     """
     List installed edwh-plugins
     """
+    if not pip_command:
+        pip_command = _pip()
+
     return c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
 
 

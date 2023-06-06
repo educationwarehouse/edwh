@@ -1,3 +1,7 @@
+"""
+This file exposes some functions so this tool can be used as a library.
+"""
+
 # SPDX-FileCopyrightText: 2023-present Remco Boerma <remco.b@educationwarehouse.nl>
 #
 # SPDX-License-Identifier: MIT

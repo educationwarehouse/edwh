@@ -235,13 +235,30 @@ select = [
     "W", # pycodestyle warning
     "Q", # quotes
     "A", # builtins
-    # "C4", # comprehensions - NO: doesn't allow dict()
-    # "RET", # return - NO: annoying
+    # "C4", # comprehensions
+    # "RET", # return
     "SIM", # simplify
     "ARG", # unused arguments
-    # "COM", # comma's - NO: annoying
-    # "PTH", # use pathlib - NO: annoying
+    # "COM", # comma's
+    # "PTH", # use pathlib
     "RUF", # ruff rules
+    "C90", # mccabe (complexity)
+    "I", # isort
+    "N", # pep-8 naming
+    # "D", # pydocstyle
+    # "UP", # pyupgrade
+    "YTT", # flake8-2020 (version hardcoding)
+    # "ANN", # annotations - werkt niet goed samen met invoke
+    # "ASYNC", # async - gebruiken we hier niet
+    # "S", # bandit (security)
+    # "BLE", # blind except
+    # "FBT", # boolean trap
+    # "B", # bugbear
+    # "DTZ", # datetimes
+    # "T10", # debugger
+    # "DJ", # django
+    "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
+    "SIM", # simplify
 ]
 
 ignore = [

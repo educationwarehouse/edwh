@@ -868,6 +868,9 @@ def zen(_):
 
 @task()
 def whoami(ctx):
+    """
+    Debug method to determine user and host name.
+    """
     i_am = ctx.run("whoami", hide=True).stdout.strip()
     my_location = ctx.run("hostname", hide=True).stdout.strip()
     print(f"{i_am} @ {my_location}")
@@ -875,6 +878,9 @@ def whoami(ctx):
 
 @task()
 def completions(_):
+    """
+    Prints the script to enable shell completions.
+    """
     print("Put this in your .bashrc:")
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')

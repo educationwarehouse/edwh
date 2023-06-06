@@ -32,7 +32,7 @@ def _get_pypi_info(package: str) -> dict:
     """
     Load metadata from pypi for a package
     """
-    return requests.get(PYPI_URL_PATTERN.format(package=package)).json()
+    return requests.get(PYPI_URL_PATTERN.format(package=package), timeout=10).json()
 
 
 def _get_latest_version_from_pypi(package: str) -> Version:
