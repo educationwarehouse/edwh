@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.5 (2023-06-06)
+### Fix
+* **plugin:** Uninstall <plugin> doesn't prompt anymore ([`627894e`](https://github.com/educationwarehouse/edwh/commit/627894e0159123836d9f293fc8f5f1ce57e638f6))
+
 ## v0.18.4 (2023-05-31)
 
 
