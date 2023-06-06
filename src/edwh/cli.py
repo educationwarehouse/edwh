@@ -3,6 +3,7 @@ import os
 import pathlib
 import sys
 import warnings
+from importlib.metadata import entry_points
 
 from fabric import Config, Executor
 from fabric.main import Fab  # instanceof invoke.Program
@@ -14,11 +15,6 @@ from .__about__ import __version__
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
 collection = Collection.from_module(tasks)
-
-if sys.version_info < (3, 10):
-    from importlib_metadata import entry_points
-else:
-    from importlib.metadata import entry_points
 
 
 ### extra's tasks ###
