@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.0 (2023-06-13)
+### Feature
+
+* **changelog:** Working --new flag ([`d921c9a`](https://github.com/educationwarehouse/edwh/commit/d921c9a54505b787dab9db7900bdb066856ac09a))
+* **changelog:** WIP to allow showing plugin changelogs ([`efa634c`](https://github.com/educationwarehouse/edwh/commit/efa634c86d3c19f61f603c7a7a36896b82bee015))
+
 ## v0.18.5 (2023-06-06)
 ### Fix
 * **plugin:** Uninstall <plugin> doesn't prompt anymore ([`627894e`](https://github.com/educationwarehouse/edwh/commit/627894e0159123836d9f293fc8f5f1ce57e638f6))
