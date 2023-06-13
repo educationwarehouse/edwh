@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.1 (2023-06-13)
+### Fix
+
+* **changelog:** Shortcut: ew plugins --changelog = ew plugin.changelog --new ([`b4e1c52`](https://github.com/educationwarehouse/edwh/commit/b4e1c52be66ab2f38f88f0e3bd7e8a40f25a37e1))
+
 ## v0.19.0 (2023-06-13)
 ### Feature
 
