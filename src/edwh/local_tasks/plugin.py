@@ -176,7 +176,7 @@ def list_plugins(c, verbose=False):
             colored(
                 f"{len(old_plugins)} plugin{s} {verb} out of date. "
                 f"Try `edwh self-update` to fix this "
-                f"or `edwh plugin.changelog --new` to see what's new.",
+                f"or `edwh plugins --changelog` to see what's new.",
                 "yellow",
             )
         )

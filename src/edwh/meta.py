@@ -127,13 +127,16 @@ def _parse_versions(installed: list[str]) -> dict[str, Version | None]:
 
 
 @task()
-def plugins(c, verbose=False):
+def plugins(c, verbose=False, changelog=False):
     """
-    alias for plugin.list
+    alias for plugin.list or plugin.changelog --new
     """
-    from .local_tasks.plugin import list_plugins
+    from .local_tasks import plugin
 
-    return list_plugins(c, verbose=verbose)
+    if changelog:
+       return plugin.changelog(c, [], new=True)
+    else:
+        return plugin.list_plugins(c, verbose=verbose)
 
 
 def _self_update(c: Context):
