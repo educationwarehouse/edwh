@@ -8,7 +8,7 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
-from pprint import pprint
+
 import dateutil.parser
 import requests
 import yarl
@@ -173,7 +173,12 @@ def list_plugins(c, verbose=False):
         s = "" if len(old_plugins) == 1 else "s"
         verb = "is" if len(old_plugins) == 1 else "are"
         print(
-            colored(f"{len(old_plugins)} plugin{s} {verb} out of date. Try `edwh self-update` to fix this.", "yellow")
+            colored(
+                f"{len(old_plugins)} plugin{s} {verb} out of date. "
+                f"Try `edwh self-update` to fix this "
+                f"or `edwh plugin.changelog --new` to see what's new.",
+                "yellow",
+            )
         )
 
     if not_all_installed:
@@ -316,11 +321,12 @@ def get_changelogs_threaded(github_repos: dict[str, str]):
 
 def _filter_away_version(changelog_version: Version, _filter: str) -> bool:
     """
-    If _filter is a Version and it's bigger than the selected row (via 'changelog_version'), the row should not be visible.
+    If _filter is a Version and it's bigger than the selected row (via 'changelog_version'),
+    the row should not be visible.
     """
     try:
         filter_version = parse_package_version(_filter)
-        return changelog_version < filter_version
+        return changelog_version <= filter_version
     except Exception:
         return False
 
@@ -330,7 +336,7 @@ def _filter_away_date(date: dt.datetime, _filter: str) -> bool:
     If _filter is a date and it's bigger than the selected row (via 'date'), the row should not be visible.
     """
     try:
-        return date < dateutil.parser.parse(_filter)
+        return date <= dateutil.parser.parse(_filter)
     except Exception:
         return False
 
@@ -441,10 +447,12 @@ def sort_and_filter_changelog(changelog: dict, since: str = None):
         elif since == "minor" and (version.minor < prev_minor or version.major < prev_major):
             break
         elif since == "patch" and (
-                version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major
+            version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major
         ):
             break
         elif since.isnumeric() and idx >= int(since):
+            # since is a number of releases and we're above that number now,
+            # so stop listing changelog.
             break
 
         # checks to skip:
@@ -493,15 +501,65 @@ def display_changelogs(changelogs: dict[str, OrderedDict]):
         for version, changes in history.items():
             print("-", version)
             for change_type, change_descriptions in changes.items():
-                print("--", colored(change_type,
-                                    COLORS.get(change_type.lower(), "white")
-                                    ))
+                print("--", colored(change_type, COLORS.get(change_type.lower(), "white")))
                 for change in change_descriptions:
                     print("----", colored_markdown(change))
 
 
-@task(iterable=["plugin_names"])
-def changelog(ctx, plugin_names: list[str], since: str = "5", new: bool = False):
+def _gather_and_display_changelogs(info: list[Plugin], since: dict[str, str]):
+    changelogs = get_changelogs_threaded(
+        {plugin.clean_name: plugin.metadata["info"]["project_urls"]["Source"] for plugin in info}
+    )
+
+    changelogs = {
+        name: (
+            # sort and filter removes everything not matching 'since' and sorts by date (/version) desc.
+            sort_and_filter_changelog(
+                # parse_changelog converts the markdown to a dict
+                parse_changelog(data),
+                # 'since' filter can differ per plugin if --new is passed.
+                since[name],
+            )
+        )
+        for name, data in changelogs.items()
+    }
+
+    display_changelogs(changelogs)
+
+
+def _changelog_new(ctx: Context, *_):
+    """
+    List changes since last installed version.
+    """
+    info = [plugin for plugin in gather_plugin_info(ctx) if plugin.is_outdated]
+    # if --new, ignore --since argument
+    since = {plugin.clean_name: str(plugin.installed_version) for plugin in info}
+
+    return _gather_and_display_changelogs(info, since)
+
+
+def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_):
+    """
+    List changes for specific plugins.
+    """
+    info = _gather_plugin_info(ctx, plugin_names)
+    _since = {plugin.clean_name: since for plugin in info}
+
+    return _gather_and_display_changelogs(info, _since)
+
+
+def _changelog_all(ctx: Context, _: list[str], since: str, *__):
+    """
+    List changes for all plugins.
+    """
+    info = gather_plugin_info(ctx)
+    _since = {plugin.clean_name: since for plugin in info}
+
+    return _gather_and_display_changelogs(info, _since)
+
+
+@task(iterable=["plugin"])
+def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
     """
     Show changelogs for edwh plugins.
     by default, changelogs from all plugins are shown.
@@ -511,20 +569,9 @@ def changelog(ctx, plugin_names: list[str], since: str = "5", new: bool = False)
     'major'/'minor'/'patch' to show releases since the latest version of that type.
     if 'new' is True, show only changes for outdated packages.
     """
-
     if new:
-        outdated_plugins = []
-        info = _gather_plugin_info(ctx, outdated_plugins)
-    elif not plugin_names:
-        info = gather_plugin_info(ctx)
+        return _changelog_new(ctx, plugin, since, new)
+    elif plugin:
+        return _changelog_specific(ctx, plugin, since, new)
     else:
-        info = _gather_plugin_info(ctx, plugin_names)
-
-    changelogs = get_changelogs_threaded(
-        {plugin.clean_name: plugin.metadata["info"]["project_urls"]["Source"] for plugin in info}
-    )
-
-    changelogs = {k: parse_changelog(v) for k, v in changelogs.items()}
-    changelogs = {k: sort_and_filter_changelog(v, since) for k, v in changelogs.items()}
-
-    display_changelogs(changelogs)
+        return _changelog_all(ctx, plugin, since, new)
