@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.2 (2023-06-14)
+### Fix
+* For service discovery the setup will no longer use docker-compose (as that may result in cyclic dependencies of the docker-compose depending on settings in the .env file). It will simply find the `services` key from the `docker-compose.yaml` ([`97146e8`](https://github.com/educationwarehouse/edwh/commit/97146e8657d219d2d94ff4bd5bb4a520369e1107))
+
 ## v0.19.1 (2023-06-13)
 ### Fix
 
