@@ -526,39 +526,21 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     """
 
-    if new_config_toml and Path.is_file(Path("config.toml")):
+    if new_config_toml and Path("config.toml").exists():
         remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
         if remove_config.replace(" ", "") in ["y", "Y"]:
             os.remove("config.toml")
 
-    if not Path.is_file(Path("config.toml")):
-        with open("config.toml", "x") as config_toml:
-            config_toml.close()
+    Path("config.toml").touch()
 
     print("getting services...")
 
     # get and print all found docker compose services
-    try:
-        services_result = c.run("docker-compose config --services", hide=True, warn=True)
-        if (
-            services_result.stderr
-            and "The Compose file './docker-compose.yml' is invalid because" in services_result.stderr
-        ):
-            raise EnvironmentError(".env not set up")
-        services = services_result.stdout.split("\n")
+    with open("docker-compose.yml", "r") as docker_compose_file:
+        docker_compose = yaml.safe_load(docker_compose_file)
+        services = list(docker_compose["services"].keys())
         write_user_input_to_config_toml(services)
         exec_setup_in_other_task(c, run_local_setup)
-    except EnvironmentError:
-        # print(e, "docker-compose failed! Probably missing some .env variables.")
-        if _retry:
-            print("Even after retry, setup could not complete. Stopping now!", file=sys.stderr)
-            return
-
-        if exec_setup_in_other_task(c, run_local_setup):
-            # success!
-            setup(c, run_local_setup, new_config_toml, _retry=True)
-        else:
-            print("Local setup could not run. Stopping now!", file=sys.stderr)
 
 
 @task()
