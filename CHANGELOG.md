@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.3 (2023-06-16)
+### Fix
+* Made the message for minimal services a bit clearer in setup and made it so that the celeries aren't listed in the selection of services. ([`31be024`](https://github.com/educationwarehouse/edwh/commit/31be024ab2dc3bb440f0e06db1c75480cb2571dd))
+
 ## v0.19.2 (2023-06-14)
 ### Fix
 * For service discovery the setup will no longer use docker-compose (as that may result in cyclic dependencies of the docker-compose depending on settings in the .env file). It will simply find the `services` key from the `docker-compose.yaml` ([`97146e8`](https://github.com/educationwarehouse/edwh/commit/97146e8657d219d2d94ff4bd5bb4a520369e1107))
