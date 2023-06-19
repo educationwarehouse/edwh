@@ -62,7 +62,8 @@ plugins = [
     'edwh-server-provisioning-plugin',
     'edwh-b2-plugin',
     'edwh-locust-plugin',
-    'edwh-sshfs-plugin'
+    'edwh-sshfs-plugin',
+    'edwh-files-plugin',
 ]
 
 server-provisioning = [
@@ -107,6 +108,10 @@ locust = [
 
 sshfs = [
     "edwh-sshfs-plugin"
+]
+
+files = [
+    'edwh-files-plugin'
 ]
 
 [project.scripts]

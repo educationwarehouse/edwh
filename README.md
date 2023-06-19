@@ -85,6 +85,12 @@ ew --help
 - plugin name `edwh[sshfs]`
 - subcommand namespace `sshfs`
 
+### files
+- pip name: [`edwh-files-plugin`](https://pypi.org/project/edwh-files-plugin)
+- github: [`educationwarehouse/edwh-files-plugin`](https://github.com/educationwarehouse/edwh-files-plugin)
+- plugin name `edwh[files]`
+- subcommand namespace `file`
+
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
