@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.5 (2023-06-19)
+### Documentation
+* **plugin:** Add `files` plugin as an option ([`0b343dc`](https://github.com/educationwarehouse/edwh/commit/0b343dc9c8096a09bbb069cdcc9c73b8af1866b9))
+
 ## v0.19.4 (2023-06-19)
 ### Fix
 * **deps:** Missing python-dateutil dependency ([`63ff229`](https://github.com/educationwarehouse/edwh/commit/63ff2298743f4bc981ae5b9b9e6969512f7d535c))
