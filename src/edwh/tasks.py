@@ -79,7 +79,9 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     while path != path.parent:
         sys.path = [str(path), *old_path]
 
-        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
+        path = (
+            path.parent.absolute()
+        )  # before anything that can crash, to prevent infinite loop!
         try:
             import tasks as local_tasks
 
@@ -128,7 +130,9 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
+        indention = (re.findall(r"^[\s]*", old) + [""])[
+            0
+        ]  # noqa: RUF005 would make this complex
         if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
@@ -180,7 +184,9 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(
+        init=False, default=None
+    )  # cache using class instance singleton
 
     @classmethod
     def load(cls, fname="config.toml"):
@@ -485,17 +491,23 @@ def write_user_input_to_config_toml(all_services: list):
         minimal_services,
         config_toml_file,
         "minimal",
-        "select minimal services by number: ",
+        "select minimal services you want to run on `ew up` by number: ",
         [],
     )
     write_content_to_toml_file("minimal", content)
 
     # check if minimal exists if yes add celeries to services
-    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
+    if (
+        "services" not in config_toml_file
+        or "include_celeries_in_minimal" not in config_toml_file["services"]
+    ):
         # check if user wants to include celeries
         include_celeries = (
             "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
+            if input("do you want to include celeries in minimal(Y/n): ").replace(
+                " ", ""
+            )
+            in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -526,39 +538,26 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     """
 
-    if new_config_toml and Path.is_file(Path("config.toml")):
-        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
+    if new_config_toml and Path("config.toml").exists():
+        remove_config = input(
+            colored("are you sure you want to remove the config.toml(y/N): ", "red")
+        )
         if remove_config.replace(" ", "") in ["y", "Y"]:
             os.remove("config.toml")
 
-    if not Path.is_file(Path("config.toml")):
-        with open("config.toml", "x") as config_toml:
-            config_toml.close()
+    Path("config.toml").touch()
 
     print("getting services...")
 
     # get and print all found docker compose services
-    try:
-        services_result = c.run("docker-compose config --services", hide=True, warn=True)
-        if (
-            services_result.stderr
-            and "The Compose file './docker-compose.yml' is invalid because" in services_result.stderr
-        ):
-            raise EnvironmentError(".env not set up")
-        services = services_result.stdout.split("\n")
-        write_user_input_to_config_toml(services)
+    with open("docker-compose.yml", "r") as docker_compose_file:
+        docker_compose = yaml.safe_load(docker_compose_file)
+        services = list(docker_compose["services"].keys())
+        services_no_celery: list = [
+            service for service in services if "celery" not in service
+        ]
+        write_user_input_to_config_toml(services_no_celery)
         exec_setup_in_other_task(c, run_local_setup)
-    except EnvironmentError:
-        # print(e, "docker-compose failed! Probably missing some .env variables.")
-        if _retry:
-            print("Even after retry, setup could not complete. Stopping now!", file=sys.stderr)
-            return
-
-        if exec_setup_in_other_task(c, run_local_setup):
-            # success!
-            setup(c, run_local_setup, new_config_toml, _retry=True)
-        else:
-            print("Local setup could not run. Stopping now!", file=sys.stderr)
 
 
 @task()
@@ -591,10 +590,14 @@ def next_value(c, key, lowest):
     return max(values) + 1 if any(values) else lowest
 
 
-def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
+def set_permissions(
+    c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775
+) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    c.sudo(f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}')
+    c.sudo(
+        f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}'
+    )
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
     c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
     # simply apply new ownership to each and every directory
@@ -616,7 +619,11 @@ def settings(_, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
+    rows = [
+        (k, v)
+        for k, v in read_dotenv().items()
+        if find is None or find.upper() in k.upper() or find in v
+    ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
@@ -628,14 +635,18 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
+    for container_id in (
+        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
+    ):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
-                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
+                for volume in [
+                    _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
+                ]
             )
         else:
             print(ran.stderr)
@@ -680,7 +691,9 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(
+            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
+        )
     if "py4web" in services_ls:
         ctx.run(
             "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
@@ -701,7 +714,9 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ctx.run(
+        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
+    )
 
 
 @task(
@@ -734,7 +749,9 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def stop(ctx, service=None):
     """
@@ -746,7 +763,9 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def down(ctx, service=None):
     """
@@ -785,7 +804,9 @@ def build(ctx, yes=False):
         pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
         with_compile = True
     except ImportError:
-        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
+        print(
+            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
+        )
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -801,14 +822,18 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
+                print(
+                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
+                )
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
+    if yes or (
+        not with_compile and confirm("Build docker images? [yN]", default=False)
+    ):
         ctx.run("docker-compose build")
 
 
@@ -831,7 +856,10 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+    ctx.run(
+        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
+        + " ".join(services)
+    )
 
 
 @task()
