@@ -37,6 +37,7 @@ dependencies = [
     'tomlkit', #  ; python_version < "3.11"
     'diceware',
     'yarl',
+    'python-dateutil',
 ]
 [project.optional-dependencies]
 dev = [
