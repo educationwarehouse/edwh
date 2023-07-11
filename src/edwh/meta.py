@@ -134,7 +134,7 @@ def plugins(c, verbose=False, changelog=False):
     from .local_tasks import plugin
 
     if changelog:
-       return plugin.changelog(c, [], new=True)
+        return plugin.changelog(c, [], new=True)
     else:
         return plugin.list_plugins(c, verbose=verbose)
 

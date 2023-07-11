@@ -235,7 +235,7 @@ def remove_all(c):
 
 
 @task(aliases=("install",))
-def add(c, plugin_name: str):
+def add(c, plugin_names: str):
     """
     Install a new plugin
 
@@ -243,54 +243,62 @@ def add(c, plugin_name: str):
         c (Context): invoke ctx
         plugin_name: which plugin to add
     """
-    if plugin_name == "all":
+    if plugin_names == "all":
         return add_all(c)
 
     pip = _pip()
-    plugin_name = _require_affixes(plugin_name)
 
-    c.run(f"{pip} install {plugin_name}")
+    plugin_names = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
+
+    c.run(f"{pip} install " + " ".join(plugin_names))
 
 
 @task(aliases=("upgrade",))
-def update(c, plugin_name: str, version: str = None):
+def update(c, plugin_names: str, version: str = None, verbose: bool = False):
     """
     Update a plugin (or 'all') to the latest version
 
     Args:
         c (Context): invoke ctx
-        plugin_name: the edwh plugin name (can be supplied without edwh- prefix or -plugin suffix)
+        plugin_names: the edwh plugin name (can be supplied without edwh- prefix or -plugin suffix)
         version: optional custom version string (e.g. 0.14.0b1 for a beta pre-release)
+        verbose: show which will would be installed for each plugin
     """
-    if plugin_name == "all":
+    if plugin_names == "all":
         from ..tasks import self_update
 
         return self_update(c)
 
     pip = _pip()
-    plugin_name = _require_affixes(plugin_name)
-    # if version is supplied, choose that. Otherwise use the latest
-    version = version or _get_latest_version_from_pypi(plugin_name)
 
-    c.run(f"{pip} install {plugin_name}=={version}")
+    plugins_with_version = []
+    for plugin_name in plugin_names.split(","):
+        plugin_name = _require_affixes(plugin_name.strip())
+        plugin_version = version or _get_latest_version_from_pypi(plugin_name)
+        plugins_with_version.append(f"{plugin_name}=={plugin_version}")
+
+    if verbose:
+        print(plugins_with_version)
+
+    c.run(f"{pip} install " + " ".join(plugins_with_version))
 
 
 @task(aliases=("uninstall",))
-def remove(c, plugin_name: str):
+def remove(c, plugin_names: str):
     """
     Remove a plugin (or 'all')
 
     Args:
         c (Context): invoke ctx
-        plugin_name: which plugin to remove
+        plugin_names: which plugin to remove
     """
-    if plugin_name == "all":
+    if plugin_names == "all":
         return remove_all(c)
     pip = _pip()
     # ensure the prefix and suffix exist, but not twice:
-    plugin_name = _require_affixes(plugin_name)
+    plugin_names = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} uninstall --yes {plugin_name}")
+    c.run(f"{pip} uninstall --yes " + " ".join(plugin_names))
 
 
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
