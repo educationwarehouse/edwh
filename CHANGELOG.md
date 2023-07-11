@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.20.1 (2023-07-11)
+### Fix
+* Changed `print(colored(` to `cprint(` ([`92b34a2`](https://github.com/educationwarehouse/edwh/commit/92b34a2505b094c76bf0a8011e9cbcf04feb12d9))
+
 ## v0.20.0 (2023-07-11)
 ### Feature
 * Allow multiple plugins (separated with ',') in plugin.add, plugin.update and plugin.remove ([`69ce19c`](https://github.com/educationwarehouse/edwh/commit/69ce19c1838265e578f0ef7f68156bd6eb0515f3))
