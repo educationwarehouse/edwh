@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.20.0 (2023-07-11)
+### Feature
+* Allow multiple plugins (separated with ',') in plugin.add, plugin.update and plugin.remove ([`69ce19c`](https://github.com/educationwarehouse/edwh/commit/69ce19c1838265e578f0ef7f68156bd6eb0515f3))
+
 ## v0.19.5 (2023-06-19)
 ### Documentation
 * **plugin:** Add `files` plugin as an option ([`0b343dc`](https://github.com/educationwarehouse/edwh/commit/0b343dc9c8096a09bbb069cdcc9c73b8af1866b9))
