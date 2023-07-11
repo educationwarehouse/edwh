@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.19.5 (2023-06-19)
+### Documentation
+* **plugin:** Add `files` plugin as an option ([`0b343dc`](https://github.com/educationwarehouse/edwh/commit/0b343dc9c8096a09bbb069cdcc9c73b8af1866b9))
+
+## v0.19.4 (2023-06-19)
+### Fix
+* **deps:** Missing python-dateutil dependency ([`63ff229`](https://github.com/educationwarehouse/edwh/commit/63ff2298743f4bc981ae5b9b9e6969512f7d535c))
+
 ## v0.19.3 (2023-06-16)
 ### Fix
 * Made the message for minimal services a bit clearer in setup and made it so that the celeries aren't listed in the selection of services. ([`31be024`](https://github.com/educationwarehouse/edwh/commit/31be024ab2dc3bb440f0e06db1c75480cb2571dd))
