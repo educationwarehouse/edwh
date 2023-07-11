@@ -14,7 +14,7 @@ import requests
 import yarl
 from invoke import Context, task
 from packaging.version import parse as parse_package_version
-from termcolor import colored
+from termcolor import colored, cprint
 
 from ..meta import (
     Version,
@@ -76,11 +76,9 @@ class Plugin:
                     f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url}"
                 )
 
-            print(
-                colored(
-                    plugin_details,
-                    "yellow",
-                )
+            cprint(
+                plugin_details,
+                "yellow",
             )
         elif self.is_installed:
             if verbose:
@@ -90,11 +88,9 @@ class Plugin:
             else:
                 plugin_details = f"• {self.clean_name} - {self.github_url}"
 
-            print(
-                colored(
-                    plugin_details,
-                    "green",
-                )
+            cprint(
+                plugin_details,
+                "green",
             )
         else:
             if verbose:
@@ -104,11 +100,9 @@ class Plugin:
             else:
                 plugin_details = f"◦ {self.clean_name} - {self.github_url}"
 
-            print(
-                colored(
-                    plugin_details,
-                    "red",
-                )
+            cprint(
+                plugin_details,
+                "red",
             )
 
 
@@ -172,23 +166,19 @@ def list_plugins(c, verbose=False):
         print()
         s = "" if len(old_plugins) == 1 else "s"
         verb = "is" if len(old_plugins) == 1 else "are"
-        print(
-            colored(
-                f"{len(old_plugins)} plugin{s} {verb} out of date. "
-                f"Try `edwh self-update` to fix this "
-                f"or `edwh plugins --changelog` to see what's new.",
-                "yellow",
-            )
+        cprint(
+            f"{len(old_plugins)} plugin{s} {verb} out of date. "
+            f"Try `edwh self-update` to fix this "
+            f"or `edwh plugins --changelog` to see what's new.",
+            "yellow",
         )
 
     if not_all_installed:
         print()
-        print(
-            colored(
-                f"Tip: not all plugins are installed. "
-                f"For example, try `edwh plugin.add {not_all_installed}` or `edwh plugin.add all`",
-                "blue",
-            )
+        cprint(
+            f"Tip: not all plugins are installed. "
+            f"For example, try `edwh plugin.add {not_all_installed}` or `edwh plugin.add all`",
+            "blue",
         )
 
 
@@ -278,7 +268,7 @@ def update(c, plugin_names: str, version: str = None, verbose: bool = False):
         plugins_with_version.append(f"{plugin_name}=={plugin_version}")
 
     if verbose:
-        print(plugins_with_version)
+        cprint(str(plugins_with_version), "blue")
 
     c.run(f"{pip} install " + " ".join(plugins_with_version))
 
@@ -505,7 +495,7 @@ def display_changelogs(changelogs: dict[str, OrderedDict]):
     Final step of changelog(), uses the result of {package: sort_and_filter_changelog()}.
     """
     for package, history in changelogs.items():
-        print(colored(package, "red", attrs=["bold", "underline"]))
+        cprint(package, "red", attrs=["bold", "underline"])
         for version, changes in history.items():
             print("-", version)
             for change_type, change_descriptions in changes.items():

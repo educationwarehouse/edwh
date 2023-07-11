@@ -10,6 +10,7 @@ import requests
 from invoke import Context, task
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
+from termcolor import cprint
 
 PYPI_URL_PATTERN = "https://pypi.python.org/pypi/{package}/json"
 
@@ -154,10 +155,10 @@ def _self_update(c: Context):
     old_plugins = _determine_outdated_threaded(edwh_packages)
 
     if not old_plugins:
-        print("Nothing to update")
+        cprint("Nothing to update", "blue")
         exit()
 
-    print(f"Will try to updated {len(old_plugins)} packages.")
+    cprint(f"Will try to update {len(old_plugins)} packages.", "blue")
 
     success = []
     failure = []
@@ -169,9 +170,10 @@ def _self_update(c: Context):
         else:
             failure.append(plugin)
 
-    print(f"{len(success)}/{len(old_plugins)} updated successfully.")
+    if success:
+        cprint(f"{len(success)}/{len(old_plugins)} updated successfully.", "green")
     if failure:
-        print(f"{', '.join(failure)} failed updating")
+        cprint(f"{', '.join(failure)} failed updating", "red")
 
 
 @task()
