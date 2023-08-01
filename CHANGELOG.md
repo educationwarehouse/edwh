@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.20.2-beta.1 (2023-08-01)
+### Fix
+* Actually look at [services.log] in config.toml when running `ew log` without providing a service name ([`fc04d6a`](https://github.com/educationwarehouse/edwh/commit/fc04d6a07bd45625f03d2936e4e98dceb100396b))
+
 ## v0.20.1 (2023-07-11)
 ### Fix
 * Changed `print(colored(` to `cprint(` ([`92b34a2`](https://github.com/educationwarehouse/edwh/commit/92b34a2505b094c76bf0a8011e9cbcf04feb12d9))
