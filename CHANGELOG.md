@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.21.0 (2023-08-01)
+### Feature
+* **logs:** Extra --all option (alias for -s "*") ([`475ce58`](https://github.com/educationwarehouse/edwh/commit/475ce58509205a9a1f823fec0e93b848eb161a2a))
+
 ## v0.20.2-beta.1 (2023-08-01)
 ### Fix
 * Actually look at [services.log] in config.toml when running `ew log` without providing a service name ([`fc04d6a`](https://github.com/educationwarehouse/edwh/commit/fc04d6a07bd45625f03d2936e4e98dceb100396b))
