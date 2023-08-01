@@ -285,11 +285,11 @@ def read_dotenv(env_path: Path = None) -> dict:
 
 
 def check_env(
-    key: str,
-    default: typing.Optional[str],
-    comment: str,
-    prefix: str | None = None,
-    postfix: str | None = None,
+        key: str,
+        default: typing.Optional[str],
+        comment: str,
+        prefix: str | None = None,
+        postfix: str | None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -410,11 +410,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-    services: list,
-    toml_contents: dict,
-    content_key: str,
-    content: str,
-    default: typing.Container,
+        services: list,
+        toml_contents: dict,
+        content_key: str,
+        content: str,
+        default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -645,7 +645,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -655,13 +655,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-    ctx,
-    service=None,
-    build=False,
-    quickest=False,
-    stop_timeout=2,
-    tail=False,
-    clean=False,
+        ctx,
+        service=None,
+        build=False,
+        quickest=False,
+        stop_timeout=2,
+        tail=False,
+        clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -706,20 +706,28 @@ def ps(ctx, quiet=False, service=None):
     aliases=("log",),
     iterable=["service"],
     help={
+        "service": "What services to follow. Defaults to all, can be applied multiple times. ",
+        "all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output.",
         "debug": "Add timestamps",
         "tail": "Start with how many lines of history.",
-        "service": "What services to follow. Defaults to all, can be applied multiple times. ",
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
     },
 )
-def logs(ctx, service: list[str] = None, follow: bool = True, debug: bool = False, tail: int = 500, sort: bool = False):
+def logs(ctx, service: list[str] = None, follow: bool = True, debug: bool = False, tail: int = 500, sort: bool = False,
+         all: bool = False):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
     if sort or debug:
         # add timestamps
         cmdline.append("-t")
-    cmdline.extend(service_names(service, default="logs"))
+
+    if all:
+        # -s "*" is the same but `-s *` triggers bash expansion so that's annoying.
+        cmdline.extend(service_names([], default="all"))
+    else:
+        cmdline.extend(service_names(service, default="logs"))
+
     if sort:
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
     elif follow:
@@ -763,7 +771,7 @@ def upgrade(ctx):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -817,9 +825,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-    ctx,
-    service=None,
-    force_rebuild=False,
+        ctx,
+        service=None,
+        force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -882,6 +890,5 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
-
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
