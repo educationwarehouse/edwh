@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import os
 import pathlib
@@ -24,20 +25,33 @@ from .helpers import confirm, executes_correctly, execution_fails  # noqa
 from .meta import plugins, self_update  # noqa
 
 
-def service_names(service_arg: list[str]) -> list[str]:
+def service_names(service_arg: list[str], default: typing.Literal["all", "minimal", "logs"] | None = None) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
 
     Use service_names(['*celery*','pg*']) to select all celery services, and all of pg related instances.
     :param service_arg: list of services or service selectors using wildcards
-    :type service_arg: list of strings
+    :param default: which services to return if service_arg is empty?
     :return: list of unique services names that match the given list
-    :rtype: list of string
     """
-    import fnmatch
 
     config = TomlConfig.load()
     selected = set()
+
+    if not service_arg:
+        # fallback to default
+        match default:
+            case "all":
+                return config.all_services
+            case "minimal":
+                return config.services_minimal
+            case "logs":
+                return config.services_log
+            case None:
+                return []
+
+    # service_arg is specified, filter through all available services:
+
     for service in service_arg:
         selected.update(fnmatch.filter(config.all_services, service))
 
@@ -46,6 +60,7 @@ def service_names(service_arg: list[str]) -> list[str]:
         # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
         print(f"ERROR: No services found matching: {service_arg!r}")
         exit(1)
+
     return list(selected)
 
 
@@ -698,14 +713,13 @@ def ps(ctx, quiet=False, service=None):
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
     },
 )
-def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
+def logs(ctx, service: list[str] = None, follow: bool = True, debug: bool = False, tail: int = 500, sort: bool = False):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
     if sort or debug:
         # add timestamps
         cmdline.append("-t")
-    if service:
-        cmdline.extend(service_names(service))
+    cmdline.extend(service_names(service, default="logs"))
     if sort:
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
     elif follow:
