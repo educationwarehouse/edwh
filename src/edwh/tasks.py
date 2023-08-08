@@ -189,6 +189,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
 
 
 DEFAULT_TOML_NAME = "config.toml"
+DEFAULT_DOTENV_PATH = ".env"
 
 
 @dataclass
@@ -202,7 +203,7 @@ class TomlConfig:
     __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
 
     @classmethod
-    def load(cls, fname=DEFAULT_TOML_NAME):
+    def load(cls, fname: str | Path = DEFAULT_TOML_NAME, dotenv_path: typing.Optional[Path] = None):
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -248,7 +249,7 @@ class TomlConfig:
             celeries=celeries,
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
-            dotenv_path=Path(config.get("dotenv", {}).get("path", ".env")),
+            dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
         )
         return cls.__loaded
 
@@ -304,7 +305,12 @@ def check_env(
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
-    config = TomlConfig.load(toml_path)
+
+    path = Path(path)
+    if not path.exists():
+        path.touch()
+
+    config = TomlConfig.load(toml_path, path)
     env = read_dotenv(path)
     if key in env:
         return env[key]
@@ -660,7 +666,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -793,7 +799,7 @@ def upgrade(ctx):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -912,6 +918,5 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
-
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
