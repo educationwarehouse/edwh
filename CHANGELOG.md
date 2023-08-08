@@ -7,8 +7,8 @@
 * **env:** Moved password generator to helpers; added 'suffix' (to be used instead of incorrect 'postfix') and 'path'/'toml_path' to check_env ([`f121d02`](https://github.com/educationwarehouse/edwh/commit/f121d02a3f0f212e155e2b6ec4e0a88b94d00356))
 
 ### Fix
-* Check_env maakt nu ook de standaard .env aan als die nog niet bestaat ([`253e93c`](https://github.com/educationwarehouse/edwh/commit/253e93c60a672be71f5ec280855c9f2c3be9e0f4))
-* **env:** TomlConfig gaat nu ook goed overweg met alternatief .env path ([`82601c7`](https://github.com/educationwarehouse/edwh/commit/82601c7cebe63d9e0023ee1df88a6a7a5e7e74bf))
+* `check_env` now also creates the default .env if it does not exist yet. ([`253e93c`](https://github.com/educationwarehouse/edwh/commit/253e93c60a672be71f5ec280855c9f2c3be9e0f4))
+* **env:** TomlConfig now also handles an alternative .env path well. ([`82601c7`](https://github.com/educationwarehouse/edwh/commit/82601c7cebe63d9e0023ee1df88a6a7a5e7e74bf))
 
 ### Documentation
 * Manually update changelog to remove beta release ([`baae20b`](https://github.com/educationwarehouse/edwh/commit/baae20bf8077dace6af6bf20fdd237c94cddece0))
