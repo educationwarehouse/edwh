@@ -299,19 +299,19 @@ def check_env(
     # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
     postfix: typing.Optional[str] = None,
     # different config paths:
-    path: typing.Optional[str | Path] = None,
+    env_path: typing.Optional[str | Path] = None,
     toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
 
-    path = Path(path)
-    if not path.exists():
-        path.touch()
+    env_path = Path(env_path or DEFAULT_DOTENV_PATH)
+    if not env_path.exists():
+        env_path.touch()
 
-    config = TomlConfig.load(toml_path, path)
-    env = read_dotenv(path)
+    config = TomlConfig.load(toml_path, env_path)
+    env = read_dotenv(env_path)
     if key in env:
         return env[key]
 
