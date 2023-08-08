@@ -191,6 +191,9 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
 DEFAULT_TOML_NAME = "config.toml"
 DEFAULT_DOTENV_PATH = ".env"
 
+# Singleton but depending on 'fname' (toml file name) and 'dotenv_path'
+tomlconfig_singletons: dict[tuple[str, str], "TomlConfig"] = {}
+
 
 @dataclass
 class TomlConfig:
@@ -200,7 +203,8 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
+
+    # __loaded was replaced with tomlconfig_singletons
 
     @classmethod
     def load(cls, fname: str | Path = DEFAULT_TOML_NAME, dotenv_path: typing.Optional[Path] = None):
@@ -210,9 +214,10 @@ class TomlConfig:
         Since this file should be in .git error suppression is not needed.
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
+        singleton_key = (str(fname), str(dotenv_path))
 
-        if TomlConfig.__loaded:
-            return TomlConfig.__loaded
+        if instance := tomlconfig_singletons.get(singleton_key):
+            return instance
 
         config_path = Path(fname)
         if not pathlib.Path.exists(config_path):
@@ -223,6 +228,7 @@ class TomlConfig:
 
         if "services" not in config:
             setup(invoke.Context())
+
         for service_name in [
             "minimal",
             "services",
@@ -245,7 +251,7 @@ class TomlConfig:
         if config["services"]["include_celeries_in_minimal"] == "true":
             minimal_services += celeries
 
-        cls.__loaded = TomlConfig(
+        tomlconfig_singletons[singleton_key] = instance = TomlConfig(
             config=config,
             all_services=all_services,
             celeries=celeries,
@@ -253,7 +259,7 @@ class TomlConfig:
             services_log=config["services"]["log"],
             dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
         )
-        return cls.__loaded
+        return instance
 
 
 def read_dotenv(env_path: Path = None) -> dict:
