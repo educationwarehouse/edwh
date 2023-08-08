@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import os
 import pathlib
@@ -25,20 +26,33 @@ from .helpers import confirm, executes_correctly, execution_fails, generate_pass
 from .meta import plugins, self_update  # noqa
 
 
-def service_names(service_arg: list[str]) -> list[str]:
+def service_names(service_arg: list[str], default: typing.Literal["all", "minimal", "logs"] | None = None) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
 
     Use service_names(['*celery*','pg*']) to select all celery services, and all of pg related instances.
     :param service_arg: list of services or service selectors using wildcards
-    :type service_arg: list of strings
+    :param default: which services to return if service_arg is empty?
     :return: list of unique services names that match the given list
-    :rtype: list of string
     """
-    import fnmatch
 
     config = TomlConfig.load()
     selected = set()
+
+    if not service_arg:
+        # fallback to default
+        match default:
+            case "all":
+                return config.all_services
+            case "minimal":
+                return config.services_minimal
+            case "logs":
+                return config.services_log
+            case None:
+                return []
+
+    # service_arg is specified, filter through all available services:
+
     for service in service_arg:
         selected.update(fnmatch.filter(config.all_services, service))
 
@@ -47,6 +61,7 @@ def service_names(service_arg: list[str]) -> list[str]:
         # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
         print(f"ERROR: No services found matching: {service_arg!r}")
         exit(1)
+
     return list(selected)
 
 
@@ -80,9 +95,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     while path != path.parent:
         sys.path = [str(path), *old_path]
 
-        path = (
-            path.parent.absolute()
-        )  # before anything that can crash, to prevent infinite loop!
+        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
         try:
             import tasks as local_tasks
 
@@ -131,9 +144,7 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r"^[\s]*", old) + [""])[
-            0
-        ]  # noqa: RUF005 would make this complex
+        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
         if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
@@ -188,9 +199,7 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     dotenv_path: Path
-    __loaded: "TomlConfig" = field(
-        init=False, default=None
-    )  # cache using class instance singleton
+    __loaded: "TomlConfig" = field(init=False, default=None)  # cache using class instance singleton
 
     @classmethod
     def load(cls, fname=DEFAULT_TOML_NAME):
@@ -290,7 +299,7 @@ def check_env(
     postfix: typing.Optional[str] = None,
     # different config paths:
     path: typing.Optional[str | Path] = None,
-    toml_path: str | Path = DEFAULT_TOML_NAME
+    toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -301,8 +310,10 @@ def check_env(
         return env[key]
 
     if suffix and postfix:
-        warnings.warn("! both a 'suffix' and a 'postfix' parameter were specified, "
-                      "but only 'suffix' will be used since 'postfix' is just an alias!")
+        warnings.warn(
+            "! both a 'suffix' and a 'postfix' parameter were specified, "
+            "but only 'suffix' will be used since 'postfix' is just an alias!"
+        )
 
     suffix = suffix or postfix
 
@@ -513,17 +524,11 @@ def write_user_input_to_config_toml(all_services: list):
     write_content_to_toml_file("minimal", content)
 
     # check if minimal exists if yes add celeries to services
-    if (
-        "services" not in config_toml_file
-        or "include_celeries_in_minimal" not in config_toml_file["services"]
-    ):
+    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
         # check if user wants to include celeries
         include_celeries = (
             "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(
-                " ", ""
-            )
-               in ["", "y", "Y"]
+            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -555,9 +560,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     """
 
     if new_config_toml and Path("config.toml").exists():
-        remove_config = input(
-            colored("are you sure you want to remove the config.toml(y/N): ", "red")
-        )
+        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
         if remove_config.replace(" ", "") in ["y", "Y"]:
             os.remove("config.toml")
 
@@ -569,9 +572,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     with open("docker-compose.yml", "r") as docker_compose_file:
         docker_compose = yaml.safe_load(docker_compose_file)
         services = list(docker_compose["services"].keys())
-        services_no_celery: list = [
-            service for service in services if "celery" not in service
-        ]
+        services_no_celery: list = [service for service in services if "celery" not in service]
         write_user_input_to_config_toml(services_no_celery)
         exec_setup_in_other_task(c, run_local_setup)
 
@@ -606,14 +607,10 @@ def next_value(c, key, lowest):
     return max(values) + 1 if any(values) else lowest
 
 
-def set_permissions(
-    c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775
-) -> None:
+def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    c.sudo(
-        f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}'
-    )
+    c.sudo(f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}')
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
     c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
     # simply apply new ownership to each and every directory
@@ -632,11 +629,7 @@ def settings(_, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [
-        (k, v)
-        for k, v in read_dotenv().items()
-        if find is None or find.upper() in k.upper() or find in v
-    ]
+    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
@@ -648,18 +641,14 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in (
-        ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n")
-    ):
+    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
-                for volume in [
-                    _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
-                ]
+                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
             )
         else:
             print(ran.stderr)
@@ -671,7 +660,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -704,9 +693,7 @@ def up(
         ctx.run(f"docker-compose restart {services_ls}")
     else:
         ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(
-            f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
-        )
+        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
     if "py4web" in services_ls:
         ctx.run(
             "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
@@ -727,30 +714,42 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(
-        f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
-    )
+    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
 
 
 @task(
     aliases=("log",),
     iterable=["service"],
     help={
+        "service": "What services to follow. Defaults to all, can be applied multiple times. ",
+        "all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output.",
         "debug": "Add timestamps",
         "tail": "Start with how many lines of history.",
-        "service": "What services to follow. Defaults to all, can be applied multiple times. ",
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
     },
 )
-def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
+def logs(
+    ctx,
+    service: list[str] = None,
+    follow: bool = True,
+    debug: bool = False,
+    tail: int = 500,
+    sort: bool = False,
+    all: bool = False,
+):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
     if sort or debug:
         # add timestamps
         cmdline.append("-t")
-    if service:
-        cmdline.extend(service_names(service))
+
+    if all:
+        # -s "*" is the same but `-s *` triggers bash expansion so that's annoying.
+        cmdline.extend(service_names([], default="all"))
+    else:
+        cmdline.extend(service_names(service, default="logs"))
+
     if sort:
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
     elif follow:
@@ -762,9 +761,7 @@ def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def stop(ctx, service=None):
     """
@@ -776,9 +773,7 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(
-        service="Service to stop, can be used multiple times, handles wildcards."
-    ),
+    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
 def down(ctx, service=None):
     """
@@ -798,7 +793,7 @@ def upgrade(ctx):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -817,9 +812,7 @@ def build(ctx, yes=False):
         pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
         with_compile = True
     except ImportError:
-        print(
-            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
-        )
+        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -835,18 +828,14 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print(
-                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
-                )
+                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (
-        not with_compile and confirm("Build docker images? [yN]", default=False)
-    ):
+    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
         ctx.run("docker-compose build")
 
 
@@ -869,10 +858,7 @@ def rebuild(
         service = []
     ctx.run("docker-compose down")
     services = service_names(service)
-    ctx.run(
-        f"docker-compose build {'--no-cache' if force_rebuild else ''} "
-        + " ".join(services)
-    )
+    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
 
 
 @task()
@@ -926,5 +912,6 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
+
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py

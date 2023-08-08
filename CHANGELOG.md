@@ -2,6 +2,21 @@
 
 <!--next-version-placeholder-->
 
+## v0.21.0 (2023-08-01)
+### Feature
+* **logs:** Extra --all option (alias for -s "*") ([`475ce58`](https://github.com/educationwarehouse/edwh/commit/475ce58509205a9a1f823fec0e93b848eb161a2a))
+
+### Fix
+* Actually look at [services.log] in config.toml when running `ew log` without providing a service name ([`fc04d6a`](https://github.com/educationwarehouse/edwh/commit/fc04d6a07bd45625f03d2936e4e98dceb100396b))
+
+## v0.20.1 (2023-07-11)
+### Fix
+* Changed `print(colored(` to `cprint(` ([`92b34a2`](https://github.com/educationwarehouse/edwh/commit/92b34a2505b094c76bf0a8011e9cbcf04feb12d9))
+
+## v0.20.0 (2023-07-11)
+### Feature
+* Allow multiple plugins (separated with ',') in plugin.add, plugin.update and plugin.remove ([`69ce19c`](https://github.com/educationwarehouse/edwh/commit/69ce19c1838265e578f0ef7f68156bd6eb0515f3))
+
 ## v0.19.5 (2023-06-19)
 ### Documentation
 * **plugin:** Add `files` plugin as an option ([`0b343dc`](https://github.com/educationwarehouse/edwh/commit/0b343dc9c8096a09bbb069cdcc9c73b8af1866b9))

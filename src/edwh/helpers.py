@@ -29,6 +29,7 @@ def execution_fails(c: Context, argument: str) -> bool:
     """Returns true if the execution fails based on error level"""
     return not executes_correctly(c, argument)
 
+
 def generate_password(silent=True):
     """Generate a diceware password using --dice 6."""
     password = diceware.get_passphrase()
