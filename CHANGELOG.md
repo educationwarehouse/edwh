@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.22.1 (2023-08-08)
+### Fix
+* **env:** Also create missing parent directory of custom .env path ([`d77b78c`](https://github.com/educationwarehouse/edwh/commit/d77b78ce2c442dd09b5f9465649fef0bd4eb9fad))
+
+### Documentation
+* **changelog:** Translate changelog to English ([`2cf7a2d`](https://github.com/educationwarehouse/edwh/commit/2cf7a2df2abdca85912fe57575cbfb25f2a13692))
+
 ## v0.22.0 (2023-08-08)
 ### Feature
 * **env:** Moved password generator to helpers; added 'suffix' (to be used instead of incorrect 'postfix') and 'path'/'toml_path' to check_env ([`f121d02`](https://github.com/educationwarehouse/edwh/commit/f121d02a3f0f212e155e2b6ec4e0a88b94d00356))
