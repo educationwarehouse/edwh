@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.22.2 (2023-08-08)
+### Fix
+* **env:** TomlConfig is now a 'singleton' based on fname (toml file name) and dotenv_path instead of only one instance. ([`bef13f8`](https://github.com/educationwarehouse/edwh/commit/bef13f8013ac6ddfbe0386f4ab89d2cd29721cee))
+
 ## v0.22.1 (2023-08-08)
 ### Fix
 * **env:** Also create missing parent directory of custom .env path ([`d77b78c`](https://github.com/educationwarehouse/edwh/commit/d77b78ce2c442dd09b5f9465649fef0bd4eb9fad))
