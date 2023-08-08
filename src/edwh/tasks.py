@@ -626,9 +626,9 @@ def next_value(c, key, lowest):
 def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    c.sudo(f'find "{path}" -type d -print0 | sudo xargs -0 chmod {directorypermissions}')
+    c.sudo(f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}')
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
-    c.sudo(f'find "{path}" -type f -print0 | sudo xargs -0 chmod {filepermissions}')
+    c.sudo(f'find "{path}" -type f -print0 | sudo xargs --no-run-if-empty -0 chmod {filepermissions}')
     # simply apply new ownership to each and every directory
     c.sudo(f'chown -R {uid}:{gid} "{path}" ')
 
