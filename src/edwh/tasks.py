@@ -210,6 +210,7 @@ class TomlConfig:
         Since this file should be in .git error suppression is not needed.
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
+
         if TomlConfig.__loaded:
             return TomlConfig.__loaded
 
@@ -243,6 +244,7 @@ class TomlConfig:
         minimal_services = config["services"]["minimal"]
         if config["services"]["include_celeries_in_minimal"] == "true":
             minimal_services += celeries
+
         cls.__loaded = TomlConfig(
             config=config,
             all_services=all_services,
@@ -269,7 +271,7 @@ def read_dotenv(env_path: Path = None) -> dict:
         return existing
 
     items = {}
-    config = TomlConfig.load()
+    config = TomlConfig.load(dotenv_path=env_path)
     with (env_path or config.dotenv_path).open(mode="r") as env_file:
         for line in env_file:
             # remove comments and redundant whitespace
@@ -308,10 +310,12 @@ def check_env(
 
     env_path = Path(env_path or DEFAULT_DOTENV_PATH)
     if not env_path.exists():
+        env_path.parent.mkdir(parents=True, exist_ok=True)
         env_path.touch()
 
     config = TomlConfig.load(toml_path, env_path)
     env = read_dotenv(env_path)
+
     if key in env:
         return env[key]
 
@@ -666,7 +670,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -799,7 +803,7 @@ def upgrade(ctx):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -918,5 +922,6 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
+
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
