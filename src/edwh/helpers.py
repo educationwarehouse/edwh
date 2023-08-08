@@ -1,7 +1,7 @@
 """
 This file contains re-usable helpers.
 """
-
+import diceware
 from invoke import Context
 
 
@@ -28,3 +28,10 @@ def executes_correctly(c: Context, argument: str) -> bool:
 def execution_fails(c: Context, argument: str) -> bool:
     """Returns true if the execution fails based on error level"""
     return not executes_correctly(c, argument)
+
+def generate_password(silent=True):
+    """Generate a diceware password using --dice 6."""
+    password = diceware.get_passphrase()
+    if not silent:
+        print("Password:", password)
+    return password

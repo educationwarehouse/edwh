@@ -4,6 +4,7 @@ import pathlib
 import re
 import sys
 import typing
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from termcolor import colored
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, executes_correctly, execution_fails  # noqa
+from .helpers import confirm, executes_correctly, execution_fails, generate_password as _generate_password  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -176,6 +177,9 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
         yaml_file.truncate()
 
 
+DEFAULT_TOML_NAME = "config.toml"
+
+
 @dataclass
 class TomlConfig:
     config: dict
@@ -189,7 +193,7 @@ class TomlConfig:
     )  # cache using class instance singleton
 
     @classmethod
-    def load(cls, fname="config.toml"):
+    def load(cls, fname=DEFAULT_TOML_NAME):
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -279,24 +283,36 @@ def check_env(
     key: str,
     default: typing.Optional[str],
     comment: str,
-    prefix: str | None = None,
-    postfix: str | None = None,
+    # optionals:
+    prefix: typing.Optional[str] = None,
+    suffix: typing.Optional[str] = None,
+    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+    postfix: typing.Optional[str] = None,
+    # different config paths:
+    path: typing.Optional[str | Path] = None,
+    toml_path: str | Path = DEFAULT_TOML_NAME
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
-    config = TomlConfig.load()
-    env = read_dotenv()
+    config = TomlConfig.load(toml_path)
+    env = read_dotenv(path)
     if key in env:
         return env[key]
+
+    if suffix and postfix:
+        warnings.warn("! both a 'suffix' and a 'postfix' parameter were specified, "
+                      "but only 'suffix' will be used since 'postfix' is just an alias!")
+
+    suffix = suffix or postfix
 
     with config.dotenv_path.open(mode="r+") as env_file:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default
         if prefix:
             value = prefix + value
-        if postfix:
-            value += postfix
+        if suffix:
+            value += suffix
         env_file.seek(0, 2)
         env_file.write(f"\n{key.upper()}={value}\n")
 
@@ -507,7 +523,7 @@ def write_user_input_to_config_toml(all_services: list):
             if input("do you want to include celeries in minimal(Y/n): ").replace(
                 " ", ""
             )
-            in ["", "y", "Y"]
+               in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -607,10 +623,7 @@ def set_permissions(
 @task(help=dict(silent="do not echo the password"))
 def generate_password(_, silent=False):
     """Generate a diceware password using --dice 6."""
-    password = diceware.get_passphrase()
-    if not silent:
-        print("Password:", password)
-    return password
+    return _generate_password(silent=silent)
 
 
 # noinspection PyUnusedLocal
@@ -658,7 +671,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -785,7 +798,7 @@ def upgrade(ctx):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -913,6 +926,5 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
-
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
