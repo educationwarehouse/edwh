@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.22.3 (2023-08-08)
+### Fix
+* **permissions:** Set_permissions now also works on an empty directory thanks to `xargs --no-run-if-empty` ([`7482ad4`](https://github.com/educationwarehouse/edwh/commit/7482ad47305cced764daba43694558be520bcc1a))
+
 ## v0.22.2 (2023-08-08)
 ### Fix
 * **env:** TomlConfig is now a 'singleton' based on fname (toml file name) and dotenv_path instead of only one instance. ([`bef13f8`](https://github.com/educationwarehouse/edwh/commit/bef13f8013ac6ddfbe0386f4ab89d2cd29721cee))
