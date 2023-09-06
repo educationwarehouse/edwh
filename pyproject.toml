@@ -38,6 +38,7 @@ dependencies = [
     'diceware',
     'yarl',
     'python-dateutil',
+    'rapidfuzz',
 ]
 [project.optional-dependencies]
 dev = [

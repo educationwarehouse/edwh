@@ -6,16 +6,16 @@ import re
 import sys
 import typing
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
-import diceware
 import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke import Context, task
 from termcolor import colored
+from rapidfuzz import fuzz
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
@@ -641,11 +641,20 @@ def generate_password(_, silent=False):
 
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(_, find=None):
+def settings(_, find=None, fuzzy=False, fuzz_threshold=80):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    rows = [(k, v) for k, v in read_dotenv().items() if find is None or find.upper() in k.upper() or find in v]
+    all_settings = read_dotenv().items()
+    if find is None:
+        # don't loop
+        rows = all_settings
+    else:
+        find = find.upper()
+        # if nothing found exactly, try again but fuzzy (could be slower)
+        rows = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
+            (k, v) for k, v in all_settings if fuzz.partial_ratio(k.upper(), find) > fuzz_threshold
+        ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
