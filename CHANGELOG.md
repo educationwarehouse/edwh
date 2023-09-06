@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.23.0 (2023-09-06)
+### Feature
+* **settings:** Added fuzzy matching when no results: 'redesh' or 'redahs' will match REDASH_SECRET ([`6f94062`](https://github.com/educationwarehouse/edwh/commit/6f94062ba942208b3220c9d52404694f4bace988))
+
 ## v0.22.3 (2023-08-08)
 ### Fix
 * **permissions:** Set_permissions now also works on an empty directory thanks to `xargs --no-run-if-empty` ([`7482ad4`](https://github.com/educationwarehouse/edwh/commit/7482ad47305cced764daba43694558be520bcc1a))
