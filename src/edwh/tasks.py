@@ -14,12 +14,13 @@ import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke import Context, task
-from termcolor import colored
 from rapidfuzz import fuzz
+from termcolor import colored
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, executes_correctly, execution_fails, generate_password as _generate_password  # noqa
+from .helpers import confirm, executes_correctly, execution_fails  # noqa
+from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -641,7 +642,7 @@ def generate_password(_, silent=False):
 
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(_, find=None, fuzzy=False, fuzz_threshold=80):
+def settings(_, find=None, fuzz_threshold=80):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """

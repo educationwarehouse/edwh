@@ -408,7 +408,7 @@ def to_date(key: str):
     try:
         _, date = key.split(" ", 1)
         return dateutil.parser.parse(date.removeprefix("(").removesuffix(")"))
-    except:
+    except Exception:
         return dateutil.parser.parse("2000-01-01")
 
 
@@ -419,7 +419,7 @@ def to_version(key: str):
     try:
         key, _ = key.split(" ", 1)
         return parse_package_version(key)
-    except:
+    except Exception:
         return Version("0.0.0")
 
 
@@ -440,17 +440,15 @@ def sort_and_filter_changelog(changelog: dict, since: str = None):
         date = to_date(k)
 
         # checks to stop:
-        if since == "major" and (version.major < prev_major):
-            break
-        elif since == "minor" and (version.minor < prev_minor or version.major < prev_major):
-            break
-        elif since == "patch" and (
-            version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major
+        if (
+            (since == "major" and version.major < prev_major)
+            or (since == "minor" and (version.minor < prev_minor or version.major < prev_major))
+            or (
+                since == "patch"
+                and (version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major)
+            )
+            or (since.isnumeric() and idx >= int(since))
         ):
-            break
-        elif since.isnumeric() and idx >= int(since):
-            # since is a number of releases and we're above that number now,
-            # so stop listing changelog.
             break
 
         # checks to skip:
