@@ -217,6 +217,13 @@ class TomlConfig:
         """
         singleton_key = (str(fname), str(dotenv_path))
 
+        dc_path = Path("docker-compose.yml")
+        if not dc_path.exists():
+            warnings.warn(
+                "docker-compose file is missing, toml config could not be loaded. Functionality may be limited."
+            )
+            return None
+
         if instance := tomlconfig_singletons.get(singleton_key):
             return instance
 
@@ -236,11 +243,11 @@ class TomlConfig:
             "include_celeries_in_minimal",
             "log",
         ]:
-            if service_name not in config["services"].keys():
+            if service_name not in config["services"]:
                 setup(invoke.Context())
 
         if config["services"]["services"] == "discover":
-            with open("docker-compose.yml", "r") as compose:
+            with dc_path.open("r") as compose:
                 compose = yaml.load(compose, yaml.SafeLoader)
                 all_services = compose["services"].keys()
         else:
@@ -278,8 +285,14 @@ def read_dotenv(env_path: Path = None) -> dict:
         return existing
 
     items = {}
-    config = TomlConfig.load(dotenv_path=env_path)
-    with (env_path or config.dotenv_path).open(mode="r") as env_file:
+
+    if not env_path:
+        if config := TomlConfig.load(dotenv_path=env_path):
+            env_path = config.dotenv_path
+        else:
+            env_path = Path(DEFAULT_DOTENV_PATH)
+
+    with env_path.open(mode="r") as env_file:
         for line in env_file:
             # remove comments and redundant whitespace
             line = line.split("#", 1)[0].strip()
@@ -575,23 +588,33 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
+    config_toml = Path("config.toml")
+    dc_path = Path("docker-compose.yml")
 
-    if new_config_toml and Path("config.toml").exists():
-        remove_config = input(colored("are you sure you want to remove the config.toml(y/N): ", "red"))
-        if remove_config.replace(" ", "") in ["y", "Y"]:
-            os.remove("config.toml")
+    if (
+        new_config_toml
+        and config_toml.exists()
+        and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
+    ):
+        config_toml.unlink()
 
     Path("config.toml").touch()
+
+    if not dc_path.exists():
+        warnings.warn("docker-compose file is missing, setup could not be completed!")
+        return False
 
     print("getting services...")
 
     # get and print all found docker compose services
-    with open("docker-compose.yml", "r") as docker_compose_file:
-        docker_compose = yaml.safe_load(docker_compose_file)
-        services = list(docker_compose["services"].keys())
-        services_no_celery: list = [service for service in services if "celery" not in service]
-        write_user_input_to_config_toml(services_no_celery)
-        exec_setup_in_other_task(c, run_local_setup)
+    with dc_path.open("r") as dc_file:
+        docker_compose = yaml.safe_load(dc_file)
+
+    services: dict[str, typing.Any] = docker_compose["services"]
+    services_no_celery = [service for service in services if "celery" not in service]
+    write_user_input_to_config_toml(services_no_celery)
+    exec_setup_in_other_task(c, run_local_setup)
+    return True
 
 
 @task()
@@ -640,9 +663,16 @@ def generate_password(_, silent=False):
     return _generate_password(silent=silent)
 
 
+def fuzzy_match(val1: str, val2: str, verbose=False):
+    similarity = fuzz.partial_ratio(val1, val2)
+    if verbose:
+        print(f"similarity of {val1} and {val2} is {similarity}", file=sys.stderr)
+    return similarity
+
+
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(_, find=None, fuzz_threshold=80):
+def settings(_, find=None, fuzz_threshold=75):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -654,7 +684,7 @@ def settings(_, find=None, fuzz_threshold=80):
         find = find.upper()
         # if nothing found exactly, try again but fuzzy (could be slower)
         rows = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
-            (k, v) for k, v in all_settings if fuzz.partial_ratio(k.upper(), find) > fuzz_threshold
+            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
         ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
