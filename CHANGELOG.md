@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.23.1 (2023-09-07)
+### Fix
+* **edwh:** No crash if missing config toml or docker-compose file, but warn instead ([`3044854`](https://github.com/educationwarehouse/edwh/commit/3044854ea46843e2135e2f7404bc2526660f4269))
+
 ## v0.23.0 (2023-09-06)
 ### Feature
 * **settings:** Added fuzzy matching when no results: 'redesh' or 'redahs' will match REDASH_SECRET ([`6f94062`](https://github.com/educationwarehouse/edwh/commit/6f94062ba942208b3220c9d52404694f4bace988))
