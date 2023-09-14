@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.24.0 (2023-09-14)
+### Feature
+* **core:** Allow --new-docker-compose to use `docker compose` instead of `docker-compose`. ([`8f6f39b`](https://github.com/educationwarehouse/edwh/commit/8f6f39bec0cbe6d986584b436b6ba0d5fe804675))
+* **core:** `add_global_flag` functionality to add a flag to inv/fab core opts. ([`4e18491`](https://github.com/educationwarehouse/edwh/commit/4e18491fba85cccfc68f2beac3533695308735bb))
+
+### Fix
+* **dc:** Core flag -o also enables old docker-compose ([`4294002`](https://github.com/educationwarehouse/edwh/commit/4294002f2a308e7e31172249d6e45bc1e8e4463e))
+
 ## v0.23.1 (2023-09-07)
 ### Fix
 * **edwh:** No crash if missing config toml or docker-compose file, but warn instead ([`3044854`](https://github.com/educationwarehouse/edwh/commit/3044854ea46843e2135e2f7404bc2526660f4269))
