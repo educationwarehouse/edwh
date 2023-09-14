@@ -6,11 +6,11 @@ import warnings
 from importlib.metadata import entry_points
 
 from fabric import Config, Executor
-from fabric.main import Fab  # instanceof invoke.Program
-from invoke import Collection
+from invoke import Argument, Collection
 
 from . import tasks
 from .__about__ import __version__
+from .extendable_fab import ExtendableFab  # instanceof invoke.Program
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
@@ -68,7 +68,7 @@ include_plugins()
 include_packaged_plugins()
 include_cwd_tasks()
 
-program = Fab(
+program = ExtendableFab(
     executor_class=Executor,
     config_class=Config,
     namespace=collection,
