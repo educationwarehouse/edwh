@@ -36,6 +36,8 @@ from .meta import plugins, self_update  # noqa
 DOCKER_COMPOSE = "docker-compose"  # can be swapped out with `docker compose` later!
 
 
+# todo: expose this logic to our plugins?
+
 def enable_new_compose(_):
     """
     Use `docker compose` instead of the default `docker-compose`.
@@ -53,7 +55,7 @@ def enable_old_compose(_):
 
 
 add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
-add_global_flag("--old-compose", bool, enable_old_compose)
+add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
 
 
 ### STRING CORE ARG EXAMPLE:
@@ -751,7 +753,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -887,7 +889,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -1016,6 +1018,5 @@ def version(ctx):
     print("edwh version", edwh_version)
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
-
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
