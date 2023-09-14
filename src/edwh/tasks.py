@@ -17,14 +17,49 @@ from invoke import Context, task
 from rapidfuzz import fuzz
 from termcolor import colored
 
+from .__about__ import __version__ as edwh_version
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, executes_correctly, execution_fails  # noqa
+from .helpers import (  # noqa
+    add_global_flag,
+    confirm,
+    executes_correctly,
+    execution_fails,
+)
 from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
+
+DOCKER_COMPOSE = "docker-compose"  # can be swapped out with `docker compose` later!
+
+
+def enable_new_compose(_):
+    """
+    Use `docker compose` instead of the default `docker-compose`.
+    """
+    global DOCKER_COMPOSE
+    DOCKER_COMPOSE = "docker compose"
+
+
+def enable_old_compose(_):
+    """
+    Explicitly use `docker-compose`.
+    """
+    global DOCKER_COMPOSE
+    DOCKER_COMPOSE = "docker-compose"
+
+
+add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
+add_global_flag("--old-compose", bool, enable_old_compose)
+
+
+### STRING CORE ARG EXAMPLE:
+# def my_test_flag(value: str):
+#     print(f"`--test {value}` passed")
+# add_global_flag("test", str, my_test_flag, doc="Does nothing currently.")
 
 
 def service_names(service_arg: list[str], default: typing.Literal["all", "minimal", "logs"] | None = None) -> list[str]:
@@ -697,7 +732,7 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in ctx.run("docker-compose ps -q", hide=True, warn=True).stdout.strip().split("\n"):
+    for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
@@ -744,19 +779,19 @@ def up(
     services_ls = " ".join(services)
 
     if build:
-        ctx.run(f"docker-compose build {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} build {services_ls}")
     if quickest:
-        ctx.run(f"docker-compose restart {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
-        ctx.run(f"docker-compose stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"docker-compose up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
     if "py4web" in services_ls:
         ctx.run(
-            "docker-compose run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
+            f"{DOCKER_COMPOSE} run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
             warn=True,
         )
     if tail:
-        ctx.run(f"docker-compose logs --tail=10 -f {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
 @task(
@@ -770,7 +805,7 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(f'docker-compose ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ctx.run(f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
 
 
 @task(
@@ -795,7 +830,7 @@ def logs(
     all: bool = False,
 ):
     """Smart docker logging"""
-    cmdline = ["docker-compose logs", f"--tail={tail}"]
+    cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
     if sort or debug:
         # add timestamps
         cmdline.append("-t")
@@ -824,7 +859,7 @@ def stop(ctx, service=None):
     Stops services using docker-compose stop.
     """
     service = service_names(service or [])
-    ctx.run(f"docker-compose stop {' '.join(service)}")
+    ctx.run(f"{DOCKER_COMPOSE} stop {' '.join(service)}")
 
 
 @task(
@@ -836,14 +871,17 @@ def down(ctx, service=None):
     Stops services using docker-compose down.
     """
     service = service_names(service or [])
-    ctx.run(f"docker-compose down {' '.join(service)}")
+    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}")
 
 
 @task()
-def upgrade(ctx):
-    ctx.run("docker-compose pull")
+def upgrade(ctx, build=False):
+    if build:
+        ctx.run(f"{DOCKER_COMPOSE} build")
+    else:
+        ctx.run(f"{DOCKER_COMPOSE} pull")
     stop(ctx)
-    ctx.run("docker-compose up -d")
+    ctx.run(f"{DOCKER_COMPOSE} up -d")
 
 
 @task(
@@ -892,7 +930,7 @@ def build(ctx, yes=False):
     else:
         print("Compilation of requirements.in files skipped.")
     if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
-        ctx.run("docker-compose build")
+        ctx.run(f"{DOCKER_COMPOSE} build")
 
 
 @task(
@@ -912,9 +950,9 @@ def rebuild(
     """
     if service is None:
         service = []
-    ctx.run("docker-compose down")
+    ctx.run(f"{DOCKER_COMPOSE} down")
     services = service_names(service)
-    ctx.run(f"docker-compose build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+    ctx.run(f"{DOCKER_COMPOSE} build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
 
 
 @task()
@@ -968,6 +1006,16 @@ def completions(_):
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
+
+
+@task()
+def version(ctx):
+    """
+    Show edwh app version and docker + compose version.
+    """
+    print("edwh version", edwh_version)
+    ctx.run("docker --version")
+    ctx.run(f"{DOCKER_COMPOSE} version")
 
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
