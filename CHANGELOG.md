@@ -2,6 +2,43 @@
 
 <!--next-version-placeholder-->
 
+## v0.18.5 (2023-06-06)
+### Fix
+* **plugin:** Uninstall <plugin> doesn't prompt anymore ([`627894e`](https://github.com/educationwarehouse/edwh/commit/627894e0159123836d9f293fc8f5f1ce57e638f6))
+
+## v0.18.4 (2023-05-31)
+
+
+## v0.18.3 (2023-05-31)
+### Fix
+* Follow now works again with `ew logs` ([`3d43fbe`](https://github.com/educationwarehouse/edwh/commit/3d43fbe0dfe8bdbbc84e59d96d6d09751ca6732d))
+
+## v0.18.2 (2023-05-31)
+### Fix
+* Added sshfs to pyproject.toml so it can be installed using edwh.self-update and can be listen in the plugin ([`2b99fcd`](https://github.com/educationwarehouse/edwh/commit/2b99fcdb5bc2407b5e7daec015e1d71e682155ab))
+
+## v0.18.1 (2023-05-23)
+### Fix
+* `--sort` now disables `--follow` instead of warning. ([`09c6ca1`](https://github.com/educationwarehouse/edwh/commit/09c6ca1cd7e24d6a16f4ba3a5803f8e7e97f3f3a))
+
+## v0.18.0 (2023-05-23)
+### Feature
+* Allow `edwh logs --sort` to sort on timestamp. ([`bfc18b7`](https://github.com/educationwarehouse/edwh/commit/bfc18b75e5e8470d0b533d70d209b9704c25024d))
+
+## v0.18.0-beta.2 (2023-05-23)
+### Fix
+* **plugin:** Allow updating 'edwh' via plugin.update ([`a27adaa`](https://github.com/educationwarehouse/edwh/commit/a27adaa762b6060ff5d34fb2251d52300ee1c3dc))
+
+## v0.18.0-beta.1 (2023-05-23)
+### Feature
+* Added upgrade feature taiga#1385 ([`72b85e2`](https://github.com/educationwarehouse/edwh/commit/72b85e27f22d30160a25609fb62ce7446444cf03))
+
+### Fix
+* **setup:** Docker-compose config --services depends on .env, so run local_setup on crash ([`542a6db`](https://github.com/educationwarehouse/edwh/commit/542a6db385220dfc91fc96052a28b5642c368b44))
+
+### Documentation
+* Added sshfs docs to README.md ([`1cdf1e4`](https://github.com/educationwarehouse/edwh/commit/1cdf1e49a9f788b27545fe2a5538cd93d8bcbf66))
+
 ## v0.17.2 (2023-05-19)
 
 

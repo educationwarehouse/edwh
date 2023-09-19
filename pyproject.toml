@@ -11,95 +11,101 @@ requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Remco Boerma", email = "remco.b@educationwarehouse.nl" },
-  { name = "Robin van der Noord", email = "robin.vdn@educationwarehouse.nl" },
-  { name = "Romy Schöller", email = "romy.s@educationwarehouse.nl" },
-  { name = "Sven Keimpema", email = "sven.k@educationwarehouse.nl" },
+    { name = "Remco Boerma", email = "remco.b@educationwarehouse.nl" },
+    { name = "Robin van der Noord", email = "robin.vdn@educationwarehouse.nl" },
+    { name = "Romy Schöller", email = "romy.s@educationwarehouse.nl" },
+    { name = "Sven Keimpema", email = "sven.k@educationwarehouse.nl" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  'invoke >= 2.0, < 2.1',
-  'fabric >= 3.0',
-  'importlib_metadata >=3.6 ; python_version < "3.10"',
-  'tabulate',
-  'pyyaml',
-  'termcolor',
-  'requests',
-  'packaging',
-  'tomlkit', #  ; python_version < "3.11"
-  'diceware',
+    'invoke >= 2.0, < 2.1',
+    'fabric >= 3.0',
+    'importlib_metadata >=3.6 ; python_version < "3.10"',
+    'tabulate',
+    'pyyaml',
+    'termcolor',
+    'requests',
+    'packaging',
+    'tomlkit', #  ; python_version < "3.11"
+    'diceware',
+    'yarl',
 ]
 [project.optional-dependencies]
 dev = [
-  "hatch",
-  # "python-semantic-release >= 8.0.0a5",
-  "black",
+    "hatch",
+    # "python-semantic-release >= 8.0.0a5",
+    "black",
 ]
 
 omgeving = [
-  'humanize',
-  'tabulate',
-  'pyyaml',
-  'tomlkit'
+    'humanize',
+    'tabulate',
+    'pyyaml',
+    'tomlkit'
 ]
 plugins = [
-  'edwh-multipass-plugin',
-  'edwh-sshkey-plugin',
-  'edwh-demo-plugin',
-  'edwh-restic-plugin',
-  'edwh-pipcompile-plugin',
-  'edwh-bundler-plugin',
-  'edwh-server-provisioning-plugin',
-  'edwh-b2-plugin',
-  'edwh-locust-plugin',
+    'edwh-multipass-plugin',
+    'edwh-sshkey-plugin',
+    'edwh-demo-plugin',
+    'edwh-restic-plugin',
+    'edwh-pipcompile-plugin',
+    'edwh-bundler-plugin',
+    'edwh-server-provisioning-plugin',
+    'edwh-b2-plugin',
+    'edwh-locust-plugin',
+    'edwh-sshfs-plugin'
 ]
 
 server-provisioning = [
-  "edwh-server-provisioning-plugin"
+    "edwh-server-provisioning-plugin"
 ]
 
 sshkey = [
-  "edwh-sshkey-plugin"
+    "edwh-sshkey-plugin"
 ]
 
 restic = [
-  'edwh-restic-plugin',
+    'edwh-restic-plugin',
 ]
 
 multipass = [
-  'edwh-multipass-plugin',
+    'edwh-multipass-plugin',
 ]
 
 pip = [
-  'edwh-pipcompile-plugin',
+    'edwh-pipcompile-plugin',
 ]
 
 pip-compile = [
-  'edwh-pipcompile-plugin',
+    'edwh-pipcompile-plugin',
 ]
 
 bundler = [
-  "edwh-bundler-plugin"
+    "edwh-bundler-plugin"
 ]
 
 bundle = [
-  "edwh-bundler-plugin"
+    "edwh-bundler-plugin"
 ]
 
 b2 = [
-  "edwh-b2-plugin"
+    "edwh-b2-plugin"
 ]
 
 locust = [
-  "edwh-locust-plugin"
+    "edwh-locust-plugin"
+]
+
+sshfs = [
+    "edwh-sshfs-plugin"
 ]
 
 [project.scripts]
@@ -124,42 +130,42 @@ path = "src/edwh/__about__.py"
 
 [tool.hatch.envs.semver]
 dependencies = [
-  "python-semantic-release",
+    "python-semantic-release",
 ]
 [tool.hatch.envs.semver.scripts]
 semver = "semantic-release"
 
 [tool.hatch.envs.default]
 dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest",
-  # 'python-semantic-release >= 8.0.0a5'
+    "coverage[toml]>=6.5",
+    "pytest",
+    # 'python-semantic-release >= 8.0.0a5'
 ]
 [tool.hatch.envs.default.scripts]
 # semver
 test-semver = [
-  'python --version',
-  'semantic-release --version',
+    'python --version',
+    'semantic-release --version',
 ]
 
 # note: don't run `hatch run publish` right now,
 # because semantic release v7 (stable) is not compatible with invoke 2 (which is required for python3.11+)
 # and semantic release v8 (alpha) is not compatible with the tool.semantic_release config in this file!
 publish = [
-  'semantic-release publish',
-  'hatch build -c',
-  'hatch publish',
+    'semantic-release publish',
+    'hatch build -c',
+    'hatch publish',
 ]
 # pytest/cov
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = [
-  "- coverage combine",
-  "coverage report",
+    "- coverage combine",
+    "coverage report",
 ]
 cov = [
-  "test-cov",
-  "cov-report",
+    "test-cov",
+    "cov-report",
 ]
 
 [[tool.hatch.envs.all.matrix]]
@@ -168,78 +174,114 @@ python = ["3.10", "3.11", "3.12"]
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
-  "black>=23.1.0",
-  "mypy>=1.0.0",
-  "ruff>=0.0.243",
+    "black>=23.1.0",
+    "mypy>=1.0.0",
+    "ruff>=0.0.243",
 ]
 [tool.hatch.envs.lint.scripts]
 typing = "mypy --install-types --non-interactive {args:src/edwh tests}"
 style = [
-  "ruff {args:.}",
-  "black --check --diff {args:.}",
+    "ruff {args:.}",
+    "black --check --diff {args:.}",
 ]
 fmt = [
-  "black {args:.}",
-  "ruff --fix {args:.}",
-  "style",
+    "black {args:.}",
+    "ruff --fix {args:.}",
+    "style",
 ]
 all = [
-  "style",
-  "typing",
+    "style",
+    "typing",
 ]
 
 [tool.black]
-target-version = ["py37"]
+target-version = ["py310"]
 line-length = 120
-skip-string-normalization = true
+skip-string-normalization = false
 
 [tool.ruff]
-target-version = "py37"
+target-version = "py310"
 line-length = 120
+#select = [
+#  "A",
+#  "ARG",
+#  "B",
+#  "C",
+#  "DTZ",
+#  "E",
+#  "EM",
+#  "F",
+#  "FBT",
+#  "I",
+#  "ICN",
+#  "ISC",
+#  "N",
+#  "PLC",
+#  "PLE",
+#  "PLR",
+#  "PLW",
+#  "Q",
+#  "RUF",
+#  "S",
+#  "T",
+#  "TID",
+#  "UP",
+#  "W",
+#  "YTT",
+#]
+
 select = [
-  "A",
-  "ARG",
-  "B",
-  "C",
-  "DTZ",
-  "E",
-  "EM",
-  "F",
-  "FBT",
-  "I",
-  "ICN",
-  "ISC",
-  "N",
-  "PLC",
-  "PLE",
-  "PLR",
-  "PLW",
-  "Q",
-  "RUF",
-  "S",
-  "T",
-  "TID",
-  "UP",
-  "W",
-  "YTT",
+    "F", # pyflake error
+    "E", # pycodestyle error
+    "W", # pycodestyle warning
+    "Q", # quotes
+    "A", # builtins
+    # "C4", # comprehensions
+    # "RET", # return
+    "SIM", # simplify
+    "ARG", # unused arguments
+    # "COM", # comma's
+    # "PTH", # use pathlib
+    "RUF", # ruff rules
+    "C90", # mccabe (complexity)
+    "I", # isort
+    "N", # pep-8 naming
+    # "D", # pydocstyle
+    # "UP", # pyupgrade
+    "YTT", # flake8-2020 (version hardcoding)
+    # "ANN", # annotations - werkt niet goed samen met invoke
+    # "ASYNC", # async - gebruiken we hier niet
+    # "S", # bandit (security)
+    # "BLE", # blind except
+    # "FBT", # boolean trap
+    # "B", # bugbear
+    # "DTZ", # datetimes
+    # "T10", # debugger
+    # "DJ", # django
+    "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
+    "SIM", # simplify
 ]
+
 ignore = [
-  # Allow non-abstract empty methods in abstract base classes
-  "B027",
-  # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT003",
-  # Ignore checks for possible passwords
-  "S105", "S106", "S107",
-  # Ignore complexity
-  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    # Allow non-abstract empty methods in abstract base classes
+    "B027",
+    # Allow boolean positional values in function calls, like `dict.get(... True)`
+    "FBT003",
+    # Ignore checks for possible passwords
+    "S105", "S106", "S107",
+    # Ignore complexity
+    "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
 ]
 unfixable = [
-  # Don't touch unused imports
-  "F401",
+    # Don't touch unused imports
+    "F401",
 ]
 
 [tool.ruff.isort]
 known-first-party = ["edwh"]
+
+[tool.isort]
+profile = "black"
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -253,7 +295,7 @@ source_pkgs = ["edwh", "tests"]
 branch = true
 parallel = true
 omit = [
-  "src/edwh/__about__.py",
+    "src/edwh/__about__.py",
 ]
 
 [tool.coverage.paths]
@@ -262,7 +304,7 @@ tests = ["tests", "*/edwh/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
 ]

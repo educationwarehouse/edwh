@@ -79,6 +79,12 @@ ew --help
 - plugin name `edwh[sshkey]`
 - subcommand namespace `sshkey`
 
+### sshfs
+- pip name: [`edwh-sshfs-plugin`](https://pypi.org/project/edwh-sshfs-plugin)
+- github: [`educationwarehouse/edwh-sshfs-plugin`](https://github.com/educationwarehouse/edwh-sshfs-plugin)
+- plugin name `edwh[sshfs]`
+- subcommand namespace `sshfs`
+
 ## License
 
 `edwh` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

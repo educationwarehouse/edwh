@@ -12,16 +12,16 @@ import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
-from invoke import task, Context
+from invoke import Context, task
 from termcolor import colored
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, execution_fails, executes_correctly
+from .helpers import confirm, executes_correctly, execution_fails  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
-from .meta import self_update, plugins
+from .meta import plugins, self_update  # noqa
 
 
 def service_names(service_arg: list[str]) -> list[str]:
@@ -75,8 +75,9 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     old_path = sys.path[:]
 
     path = pathlib.Path(".").absolute()
+    success = False
     while path != path.parent:
-        sys.path = [str(path)] + old_path
+        sys.path = [str(path), *old_path]
 
         path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
         try:
@@ -85,6 +86,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
             if run_setup:
                 try:
                     local_tasks.setup(c)
+                    success = True
                     break
                 except AttributeError:
                     if hasattr(local_tasks, "setup"):
@@ -99,20 +101,21 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
             del local_tasks
         except ImportError:
             # silence this error, if the import cannot be performed, that's not a problem
-            if os.path.exists("tasks.py"):
+            if Path("tasks.py"):
                 print(f"Could not import tasks.py from {path}")
                 raise
             else:
                 continue
         finally:
             sys.path = old_path
+    return success
 
 
 _dotenv_settings = {}
 
 
 def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
-    needle = re.compile(r'# *template:')
+    needle = re.compile(r"# *template:")
 
     new_lines = []
     for line in source_lines:
@@ -125,12 +128,12 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r'^[\s]*', old) + [''])[0]
-        if not old.lstrip().startswith('#'):
+        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
+        if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
             # reconstruct the line for the yaml file
-            line = f'{indention}{new} # template: {template}'
+            line = f"{indention}{new} # template: {template}"
         new_lines.append(line)
     return new_lines
 
@@ -158,13 +161,13 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
     env = os.environ.copy()
     env |= read_dotenv(dotenv_path)
     # env_variable_re = re.compile(r'\$[A-Z0-9]')
-    with yaml_path.open(mode='r+') as yaml_file:
-        source_lines = yaml_file.read().split('\n')
+    with yaml_path.open(mode="r+") as yaml_file:
+        source_lines = yaml_file.read().split("\n")
         new_lines = _apply_env_vars_to_template(source_lines, env)
         # move filepointer to the start of the file
         yaml_file.seek(0, 0)
         # write all lines and newlines to the file
-        yaml_file.write('\n'.join(new_lines))
+        yaml_file.write("\n".join(new_lines))
         # and remove any part that might be left over (when the new file is shorter than the old one)
         yaml_file.truncate()
 
@@ -199,7 +202,12 @@ class TomlConfig:
 
         if "services" not in config:
             setup(invoke.Context())
-        for service_name in ["minimal", "services", "include_celeries_in_minimal", "log"]:
+        for service_name in [
+            "minimal",
+            "services",
+            "include_celeries_in_minimal",
+            "log",
+        ]:
             if service_name not in config["services"].keys():
                 setup(invoke.Context())
 
@@ -387,7 +395,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-    services: list, toml_contents: dict, content_key: str, content: str, default: typing.Container
+    services: list,
+    toml_contents: dict,
+    content_key: str,
+    content: str,
+    default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -409,7 +421,7 @@ def get_content_from_toml_file(
         colored(
             "NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
             "For example '1, 2, 3, 4'",
-            'green',
+            "green",
         )
     )
     if content_key == "services":
@@ -437,7 +449,7 @@ def setup_config_file(filename="config.toml"):
             config_file.close()
 
 
-def write_user_input_to_config_toml(c: Context, all_services: list):
+def write_user_input_to_config_toml(all_services: list):
     """
     write chosen user dockers to config.toml
 
@@ -504,7 +516,7 @@ def write_user_input_to_config_toml(c: Context, all_services: list):
         "new_config_toml": "will REMOVE and create a new config.toml file",
     }
 )
-def setup(c, run_local_setup=True, new_config_toml=False):
+def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -526,9 +538,27 @@ def setup(c, run_local_setup=True, new_config_toml=False):
     print("getting services...")
 
     # get and print all found docker compose services
-    services = c.run("docker-compose config --services", hide=True).stdout.split("\n")
-    write_user_input_to_config_toml(c, services)
-    exec_setup_in_other_task(c, run_local_setup)
+    try:
+        services_result = c.run("docker-compose config --services", hide=True, warn=True)
+        if (
+            services_result.stderr
+            and "The Compose file './docker-compose.yml' is invalid because" in services_result.stderr
+        ):
+            raise EnvironmentError(".env not set up")
+        services = services_result.stdout.split("\n")
+        write_user_input_to_config_toml(services)
+        exec_setup_in_other_task(c, run_local_setup)
+    except EnvironmentError:
+        # print(e, "docker-compose failed! Probably missing some .env variables.")
+        if _retry:
+            print("Even after retry, setup could not complete. Stopping now!", file=sys.stderr)
+            return
+
+        if exec_setup_in_other_task(c, run_local_setup):
+            # success!
+            setup(c, run_local_setup, new_config_toml, _retry=True)
+        else:
+            print("Local setup could not run. Stopping now!", file=sys.stderr)
 
 
 @task()
@@ -572,7 +602,7 @@ def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, d
 
 
 @task(help=dict(silent="do not echo the password"))
-def generate_password(c, silent=False):
+def generate_password(_, silent=False):
     """Generate a diceware password using --dice 6."""
     password = diceware.get_passphrase()
     if not silent:
@@ -582,7 +612,7 @@ def generate_password(c, silent=False):
 
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
-def settings(ctx, find=None):
+def settings(_, find=None):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -682,18 +712,23 @@ def ps(ctx, quiet=False, service=None):
         "debug": "Add timestamps",
         "tail": "Start with how many lines of history.",
         "service": "What services to follow. Defaults to all, can be applied multiple times. ",
+        "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
     },
 )
-def logs(ctx, follow=True, debug=False, tail=500, service=None):
+def logs(ctx, follow=True, debug=False, tail=500, service=None, sort=False):
     """Smart docker logging"""
     cmdline = ["docker-compose logs", f"--tail={tail}"]
-    if follow:
-        cmdline.append("-f")
-    if debug:
+    if sort or debug:
         # add timestamps
         cmdline.append("-t")
     if service:
         cmdline.extend(service_names(service))
+    if sort:
+        cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
+    elif follow:
+        # only allow follow is not sorting
+        cmdline.insert(2, "-f")
+
     ctx.run(" ".join(cmdline))
 
 
@@ -719,6 +754,13 @@ def down(ctx, service=None):
     """
     service = service_names(service or [])
     ctx.run(f"docker-compose down {' '.join(service)}")
+
+
+@task()
+def upgrade(ctx):
+    ctx.run("docker-compose pull")
+    stop(ctx)
+    ctx.run("docker-compose up -d")
 
 
 @task(
@@ -818,14 +860,17 @@ def docs(ctx, reinstall=False):
 
 # noinspection PyUnusedLocal
 @task()
-def zen(ctx):
+def zen(_):
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
-    import this
+    import this  # noqa
 
 
 @task()
 def whoami(ctx):
+    """
+    Debug method to determine user and host name.
+    """
     i_am = ctx.run("whoami", hide=True).stdout.strip()
     my_location = ctx.run("hostname", hide=True).stdout.strip()
     print(f"{i_am} @ {my_location}")
@@ -833,6 +878,9 @@ def whoami(ctx):
 
 @task()
 def completions(_):
+    """
+    Prints the script to enable shell completions.
+    """
     print("Put this in your .bashrc:")
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')

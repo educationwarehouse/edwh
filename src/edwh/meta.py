@@ -3,16 +3,15 @@ This files contains everything to do with meta-tasks such as self-updating
 """
 
 import concurrent.futures
-import datetime
 import sys
 import typing
 
 import requests
-from invoke import task, Context
-from packaging.version import parse as parse_package_version, InvalidVersion, Version
-from termcolor import colored
+from invoke import Context, task
+from packaging.version import InvalidVersion, Version
+from packaging.version import parse as parse_package_version
 
-PYPI_URL_PATTERN = 'https://pypi.python.org/pypi/{package}/json'
+PYPI_URL_PATTERN = "https://pypi.python.org/pypi/{package}/json"
 
 
 def _python() -> str:
@@ -33,7 +32,7 @@ def _get_pypi_info(package: str) -> dict:
     """
     Load metadata from pypi for a package
     """
-    return requests.get(PYPI_URL_PATTERN.format(package=package)).json()
+    return requests.get(PYPI_URL_PATTERN.format(package=package), timeout=10).json()
 
 
 def _get_latest_version_from_pypi(package: str) -> Version:
@@ -137,19 +136,15 @@ def plugins(c, verbose=False):
     return list_plugins(c, verbose=verbose)
 
 
-@task()
-def self_update(c):
+def _self_update(c: Context):
     """
-    Updates `edwh` and all installed plugins.
-
-    :param c: invoke ctx
-    :type c: Context
+    Wrapper for self-update that can handle type hint Context
     """
-    from .local_tasks.plugin import _plugins
+    from .local_tasks.plugin import list_installed_plugins
 
     pip_command = _pip()
 
-    edwh_packages = _plugins(c, pip_command)
+    edwh_packages = list_installed_plugins(c, pip_command)
     if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
 
@@ -174,3 +169,14 @@ def self_update(c):
     print(f"{len(success)}/{len(old_plugins)} updated successfully.")
     if failure:
         print(f"{', '.join(failure)} failed updating")
+
+
+@task()
+def self_update(c):
+    """
+    Updates `edwh` and all installed plugins.
+
+    :param c: invoke ctx
+    :type c: Context
+    """
+    return _self_update(c)
