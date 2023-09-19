@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.25.0-beta.1 (2023-09-19)
+### Feature
+* [eod] in progress logging to check why it's so slow sometimes ([`1b2945e`](https://github.com/educationwarehouse/edwh/commit/1b2945e50a4fe14f8383ab4893ae15b4baad21d5))
+
 ## v0.24.0 (2023-09-14)
 ### Feature
 * **core:** Allow --new-docker-compose to use `docker compose` instead of `docker-compose`. ([`8f6f39b`](https://github.com/educationwarehouse/edwh/commit/8f6f39bec0cbe6d986584b436b6ba0d5fe804675))
