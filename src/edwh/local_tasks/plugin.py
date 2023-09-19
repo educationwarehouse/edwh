@@ -2,7 +2,6 @@
 Extra namespace for plugin tasks such as plugin.add
 """
 import concurrent.futures
-import datetime as dt
 import concurrent.futures
 import datetime as dt
 import json
@@ -10,16 +9,13 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
-from pprint import pprint
+
 import dateutil.parser
 import requests
 import yarl
 from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored
-
-import sys
-from ..helpers import VerboseLogger, NoopLogger
 
 from ..meta import (
     Version,
@@ -39,8 +35,6 @@ def list_installed_plugins(c: Context, pip_command=None) -> list[str]:
         pip_command = _pip()
 
     return c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
-from collections import OrderedDict
-    _get_available_plugins_from_pypi,
 
 
 @dataclass
@@ -165,8 +159,6 @@ def list_plugins(c, verbose=False):
     :param verbose: should all info such as installed version always be shown?
     """
     plugins = gather_plugin_info(c)
-    logger = VerboseLogger if verbose else NoopLogger
-    log = logger().log
 
     old_plugins = []
     not_all_installed = False
@@ -450,7 +442,7 @@ def sort_and_filter_changelog(changelog: dict, since: str = None):
         elif since == "minor" and (version.minor < prev_minor or version.major < prev_major):
             break
         elif since == "patch" and (
-                version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major
+            version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major
         ):
             break
         elif since.isnumeric() and idx >= int(since):
@@ -502,9 +494,7 @@ def display_changelogs(changelogs: dict[str, OrderedDict]):
         for version, changes in history.items():
             print("-", version)
             for change_type, change_descriptions in changes.items():
-                print("--", colored(change_type,
-                                    COLORS.get(change_type.lower(), "white")
-                                    ))
+                print("--", colored(change_type, COLORS.get(change_type.lower(), "white")))
                 for change in change_descriptions:
                     print("----", colored_markdown(change))
 

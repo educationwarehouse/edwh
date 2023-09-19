@@ -41,13 +41,25 @@ class Logger(abc.ABC):
 class VerboseLogger(Logger):
     def __init__(self):
         self._then = self._now()
+        self._previous = self._now()
 
-    def _now(self):
-        return datetime.datetime.utcnow()
+    @staticmethod
+    def _now():
+        return datetime.datetime.now(datetime.timezone.utc)
 
     def log(self, *a):
-        delta = self._now() - self._then
-        print(f"[{delta}]", *a, file=sys.stderr)
+        now = self._now()
+        delta_start = now - self._then
+        delta_prev = now - self._previous
+        print(f"[{delta_start}, +{delta_prev}]", *a, file=sys.stderr)
+        self._previous = now
+
+
+# usage:
+# logger = VerboseLogger()
+# log = logger.log
+# ...
+# log("some event")
 
 
 class NoopLogger(Logger):
