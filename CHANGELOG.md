@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.25.2 (2023-09-20)
+### Fix
+* Removing test print statement. ([`d9864ec`](https://github.com/educationwarehouse/edwh/commit/d9864ecee06e212e258a28a2b2e40ed6374965dd))
+
 ## v0.25.1 (2023-09-20)
 ### Fix
 * Handle crashing plugins nicely. ([`47f7db1`](https://github.com/educationwarehouse/edwh/commit/47f7db1dcf6c88ba804d2f676be603a867065191))
