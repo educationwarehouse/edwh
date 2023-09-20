@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.25.0 (2023-09-20)
+### Feature
+* Next_value can handle more keys instead of just one. ([`5e9fe72`](https://github.com/educationwarehouse/edwh/commit/5e9fe72556c464420181186af92c8b25bfa29346))
+
 ## v0.25.0-beta.1 (2023-09-19)
 ### Feature
 * [eod] in progress logging to check why it's so slow sometimes ([`1b2945e`](https://github.com/educationwarehouse/edwh/commit/1b2945e50a4fe14f8383ab4893ae15b4baad21d5))
