@@ -27,7 +27,6 @@ def include_plugins():
     try:
         for plugin in discovered_plugins:
             try:
-                print(plugin.name)
                 plugin_module = plugin.load()
             except Exception as e:
                 print(f"Error loading plugin {plugin.name}: {e}")
