@@ -19,12 +19,23 @@ collection = Collection.from_module(tasks)
 
 ### extra's tasks ###
 def include_plugins():
-    discovered_plugins = entry_points(group="edwh.tasks")
-    for plugin in discovered_plugins:
-        plugin_module = plugin.load()
-        plugin_collection = Collection.from_module(plugin_module)
-        collection.add_collection(plugin_collection, plugin.name)
+    try:
+        discovered_plugins = entry_points(group="edwh.tasks")
+    except Exception as e:
+        warnings.warn(f"Error locating plugins: {e}")
 
+    try:
+        for plugin in discovered_plugins:
+            try:
+                print(plugin.name)
+                plugin_module = plugin.load()
+            except Exception as e:
+                print(f"Error loading plugin {plugin.name}: {e}")
+                continue
+            plugin_collection = Collection.from_module(plugin_module)
+            collection.add_collection(plugin_collection, plugin.name)
+    except Exception as e:
+        warnings.warn(f"Error loading plugins: {e}")
 
 ### included 'plugins' in edwh/local_tasks ###
 def include_packaged_plugins():
