@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.26.0 (2023-09-21)
+### Feature
+* Work with `docker compose` by default ([`4da67a8`](https://github.com/educationwarehouse/edwh/commit/4da67a8f19312fa15e70ca0737318220b25d1bd3))
+
 ## v0.25.2 (2023-09-20)
 ### Fix
 * Removing test print statement. ([`d9864ec`](https://github.com/educationwarehouse/edwh/commit/d9864ecee06e212e258a28a2b2e40ed6374965dd))
