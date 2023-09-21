@@ -1,4 +1,5 @@
 import fnmatch
+import io
 import json
 import os
 import pathlib
@@ -33,17 +34,14 @@ from .helpers import generate_password as _generate_password
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
-DOCKER_COMPOSE = "docker-compose"  # can be swapped out with `docker compose` later!
+DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 
-
-# todo: expose this logic to our plugins?
-
-def enable_new_compose(_):
-    """
-    Use `docker compose` instead of the default `docker-compose`.
-    """
-    global DOCKER_COMPOSE
-    DOCKER_COMPOSE = "docker compose"
+# def enable_new_compose(_):
+#     """
+#     Use `docker compose` instead of the default `docker-compose`.
+#     """
+#     global DOCKER_COMPOSE
+#     DOCKER_COMPOSE = "docker compose"
 
 
 def enable_old_compose(_):
@@ -54,7 +52,7 @@ def enable_old_compose(_):
     DOCKER_COMPOSE = "docker-compose"
 
 
-add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
+# add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
 add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
 
 
@@ -643,9 +641,10 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     print("getting services...")
 
-    # get and print all found docker compose services
-    with dc_path.open("r") as dc_file:
-        docker_compose = yaml.safe_load(dc_file)
+    # run `docker compose config` to build a yaml with all processing done, include statements included.
+    processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
+    # mimic a file to load the yaml from
+    docker_compose = yaml.safe_load(io.StringIO(processed_config))
 
     services: dict[str, typing.Any] = docker_compose["services"]
     services_no_celery = [service for service in services if "celery" not in service]
