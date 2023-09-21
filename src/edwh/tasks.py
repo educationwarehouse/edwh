@@ -820,7 +820,7 @@ def ps(ctx, quiet=False, service=None):
         quiet="Only show ids (mostly directories). Useful for scripting.",
     ),
 )
-def ls(ctx, quiet=False, service=None):
+def ls(ctx, quiet=False):
     """
     List running compose projects.
     """
