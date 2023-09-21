@@ -816,6 +816,18 @@ def ps(ctx, quiet=False, service=None):
 
 
 @task(
+    help=dict(
+        quiet="Only show ids (mostly directories). Useful for scripting.",
+    ),
+)
+def ls(ctx, quiet=False, service=None):
+    """
+    List running compose projects.
+    """
+    ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
+
+
+@task(
     aliases=("log",),
     iterable=["service"],
     help={
