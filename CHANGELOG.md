@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.0 (2023-09-21)
+### Feature
+* `docker compose ls` support, using `ew ls` or `ew ls -q` ([`1a3f73e`](https://github.com/educationwarehouse/edwh/commit/1a3f73e80ee1767579fc19c801f5e38411953871))
+
+### Fix
+* Removed an unused argument to `ew ls` ([`8d447c5`](https://github.com/educationwarehouse/edwh/commit/8d447c5ff7e5bf207ee815df1eb858d4daffed43))
+
 ## v0.26.0 (2023-09-21)
 ### Feature
 * Work with `docker compose` by default ([`4da67a8`](https://github.com/educationwarehouse/edwh/commit/4da67a8f19312fa15e70ca0737318220b25d1bd3))
