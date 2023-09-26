@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.1 (2023-09-26)
+### Fix
+* **types:** Minor changes (py.typed file + some annotations) to make type checkers a bit happier (-> work better as a library) ([`b6adf30`](https://github.com/educationwarehouse/edwh/commit/b6adf300cf11412cd5df0fe4f844d532e516611f))
+
 ## v0.27.0 (2023-09-21)
 ### Feature
 * `docker compose ls` support, using `ew ls` or `ew ls -q` ([`1a3f73e`](https://github.com/educationwarehouse/edwh/commit/1a3f73e80ee1767579fc19c801f5e38411953871))
