@@ -2,6 +2,33 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.0 (2023-09-21)
+### Feature
+* `docker compose ls` support, using `ew ls` or `ew ls -q` ([`1a3f73e`](https://github.com/educationwarehouse/edwh/commit/1a3f73e80ee1767579fc19c801f5e38411953871))
+
+### Fix
+* Removed an unused argument to `ew ls` ([`8d447c5`](https://github.com/educationwarehouse/edwh/commit/8d447c5ff7e5bf207ee815df1eb858d4daffed43))
+
+## v0.26.0 (2023-09-21)
+### Feature
+* Work with `docker compose` by default ([`4da67a8`](https://github.com/educationwarehouse/edwh/commit/4da67a8f19312fa15e70ca0737318220b25d1bd3))
+
+## v0.25.2 (2023-09-20)
+### Fix
+* Removing test print statement. ([`d9864ec`](https://github.com/educationwarehouse/edwh/commit/d9864ecee06e212e258a28a2b2e40ed6374965dd))
+
+## v0.25.1 (2023-09-20)
+### Fix
+* Handle crashing plugins nicely. ([`47f7db1`](https://github.com/educationwarehouse/edwh/commit/47f7db1dcf6c88ba804d2f676be603a867065191))
+
+## v0.25.0 (2023-09-20)
+### Feature
+* Next_value can handle more keys instead of just one. ([`5e9fe72`](https://github.com/educationwarehouse/edwh/commit/5e9fe72556c464420181186af92c8b25bfa29346))
+
+## v0.25.0-beta.1 (2023-09-19)
+### Feature
+* [eod] in progress logging to check why it's so slow sometimes ([`1b2945e`](https://github.com/educationwarehouse/edwh/commit/1b2945e50a4fe14f8383ab4893ae15b4baad21d5))
+
 ## v0.24.0 (2023-09-14)
 ### Feature
 * **core:** Allow --new-docker-compose to use `docker compose` instead of `docker-compose`. ([`8f6f39b`](https://github.com/educationwarehouse/edwh/commit/8f6f39bec0cbe6d986584b436b6ba0d5fe804675))

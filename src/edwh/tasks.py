@@ -1,4 +1,5 @@
 import fnmatch
+import io
 import json
 import os
 import pathlib
@@ -33,17 +34,14 @@ from .helpers import generate_password as _generate_password
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
-DOCKER_COMPOSE = "docker-compose"  # can be swapped out with `docker compose` later!
+DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 
-
-# todo: expose this logic to our plugins?
-
-def enable_new_compose(_):
-    """
-    Use `docker compose` instead of the default `docker-compose`.
-    """
-    global DOCKER_COMPOSE
-    DOCKER_COMPOSE = "docker compose"
+# def enable_new_compose(_):
+#     """
+#     Use `docker compose` instead of the default `docker-compose`.
+#     """
+#     global DOCKER_COMPOSE
+#     DOCKER_COMPOSE = "docker compose"
 
 
 def enable_old_compose(_):
@@ -54,7 +52,7 @@ def enable_old_compose(_):
     DOCKER_COMPOSE = "docker-compose"
 
 
-add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
+# add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
 add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
 
 
@@ -349,17 +347,17 @@ def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
 
 
 def check_env(
-    key: str,
-    default: typing.Optional[str],
-    comment: str,
-    # optionals:
-    prefix: typing.Optional[str] = None,
-    suffix: typing.Optional[str] = None,
-    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-    postfix: typing.Optional[str] = None,
-    # different config paths:
-    env_path: typing.Optional[str | Path] = None,
-    toml_path: str | Path = DEFAULT_TOML_NAME,
+        key: str,
+        default: typing.Optional[str],
+        comment: str,
+        # optionals:
+        prefix: typing.Optional[str] = None,
+        suffix: typing.Optional[str] = None,
+        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+        postfix: typing.Optional[str] = None,
+        # different config paths:
+        env_path: typing.Optional[str | Path] = None,
+        toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -495,11 +493,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-    services: list,
-    toml_contents: dict,
-    content_key: str,
-    content: str,
-    default: typing.Container,
+        services: list,
+        toml_contents: dict,
+        content_key: str,
+        content: str,
+        default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -629,9 +627,9 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     dc_path = Path("docker-compose.yml")
 
     if (
-        new_config_toml
-        and config_toml.exists()
-        and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
+            new_config_toml
+            and config_toml.exists()
+            and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
     ):
         config_toml.unlink()
 
@@ -643,9 +641,10 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     print("getting services...")
 
-    # get and print all found docker compose services
-    with dc_path.open("r") as dc_file:
-        docker_compose = yaml.safe_load(dc_file)
+    # run `docker compose config` to build a yaml with all processing done, include statements included.
+    processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
+    # mimic a file to load the yaml from
+    docker_compose = yaml.safe_load(io.StringIO(processed_config))
 
     services: dict[str, typing.Any] = docker_compose["services"]
     services_no_celery = [service for service in services if "celery" not in service]
@@ -660,7 +659,7 @@ def search_adjacent_setting(c, key, silent=False):
     Search for key in all ../*/.env files.
     """
     c: Context
-    key = key.upper()
+    key: str = key.upper()
     if not silent:
         print("search for ", key)
     envs = (pathlib.Path(c.cwd) / "..").glob("*/.env")
@@ -674,13 +673,19 @@ def search_adjacent_setting(c, key, silent=False):
     return adjacent_settings
 
 
-def next_value(c, key, lowest):
+def next_value(c: Context, key: list[str] | str, lowest, silent=True):
     """Find all other project settings using key, adding 1 to max of all values, or defaults to lowest.
 
     next_value(c, 'REDIS_PORT', 6379) -> might result 6379, or 6381 if this is the third project to be initialised
+    next_value(c, ['PGPOOL_PORT','POSTGRES_PORT','PGBOUNCER_PORT'], 5432) -> finds the next port searching for all keys.
     """
-    settings = search_adjacent_setting(c, key)
-    values = {int(v) for v in settings.values() if v}
+    keys = [key] if isinstance(key, str) else key
+    all_settings = {}
+    for key in keys:
+        settings = search_adjacent_setting(c, key, silent)
+        all_settings |= {f'{k}/{key}': v for k, v in settings.items() if v}
+        if not silent: print()
+    values = {int(v) for v in all_settings.values() if v}
     return max(values) + 1 if any(values) else lowest
 
 
@@ -763,13 +768,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-    ctx,
-    service=None,
-    build=False,
-    quickest=False,
-    stop_timeout=2,
-    tail=False,
-    clean=False,
+        ctx,
+        service=None,
+        build=False,
+        quickest=False,
+        stop_timeout=2,
+        tail=False,
+        clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -811,6 +816,18 @@ def ps(ctx, quiet=False, service=None):
 
 
 @task(
+    help=dict(
+        quiet="Only show ids (mostly directories). Useful for scripting.",
+    ),
+)
+def ls(ctx, quiet=False):
+    """
+    List running compose projects.
+    """
+    ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
+
+
+@task(
     aliases=("log",),
     iterable=["service"],
     help={
@@ -823,13 +840,13 @@ def ps(ctx, quiet=False, service=None):
     },
 )
 def logs(
-    ctx,
-    service: list[str] = None,
-    follow: bool = True,
-    debug: bool = False,
-    tail: int = 500,
-    sort: bool = False,
-    all: bool = False,
+        ctx,
+        service: list[str] = None,
+        follow: bool = True,
+        debug: bool = False,
+        tail: int = 500,
+        sort: bool = False,
+        all: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -943,9 +960,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-    ctx,
-    service=None,
-    force_rebuild=False,
+        ctx,
+        service=None,
+        force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
