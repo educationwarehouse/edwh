@@ -9,6 +9,7 @@ from invoke import Argument, Context
 
 from .extendable_fab import ExtendableFab
 
+
 # from .cli import program # <- WILL BREAK TASK DETECTION!
 
 
@@ -101,10 +102,8 @@ def add_global_flag(
     args = sys.argv
     args.pop(idx)
 
-    value: T
-    if flag_type == str:
-        value = args.pop(idx)  # idx + 1 but args was already updated
-    else:
-        value = True
+    value = typing.cast(T, # <- make type checker happy
+                        args.pop(idx) if flag_type == str else True
+                        )
 
     return callback(value)

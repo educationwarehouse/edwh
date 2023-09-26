@@ -307,7 +307,7 @@ class TomlConfig:
         return instance
 
 
-def read_dotenv(env_path: Path = None) -> dict:
+def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
     """
     Read .env file from env_path and return a dict of key/value pairs.
 
