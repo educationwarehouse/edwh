@@ -1,5 +1,6 @@
 .idea/
 *.pyc
-venv
+venv*
 dist/
 .env
+config.toml
