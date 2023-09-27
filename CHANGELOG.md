@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.2 (2023-09-27)
+### Fix
+* Exclude all directories starting with venv ([`35859be`](https://github.com/educationwarehouse/edwh/commit/35859be1c3b9dc63d4484be187e902aa3899827b))
+
 ## v0.27.2-beta.1 (2023-09-27)
 ### Fix
 * If loading dc.yml fails, still try local tasks (because that might fix it) ([`251fa53`](https://github.com/educationwarehouse/edwh/commit/251fa5333e96f7d24c72ee9a0a9ccfd464f341c3))
