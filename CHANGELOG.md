@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.2-beta.1 (2023-09-27)
+### Fix
+* If loading dc.yml fails, still try local tasks (because that might fix it) ([`251fa53`](https://github.com/educationwarehouse/edwh/commit/251fa5333e96f7d24c72ee9a0a9ccfd464f341c3))
+
 ## v0.27.1 (2023-09-26)
 ### Fix
 * **types:** Minor changes (py.typed file + some annotations) to make type checkers a bit happier (-> work better as a library) ([`b6adf30`](https://github.com/educationwarehouse/edwh/commit/b6adf300cf11412cd5df0fe4f844d532e516611f))
