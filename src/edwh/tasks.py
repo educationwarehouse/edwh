@@ -36,6 +36,7 @@ from .meta import plugins, self_update  # noqa
 
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 
+
 # def enable_new_compose(_):
 #     """
 #     Use `docker compose` instead of the default `docker-compose`.
@@ -255,7 +256,7 @@ class TomlConfig:
         dc_path = Path("docker-compose.yml")
         if not dc_path.exists():
             warnings.warn(
-                "docker-compose file is missing, toml config could not be loaded. Functionality may be limited."
+                "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited."
             )
             return None
 
@@ -641,14 +642,18 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     print("getting services...")
 
-    # run `docker compose config` to build a yaml with all processing done, include statements included.
-    processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
-    # mimic a file to load the yaml from
-    docker_compose = yaml.safe_load(io.StringIO(processed_config))
+    try:
+        # run `docker compose config` to build a yaml with all processing done, include statements included.
+        processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
+        # mimic a file to load the yaml from
+        docker_compose = yaml.safe_load(io.StringIO(processed_config))
 
-    services: dict[str, typing.Any] = docker_compose["services"]
-    services_no_celery = [service for service in services if "celery" not in service]
-    write_user_input_to_config_toml(services_no_celery)
+        services: dict[str, typing.Any] = docker_compose["services"]
+        services_no_celery = [service for service in services if "celery" not in service]
+        write_user_input_to_config_toml(services_no_celery)
+    except Exception as e:
+        warnings.warn("Something went wrong trying to create a config.toml from docker-compose.yml", source=e)
+        # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
     return True
 
@@ -683,8 +688,9 @@ def next_value(c: Context, key: list[str] | str, lowest, silent=True):
     all_settings = {}
     for key in keys:
         settings = search_adjacent_setting(c, key, silent)
-        all_settings |= {f'{k}/{key}': v for k, v in settings.items() if v}
-        if not silent: print()
+        all_settings |= {f"{k}/{key}": v for k, v in settings.items() if v}
+        if not silent:
+            print()
     values = {int(v) for v in all_settings.values() if v}
     return max(values) + 1 if any(values) else lowest
 

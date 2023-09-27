@@ -104,9 +104,7 @@ def add_global_flag(
     args = sys.argv
     args.pop(idx)
 
-    value = typing.cast(T, # <- make type checker happy
-                        args.pop(idx) if flag_type == str else True
-                        )
+    value = typing.cast(T, args.pop(idx) if flag_type == str else True)  # <- make type checker happy
 
     return callback(value)
 

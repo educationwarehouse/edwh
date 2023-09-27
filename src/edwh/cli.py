@@ -36,6 +36,7 @@ def include_plugins():
     except Exception as e:
         warnings.warn(f"Error loading plugins: {e}")
 
+
 ### included 'plugins' in edwh/local_tasks ###
 def include_packaged_plugins():
     from . import local_tasks
