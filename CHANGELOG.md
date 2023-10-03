@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.0 (2023-10-03)
+### Feature
+* Ew_self_update as a command to update self-update twice. ([`f280e82`](https://github.com/educationwarehouse/edwh/commit/f280e82328e1373e601fc2e653dff60a19555538))
+
 ## v0.28.2 (2023-10-03)
 ### Fix
 * Newer black! & DOCKER_COMPOSE variable used. ([`64152db`](https://github.com/educationwarehouse/edwh/commit/64152db642dad9ec852c06e08dcf481fa102bf31))
