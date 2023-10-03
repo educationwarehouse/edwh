@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.28.1 (2023-10-03)
+### Fix
+* Fixed ctx.run for local usage ([`9d1612a`](https://github.com/educationwarehouse/edwh/commit/9d1612a877bf559287b544be0ff8ba6e82925c22))
+
 ## v0.28.0 (2023-10-03)
 ### Feature
 * Discover added to iterate different hosts and find the services, mapped hostnames, ports, exposed ports and disk usage. ([`c6a91c7`](https://github.com/educationwarehouse/edwh/commit/c6a91c76ea6c49641f7f07dc19866077a91c0df3))
