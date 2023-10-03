@@ -4,16 +4,6 @@
 
 ## v0.29.2 (2023-10-03)
 
-
-## v0.29.2-beta.3 (2023-10-03)
-### Fix
-* **ps:** Actually add --json flag ([`a947aa0`](https://github.com/educationwarehouse/edwh/commit/a947aa0d6f63c6968fd48acc9aaf05f4d8296fb8))
-
-## v0.29.2-beta.2 (2023-10-03)
-### Fix
-* **ps:** Grab stdout of result ([`43f2dd6`](https://github.com/educationwarehouse/edwh/commit/43f2dd6f6c1415a7dfd659b293eee7e8599d25f2))
-
-## v0.29.2-beta.1 (2023-10-03)
 ### Fix
 * **ps:** Don't show all columns from docker compose ps ([`1d2bb19`](https://github.com/educationwarehouse/edwh/commit/1d2bb19b4357c6330e19f62a8a375064fcc72f06))
 
