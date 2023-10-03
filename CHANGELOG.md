@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.2-beta.1 (2023-10-03)
+### Fix
+* **ps:** Don't show all columns from docker compose ps ([`1d2bb19`](https://github.com/educationwarehouse/edwh/commit/1d2bb19b4357c6330e19f62a8a375064fcc72f06))
+
 ## v0.29.1 (2023-10-03)
 ### Fix
 * 'hide' on ctx.run because we print the result afterwards; --short option to show less info ([`ae7dcf6`](https://github.com/educationwarehouse/edwh/commit/ae7dcf69e8086744ffef959c4502b74bfca0443e))
