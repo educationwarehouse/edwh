@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.28.2 (2023-10-03)
+### Fix
+* Newer black! & DOCKER_COMPOSE variable used. ([`64152db`](https://github.com/educationwarehouse/edwh/commit/64152db642dad9ec852c06e08dcf481fa102bf31))
+
 ## v0.28.1 (2023-10-03)
 ### Fix
 * Fixed ctx.run for local usage ([`9d1612a`](https://github.com/educationwarehouse/edwh/commit/9d1612a877bf559287b544be0ff8ba6e82925c22))
