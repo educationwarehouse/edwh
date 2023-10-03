@@ -845,7 +845,7 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
     Show process status of services.
     """
     ps_output = ctx.run(
-        f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
+        f'{DOCKER_COMPOSE} ps --format json {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
     ).stdout.strip()
 
     services = []
