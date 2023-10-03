@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.1 (2023-10-03)
+### Fix
+* 'hide' on ctx.run because we print the result afterwards; --short option to show less info ([`ae7dcf6`](https://github.com/educationwarehouse/edwh/commit/ae7dcf69e8086744ffef959c4502b74bfca0443e))
+
 ## v0.29.0 (2023-10-03)
 ### Feature
 * Ew_self_update as a command to update self-update twice. ([`f280e82`](https://github.com/educationwarehouse/edwh/commit/f280e82328e1373e601fc2e653dff60a19555538))
