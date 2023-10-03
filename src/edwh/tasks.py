@@ -17,6 +17,9 @@ import yaml
 from invoke import Context, task
 from rapidfuzz import fuzz
 from termcolor import colored
+from ansi.color import fg, bg
+from ansi.color.fx import reset
+from ansi.color.fx import bold
 
 from .__about__ import __version__ as edwh_version
 
@@ -34,7 +37,9 @@ from .helpers import generate_password as _generate_password
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
-DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
+DOCKER_COMPOSE = (
+    "docker compose"  # used to be docker-compose. includes in docker-compose requires
+)
 
 
 # def enable_new_compose(_):
@@ -63,7 +68,10 @@ add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
 # add_global_flag("test", str, my_test_flag, doc="Does nothing currently.")
 
 
-def service_names(service_arg: list[str], default: typing.Literal["all", "minimal", "logs"] | None = None) -> list[str]:
+def service_names(
+    service_arg: list[str],
+    default: typing.Literal["all", "minimal", "logs"] | None = None,
+) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
 
@@ -132,7 +140,9 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
     while path != path.parent:
         sys.path = [str(path), *old_path]
 
-        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
+        path = (
+            path.parent.absolute()
+        )  # before anything that can crash, to prevent infinite loop!
         try:
             import tasks as local_tasks
 
@@ -181,7 +191,9 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
+        indention = (re.findall(r"^[\s]*", old) + [""])[
+            0
+        ]  # noqa: RUF005 would make this complex
         if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
@@ -244,7 +256,11 @@ class TomlConfig:
     # __loaded was replaced with tomlconfig_singletons
 
     @classmethod
-    def load(cls, fname: str | Path = DEFAULT_TOML_NAME, dotenv_path: typing.Optional[Path] = None):
+    def load(
+        cls,
+        fname: str | Path = DEFAULT_TOML_NAME,
+        dotenv_path: typing.Optional[Path] = None,
+    ):
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -301,7 +317,9 @@ class TomlConfig:
             celeries=celeries,
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
-            dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
+            dotenv_path=Path(
+                config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)
+            ),
         )
         return instance
 
@@ -348,17 +366,17 @@ def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        # optionals:
-        prefix: typing.Optional[str] = None,
-        suffix: typing.Optional[str] = None,
-        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-        postfix: typing.Optional[str] = None,
-        # different config paths:
-        env_path: typing.Optional[str | Path] = None,
-        toml_path: str | Path = DEFAULT_TOML_NAME,
+    key: str,
+    default: typing.Optional[str],
+    comment: str,
+    # optionals:
+    prefix: typing.Optional[str] = None,
+    suffix: typing.Optional[str] = None,
+    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+    postfix: typing.Optional[str] = None,
+    # different config paths:
+    env_path: typing.Optional[str | Path] = None,
+    toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -494,11 +512,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-        services: list,
-        toml_contents: dict,
-        content_key: str,
-        content: str,
-        default: typing.Container,
+    services: list,
+    toml_contents: dict,
+    content_key: str,
+    content: str,
+    default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -590,11 +608,17 @@ def write_user_input_to_config_toml(all_services: list):
     write_content_to_toml_file("minimal", content)
 
     # check if minimal exists if yes add celeries to services
-    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
+    if (
+        "services" not in config_toml_file
+        or "include_celeries_in_minimal" not in config_toml_file["services"]
+    ):
         # check if user wants to include celeries
         include_celeries = (
             "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
+            if input("do you want to include celeries in minimal(Y/n): ").replace(
+                " ", ""
+            )
+            in ["", "y", "Y"]
             else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
@@ -628,9 +652,12 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     dc_path = Path("docker-compose.yml")
 
     if (
-            new_config_toml
-            and config_toml.exists()
-            and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
+        new_config_toml
+        and config_toml.exists()
+        and confirm(
+            colored("Are you sure you want to remove the config.toml? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -644,15 +671,22 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     try:
         # run `docker compose config` to build a yaml with all processing done, include statements included.
-        processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
+        processed_config = c.run(
+            f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True
+        ).stdout.strip()
         # mimic a file to load the yaml from
         docker_compose = yaml.safe_load(io.StringIO(processed_config))
 
         services: dict[str, typing.Any] = docker_compose["services"]
-        services_no_celery = [service for service in services if "celery" not in service]
+        services_no_celery = [
+            service for service in services if "celery" not in service
+        ]
         write_user_input_to_config_toml(services_no_celery)
     except Exception as e:
-        warnings.warn("Something went wrong trying to create a config.toml from docker-compose.yml", source=e)
+        warnings.warn(
+            "Something went wrong trying to create a config.toml from docker-compose.yml",
+            source=e,
+        )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
     return True
@@ -695,12 +729,18 @@ def next_value(c: Context, key: list[str] | str, lowest, silent=True):
     return max(values) + 1 if any(values) else lowest
 
 
-def set_permissions(c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775) -> None:
+def set_permissions(
+    c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775
+) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    c.sudo(f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}')
+    c.sudo(
+        f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}'
+    )
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
-    c.sudo(f'find "{path}" -type f -print0 | sudo xargs --no-run-if-empty -0 chmod {filepermissions}')
+    c.sudo(
+        f'find "{path}" -type f -print0 | sudo xargs --no-run-if-empty -0 chmod {filepermissions}'
+    )
     # simply apply new ownership to each and every directory
     c.sudo(f'chown -R {uid}:{gid} "{path}" ')
 
@@ -731,8 +771,12 @@ def settings(_, find=None, fuzz_threshold=75):
     else:
         find = find.upper()
         # if nothing found exactly, try again but fuzzy (could be slower)
-        rows = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
-            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
+        rows = [
+            (k, v) for k, v in all_settings if find in k.upper() or find in v.upper()
+        ] or [
+            (k, v)
+            for k, v in all_settings
+            if fuzzy_match(k.upper(), find) > fuzz_threshold
         ]
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
@@ -745,14 +789,20 @@ def volumes(ctx):
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
     lines = []
-    for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
+    for container_id in (
+        ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True)
+        .stdout.strip()
+        .split("\n")
+    ):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
             info = json.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
-                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
+                for volume in [
+                    _["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"
+                ]
             )
         else:
             print(ran.stderr)
@@ -764,7 +814,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -774,13 +824,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -797,7 +847,9 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(
+            f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}"
+        )
     if "py4web" in services_ls:
         ctx.run(
             f"{DOCKER_COMPOSE} run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
@@ -818,7 +870,9 @@ def ps(ctx, quiet=False, service=None):
     """
     Show process status of services.
     """
-    ctx.run(f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ctx.run(
+        f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}'
+    )
 
 
 @task(
@@ -846,13 +900,13 @@ def ls(ctx, quiet=False):
     },
 )
 def logs(
-        ctx,
-        service: list[str] = None,
-        follow: bool = True,
-        debug: bool = False,
-        tail: int = 500,
-        sort: bool = False,
-        all: bool = False,
+    ctx,
+    service: list[str] = None,
+    follow: bool = True,
+    debug: bool = False,
+    tail: int = 500,
+    sort: bool = False,
+    all: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -877,7 +931,9 @@ def logs(
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def stop(ctx, service=None):
     """
@@ -889,7 +945,9 @@ def stop(ctx, service=None):
 
 @task(
     iterable=["service"],
-    help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    help=dict(
+        service="Service to stop, can be used multiple times, handles wildcards."
+    ),
 )
 def down(ctx, service=None):
     """
@@ -912,7 +970,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -931,7 +989,9 @@ def build(ctx, yes=False):
         pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
         with_compile = True
     except ImportError:
-        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
+        print(
+            "`edwh-pipcompile-plugin` not found, unable to compile requirements.in files."
+        )
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
@@ -947,14 +1007,18 @@ def build(ctx, yes=False):
                 f"{idx}/{len(reqs)}: working on {req}",
             )
             if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
+                print(
+                    "outdated" if reqtxt.exists() else "requirements.txt doesn't exist."
+                )
                 if yes or confirm(f"recompile {req}? [Yn]", default=True):
                     pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
+    if yes or (
+        not with_compile and confirm("Build docker images? [yN]", default=False)
+    ):
         ctx.run(f"{DOCKER_COMPOSE} build")
 
 
@@ -966,9 +1030,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -977,7 +1041,10 @@ def rebuild(
         service = []
     ctx.run(f"{DOCKER_COMPOSE} down")
     services = service_names(service)
-    ctx.run(f"{DOCKER_COMPOSE} build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+    ctx.run(
+        f"{DOCKER_COMPOSE} build {'--no-cache' if force_rebuild else ''} "
+        + " ".join(services)
+    )
 
 
 @task()
@@ -1042,4 +1109,107 @@ def version(ctx):
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
 
+
 # for meta tasks such as `plugins` and `self-update`, see meta.py
+
+
+@task(
+    help={
+        "du": "Show disk usage per folder",
+        "exposes": "Show exposed ports",
+        "ports": "Show ports",
+        "host_labels": "Show host clauses from traefik labels",
+    }
+)
+def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
+    """Discover docker environments per host.
+
+    Use ansi2txt to save readable output to a file.
+    """
+
+    def indent(text, prefix="  "):
+        return prefix + text
+
+    def dedent(text, prefix="  "):
+        return text.replace(prefix, "", 1)
+
+    print(f"{bold}", ctx.host, reset)
+    i = indent("")
+    compose_file_paths = (
+        ctx.run(
+            "find */docker-compose.yaml */docker-compose.yml",
+            echo=False,
+            hide=True,
+            warn=True,
+        )
+        .stdout.strip()
+        .split("\n")
+    )
+    for compose_file_path in compose_file_paths:
+        folder = compose_file_path.split("/")[0]
+        with ctx.cd(folder):
+            # get the 2nd value of the 3rd line of the output
+            hosting_domain = ctx.run(
+                "cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True
+            ).stdout.strip()
+            hosting_domain = (
+                hosting_domain.strip().split("=")[-1] if hosting_domain else ""
+            )
+            print(
+                i,
+                f"{fg.brightblue}{folder}{reset}",
+                f"{fg.brightyellow}{hosting_domain}",
+                reset,
+            )
+            i = indent(i)
+            config = yaml.load(
+                ctx.run(
+                    "docker-compose config", warn=True, echo=False, hide=True
+                ).stdout.strip(),
+                Loader=yaml.SafeLoader,
+            )
+            if config is None:
+                continue
+            if du:
+                usage = ctx.run("du -sh .", echo=False, hide=True).stdout.strip()
+                print(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
+            for name, service in config.get("services", {}).items():
+                i = indent(i)
+                print(f"{i}{fg.green}{name}{reset}")
+                i = indent(i)
+                if exposes:
+                    if _exposes := service.get("expose", ""):
+                        print(
+                            f"{i}{fg.boldred}Exposes",
+                            ", ".join([str(port) for port in _exposes]),
+                            reset,
+                        )
+                if ports:
+                    _ports = service.get("ports", [])
+                    if ports:
+                        print(
+                            f"{i}{fg.boldred}Ports:"
+                            + ", ".join([str(port) for port in _ports])
+                            if _ports
+                            else "",
+                            reset,
+                        )
+
+                if host_labels:
+                    strip_host = lambda s: re.findall(r"`(.*?)`", s.strip())[0]
+                    darken_domain = lambda s: s.replace(
+                        hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}"
+                    )
+                    for label, value in (labels := service.get("labels", {})).items():
+                        if "Host" in value:
+                            if "||" in value:
+                                for host in value.split("||"):
+                                    print(f"{i}{darken_domain(strip_host(host))}")
+                            else:
+                                print(f"{i}{darken_domain(strip_host(value))}")
+                print(reset, end="")
+                i = dedent(i)
+                if labels:
+                    print()
+                i = dedent(i)
+            i = dedent(i)
