@@ -1151,3 +1151,10 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
                     print()
                 i = dedent(i)
             i = dedent(i)
+
+
+@task
+def ew_self_update(ctx):
+    """Update edwh to the latest version."""
+    ctx.run("~/.local/bin/edwh self-update")
+    ctx.run("~/.local/bin/edwh self-update")
