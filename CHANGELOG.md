@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.2 (2023-10-03)
+
+
 ## v0.29.2-beta.3 (2023-10-03)
 ### Fix
 * **ps:** Actually add --json flag ([`a947aa0`](https://github.com/educationwarehouse/edwh/commit/a947aa0d6f63c6968fd48acc9aaf05f4d8296fb8))
