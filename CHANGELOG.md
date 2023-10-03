@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.28.0 (2023-10-03)
+### Feature
+* Discover added to iterate different hosts and find the services, mapped hostnames, ports, exposed ports and disk usage. ([`c6a91c7`](https://github.com/educationwarehouse/edwh/commit/c6a91c76ea6c49641f7f07dc19866077a91c0df3))
+
 ## v0.27.2 (2023-09-27)
 ### Fix
 * Exclude all directories starting with venv ([`35859be`](https://github.com/educationwarehouse/edwh/commit/35859be1c3b9dc63d4484be187e902aa3899827b))
