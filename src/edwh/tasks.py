@@ -22,6 +22,7 @@ from rapidfuzz import fuzz
 from termcolor import colored
 
 from .__about__ import __version__ as edwh_version
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa
@@ -31,6 +32,7 @@ from .helpers import (  # noqa
     execution_fails,
 )
 from .helpers import generate_password as _generate_password
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
@@ -844,7 +846,7 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
     """
     ps_output = ctx.run(
         f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
-    )
+    ).stdout.strip()
 
     services = []
 
