@@ -14,15 +14,14 @@ import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
+from ansi.color import fg
+from ansi.color.fx import bold
+from ansi.color.fx import reset
 from invoke import Context, task
 from rapidfuzz import fuzz
 from termcolor import colored
-from ansi.color import fg, bg
-from ansi.color.fx import reset
-from ansi.color.fx import bold
 
 from .__about__ import __version__ as edwh_version
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa
@@ -32,7 +31,6 @@ from .helpers import (  # noqa
     execution_fails,
 )
 from .helpers import generate_password as _generate_password
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
@@ -823,18 +821,50 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
+def shorten(text: str, max_chars: int) -> str:
+    # textwrap looks at words and stuff, not relevant for commands!
+    if len(text) <= max_chars:
+        return text
+    else:
+        return f"{text[:max_chars]}..."
+
+
 @task(
-    iterable=["service"],
+    iterable=["service", "columns"],
     help=dict(
         service="Service to query, can be used multiple times, handles wildcards.",
         quiet="Only show container ids. Useful for scripting.",
+        columns="Which columns to display?",
+        full_command="Don't truncate the command.",
     ),
 )
-def ps(ctx, quiet=False, service=None):
+def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
     """
     Show process status of services.
     """
-    ctx.run(f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ps_output = ctx.run(
+        f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
+    )
+
+    services = []
+
+    # list because it's ordered
+    selected_columns = columns or ["Name", "Command", "State", "Ports"]
+
+    for service_json in ps_output.split("\n"):
+        if not service_json:
+            # empty line
+            continue
+
+        service = json.loads(service_json)
+        service = {k: v for k, v in service.items() if k in selected_columns}
+        if not full_command:
+            service["Command"] = shorten(service["Command"], 50)
+
+        service = dict(sorted(service.items(), key=lambda x: selected_columns.index(x[0])))
+        services.append(service)
+
+    print(tabulate.tabulate(services, headers="keys"))
 
 
 @task(
