@@ -1070,7 +1070,7 @@ def version(ctx):
         "host_labels": "Show host clauses from traefik labels",
     }
 )
-def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
+def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=False):
     """Discover docker environments per host.
 
     Use ansi2txt to save readable output to a file.
@@ -1082,7 +1082,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
     def dedent(text, prefix="  "):
         return text.replace(prefix, "", 1)
 
-    print(f"{bold}", ctx.run("hostname").stdout.strip(), reset)
+    print(f"{bold}", ctx.run("hostname", hide=True).stdout.strip(), reset)
     i = indent("")
     compose_file_paths = (
         ctx.run(
@@ -1106,6 +1106,11 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
                 f"{fg.brightyellow}{hosting_domain}",
                 reset,
             )
+
+            if short:
+                # only show the basic info, don't load the rest.
+                continue
+
             i = indent(i)
             config = yaml.load(
                 ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
