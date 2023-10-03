@@ -1133,7 +1133,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True):
     def dedent(text, prefix="  "):
         return text.replace(prefix, "", 1)
 
-    print(f"{bold}", ctx.host, reset)
+    print(f"{bold}", ctx.run("hostname").stdout.strip(), reset)
     i = indent("")
     compose_file_paths = (
         ctx.run(
