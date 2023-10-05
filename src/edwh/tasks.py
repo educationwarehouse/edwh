@@ -14,6 +14,9 @@ import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
+from ansi.color import fg
+from ansi.color.fx import bold
+from ansi.color.fx import reset
 from invoke import Context, task
 from rapidfuzz import fuzz
 from termcolor import colored
@@ -63,7 +66,10 @@ add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
 # add_global_flag("test", str, my_test_flag, doc="Does nothing currently.")
 
 
-def service_names(service_arg: list[str], default: typing.Literal["all", "minimal", "logs"] | None = None) -> list[str]:
+def service_names(
+    service_arg: list[str],
+    default: typing.Literal["all", "minimal", "logs"] | None = None,
+) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
 
@@ -244,7 +250,11 @@ class TomlConfig:
     # __loaded was replaced with tomlconfig_singletons
 
     @classmethod
-    def load(cls, fname: str | Path = DEFAULT_TOML_NAME, dotenv_path: typing.Optional[Path] = None):
+    def load(
+        cls,
+        fname: str | Path = DEFAULT_TOML_NAME,
+        dotenv_path: typing.Optional[Path] = None,
+    ):
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -644,7 +654,10 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     if (
         new_config_toml
         and config_toml.exists()
-        and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
+        and confirm(
+            colored("Are you sure you want to remove the config.toml? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -664,7 +677,10 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         services_no_celery = [service for service in services if "celery" not in service]
         write_user_input_to_config_toml(services_no_celery)
     except Exception as e:
-        warnings.warn("Something went wrong trying to create a config.toml from docker-compose.yml", source=e)
+        warnings.warn(
+            "Something went wrong trying to create a config.toml from docker-compose.yml",
+            source=e,
+        )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
     return True
@@ -819,18 +835,50 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
+def shorten(text: str, max_chars: int) -> str:
+    # textwrap looks at words and stuff, not relevant for commands!
+    if len(text) <= max_chars:
+        return text
+    else:
+        return f"{text[:max_chars]}..."
+
+
 @task(
-    iterable=["service"],
+    iterable=["service", "columns"],
     help=dict(
         service="Service to query, can be used multiple times, handles wildcards.",
         quiet="Only show container ids. Useful for scripting.",
+        columns="Which columns to display?",
+        full_command="Don't truncate the command.",
     ),
 )
-def ps(ctx, quiet=False, service=None):
+def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
     """
     Show process status of services.
     """
-    ctx.run(f'{DOCKER_COMPOSE} ps {"-q" if quiet else ""} {" ".join(service_names(service or []))}')
+    ps_output = ctx.run(
+        f'{DOCKER_COMPOSE} ps --format json {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
+    ).stdout.strip()
+
+    services = []
+
+    # list because it's ordered
+    selected_columns = columns or ["Name", "Command", "State", "Ports"]
+
+    for service_json in ps_output.split("\n"):
+        if not service_json:
+            # empty line
+            continue
+
+        service = json.loads(service_json)
+        service = {k: v for k, v in service.items() if k in selected_columns}
+        if not full_command:
+            service["Command"] = shorten(service["Command"], 50)
+
+        service = dict(sorted(service.items(), key=lambda x: selected_columns.index(x[0])))
+        services.append(service)
+
+    print(tabulate.tabulate(services, headers="keys"))
 
 
 @task(
@@ -1056,3 +1104,106 @@ def version(ctx):
 
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
+
+
+@task(
+    help={
+        "du": "Show disk usage per folder",
+        "exposes": "Show exposed ports",
+        "ports": "Show ports",
+        "host_labels": "Show host clauses from traefik labels",
+    }
+)
+def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=False):
+    """Discover docker environments per host.
+
+    Use ansi2txt to save readable output to a file.
+    """
+
+    def indent(text, prefix="  "):
+        return prefix + text
+
+    def dedent(text, prefix="  "):
+        return text.replace(prefix, "", 1)
+
+    print(f"{bold}", ctx.run("hostname", hide=True).stdout.strip(), reset)
+    i = indent("")
+    compose_file_paths = (
+        ctx.run(
+            "find */docker-compose.yaml */docker-compose.yml",
+            echo=False,
+            hide=True,
+            warn=True,
+        )
+        .stdout.strip()
+        .split("\n")
+    )
+    for compose_file_path in compose_file_paths:
+        folder = compose_file_path.split("/")[0]
+        with ctx.cd(folder):
+            # get the 2nd value of the 3rd line of the output
+            hosting_domain = ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
+            hosting_domain = hosting_domain.strip().split("=")[-1] if hosting_domain else ""
+            print(
+                i,
+                f"{fg.brightblue}{folder}{reset}",
+                f"{fg.brightyellow}{hosting_domain}",
+                reset,
+            )
+
+            if short:
+                # only show the basic info, don't load the rest.
+                continue
+
+            i = indent(i)
+            config = yaml.load(
+                ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+                Loader=yaml.SafeLoader,
+            )
+            if config is None:
+                continue
+            if du:
+                usage = ctx.run("du -sh .", echo=False, hide=True).stdout.strip()
+                print(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
+            for name, service in config.get("services", {}).items():
+                i = indent(i)
+                print(f"{i}{fg.green}{name}{reset}")
+                i = indent(i)
+                if exposes:
+                    if _exposes := service.get("expose", ""):
+                        print(
+                            f"{i}{fg.boldred}Exposes",
+                            ", ".join([str(port) for port in _exposes]),
+                            reset,
+                        )
+                if ports:
+                    _ports = service.get("ports", [])
+                    if ports:
+                        print(
+                            f"{i}{fg.boldred}Ports:" + ", ".join([str(port) for port in _ports]) if _ports else "",
+                            reset,
+                        )
+
+                if host_labels:
+                    strip_host = lambda s: re.findall(r"`(.*?)`", s.strip())[0]
+                    darken_domain = lambda s: s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
+                    for label, value in (labels := service.get("labels", {})).items():
+                        if "Host" in value:
+                            if "||" in value:
+                                for host in value.split("||"):
+                                    print(f"{i}{darken_domain(strip_host(host))}")
+                            else:
+                                print(f"{i}{darken_domain(strip_host(value))}")
+                print(reset, end="")
+                i = dedent(i)
+                if labels:
+                    print()
+                i = dedent(i)
+            i = dedent(i)
+
+
+@task
+def ew_self_update(ctx):
+    """Update edwh to the latest version."""
+    ctx.run("~/.local/bin/edwh self-update")
+    ctx.run("~/.local/bin/edwh self-update")

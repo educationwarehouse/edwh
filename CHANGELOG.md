@@ -6,6 +6,31 @@
 ### Fix
 * **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
 
+## v0.29.2 (2023-10-03)
+
+### Fix
+* **ps:** Don't show all columns from docker compose ps ([`1d2bb19`](https://github.com/educationwarehouse/edwh/commit/1d2bb19b4357c6330e19f62a8a375064fcc72f06))
+
+## v0.29.1 (2023-10-03)
+### Fix
+* 'hide' on ctx.run because we print the result afterwards; --short option to show less info ([`ae7dcf6`](https://github.com/educationwarehouse/edwh/commit/ae7dcf69e8086744ffef959c4502b74bfca0443e))
+
+## v0.29.0 (2023-10-03)
+### Feature
+* Ew_self_update as a command to update self-update twice. ([`f280e82`](https://github.com/educationwarehouse/edwh/commit/f280e82328e1373e601fc2e653dff60a19555538))
+
+## v0.28.2 (2023-10-03)
+### Fix
+* Newer black! & DOCKER_COMPOSE variable used. ([`64152db`](https://github.com/educationwarehouse/edwh/commit/64152db642dad9ec852c06e08dcf481fa102bf31))
+
+## v0.28.1 (2023-10-03)
+### Fix
+* Fixed ctx.run for local usage ([`9d1612a`](https://github.com/educationwarehouse/edwh/commit/9d1612a877bf559287b544be0ff8ba6e82925c22))
+
+## v0.28.0 (2023-10-03)
+### Feature
+* Discover added to iterate different hosts and find the services, mapped hostnames, ports, exposed ports and disk usage. ([`c6a91c7`](https://github.com/educationwarehouse/edwh/commit/c6a91c76ea6c49641f7f07dc19866077a91c0df3))
+
 ## v0.27.2 (2023-09-27)
 ### Fix
 * Exclude all directories starting with venv ([`35859be`](https://github.com/educationwarehouse/edwh/commit/35859be1c3b9dc63d4484be187e902aa3899827b))
