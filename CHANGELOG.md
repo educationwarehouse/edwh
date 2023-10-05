@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.3 (2023-10-05)
+
+
 ## v0.29.3-beta.1 (2023-10-05)
 ### Fix
 * **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
