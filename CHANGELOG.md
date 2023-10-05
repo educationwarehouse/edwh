@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.27.3-beta.1 (2023-10-05)
+### Fix
+* **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
+
 ## v0.27.2 (2023-09-27)
 ### Fix
 * Exclude all directories starting with venv ([`35859be`](https://github.com/educationwarehouse/edwh/commit/35859be1c3b9dc63d4484be187e902aa3899827b))
