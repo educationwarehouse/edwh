@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.3-beta.1 (2023-10-05)
+### Fix
+* **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
+
+### Documentation
+* **changelog:** Remove prerelease changes and merge them to 0.29.2 ([`fef301e`](https://github.com/educationwarehouse/edwh/commit/fef301e6c94774fcab67dbc07e7e611589b9f3c6))
+
 ## v0.27.3-beta.1 (2023-10-05)
 ### Fix
 * **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
