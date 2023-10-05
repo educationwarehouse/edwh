@@ -283,9 +283,9 @@ class TomlConfig:
                 setup(invoke.Context())
 
         if config["services"]["services"] == "discover":
-            with dc_path.open("r") as compose:
-                compose = yaml.load(compose, yaml.SafeLoader)
-                all_services = compose["services"].keys()
+            compose = load_dockercompose_with_includes(dc_path=dc_path)
+
+            all_services = compose["services"].keys()
         else:
             all_services = config["services"]["services"]
 
@@ -348,17 +348,17 @@ def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        # optionals:
-        prefix: typing.Optional[str] = None,
-        suffix: typing.Optional[str] = None,
-        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-        postfix: typing.Optional[str] = None,
-        # different config paths:
-        env_path: typing.Optional[str | Path] = None,
-        toml_path: str | Path = DEFAULT_TOML_NAME,
+    key: str,
+    default: typing.Optional[str],
+    comment: str,
+    # optionals:
+    prefix: typing.Optional[str] = None,
+    suffix: typing.Optional[str] = None,
+    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+    postfix: typing.Optional[str] = None,
+    # different config paths:
+    env_path: typing.Optional[str | Path] = None,
+    toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -494,11 +494,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-        services: list,
-        toml_contents: dict,
-        content_key: str,
-        content: str,
-        default: typing.Container,
+    services: list,
+    toml_contents: dict,
+    content_key: str,
+    content: str,
+    default: typing.Container,
 ):
     """
     Gets content from a TOML file.
@@ -609,6 +609,20 @@ def write_user_input_to_config_toml(all_services: list):
     write_content_to_toml_file("log", content)
 
 
+def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "docker-compose.yml"):
+    """
+    Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
+
+    This function uses the `docker compose config` command to properly load the entire config with all enabled services.
+    """
+    if not c:
+        c = Context()
+
+    processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
+    # mimic a file to load the yaml from
+    return yaml.safe_load(io.StringIO(processed_config))
+
+
 @task(
     help={
         "run_local_setup": "executes local_tasks setup(default is True)",
@@ -628,9 +642,9 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     dc_path = Path("docker-compose.yml")
 
     if (
-            new_config_toml
-            and config_toml.exists()
-            and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
+        new_config_toml
+        and config_toml.exists()
+        and confirm(colored("Are you sure you want to remove the config.toml? [yN]", "red"), default=False)
     ):
         config_toml.unlink()
 
@@ -644,9 +658,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     try:
         # run `docker compose config` to build a yaml with all processing done, include statements included.
-        processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
-        # mimic a file to load the yaml from
-        docker_compose = yaml.safe_load(io.StringIO(processed_config))
+        docker_compose = load_dockercompose_with_includes(c, dc_path)
 
         services: dict[str, typing.Any] = docker_compose["services"]
         services_no_celery = [service for service in services if "celery" not in service]
@@ -764,7 +776,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -774,13 +786,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -846,13 +858,13 @@ def ls(ctx, quiet=False):
     },
 )
 def logs(
-        ctx,
-        service: list[str] = None,
-        follow: bool = True,
-        debug: bool = False,
-        tail: int = 500,
-        sort: bool = False,
-        all: bool = False,
+    ctx,
+    service: list[str] = None,
+    follow: bool = True,
+    debug: bool = False,
+    tail: int = 500,
+    sort: bool = False,
+    all: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -912,7 +924,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -966,9 +978,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -1041,5 +1053,6 @@ def version(ctx):
     print("edwh version", edwh_version)
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
+
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
