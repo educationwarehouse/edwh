@@ -379,7 +379,7 @@ def check_env(
         env_path.parent.mkdir(parents=True, exist_ok=True)
         env_path.touch()
 
-    config = TomlConfig.load(toml_path, env_path)
+    # config = TomlConfig.load(toml_path, env_path)
     env = read_dotenv(env_path)
 
     if key in env:
@@ -393,7 +393,7 @@ def check_env(
 
     suffix = suffix or postfix
 
-    with config.dotenv_path.open(mode="r+") as env_file:
+    with env_path.open(mode="r+") as env_file:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default
         if prefix:
