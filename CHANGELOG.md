@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.4 (2023-10-24)
+### Fix
+* **setup:** Hopefully no more infinite loop when calling `ew setup` in a newly installed omgeving ([`aa64c1c`](https://github.com/educationwarehouse/edwh/commit/aa64c1c5ec49fdc574b4ed46b17e88136a99ad2a))
+
+### Documentation
+* **changelog:** Prerelease changes onder patch release gezet ([`006358f`](https://github.com/educationwarehouse/edwh/commit/006358fd6964a4a4f0ee0965e5c54f82ab6f5bed))
+
 ## v0.29.3 (2023-10-05)
 ### Fix
 * **dc:** Replace yaml.load(docker-compose.yml) with `docker compose config` to properly handle includes ([`8311aa4`](https://github.com/educationwarehouse/edwh/commit/8311aa4dd0c0085c122911bcf53c8cbc4deba40c))
