@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.5 (2023-10-27)
+### Fix
+* Removed add_global_flag because it breaks normal flags ([`f1fcda6`](https://github.com/educationwarehouse/edwh/commit/f1fcda6a1c8b13ff360b10bbc24e0f455692e129))
+
 ## v0.29.4 (2023-10-24)
 ### Fix
 * **setup:** Hopefully no more infinite loop when calling `ew setup` in a newly installed omgeving ([`aa64c1c`](https://github.com/educationwarehouse/edwh/commit/aa64c1c5ec49fdc574b4ed46b17e88136a99ad2a))
