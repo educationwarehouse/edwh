@@ -15,8 +15,7 @@ import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from ansi.color import fg
-from ansi.color.fx import bold
-from ansi.color.fx import reset
+from ansi.color.fx import bold, reset
 from invoke import Context, task
 from rapidfuzz import fuzz
 from termcolor import colored
@@ -38,32 +37,6 @@ from .helpers import generate_password as _generate_password
 from .meta import plugins, self_update  # noqa
 
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
-
-
-# def enable_new_compose(_):
-#     """
-#     Use `docker compose` instead of the default `docker-compose`.
-#     """
-#     global DOCKER_COMPOSE
-#     DOCKER_COMPOSE = "docker compose"
-
-
-def enable_old_compose(_):
-    """
-    Explicitly use `docker-compose`.
-    """
-    global DOCKER_COMPOSE
-    DOCKER_COMPOSE = "docker-compose"
-
-
-# add_global_flag(("--new-compose", "-n"), bool, enable_new_compose)
-add_global_flag(("--old-compose", "-o"), bool, enable_old_compose)
-
-
-### STRING CORE ARG EXAMPLE:
-# def my_test_flag(value: str):
-#     print(f"`--test {value}` passed")
-# add_global_flag("test", str, my_test_flag, doc="Does nothing currently.")
 
 
 def service_names(
