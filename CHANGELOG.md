@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.29.6 (2023-10-27)
+### Fix
+* Remove add_global_flag pt2 ([`b8e7648`](https://github.com/educationwarehouse/edwh/commit/b8e764891c9938c9a8f399597b5bd3ebae6f6c86))
+
 ## v0.29.5 (2023-10-27)
 ### Fix
 * Removed add_global_flag because it breaks normal flags ([`f1fcda6`](https://github.com/educationwarehouse/edwh/commit/f1fcda6a1c8b13ff360b10bbc24e0f455692e129))
