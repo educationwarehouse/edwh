@@ -1,4 +1,6 @@
+import glob
 import importlib
+import importlib.util
 import os
 import pathlib
 import sys
@@ -6,7 +8,7 @@ import warnings
 from importlib.metadata import entry_points
 
 from fabric import Config, Executor
-from invoke import Argument, Collection
+from invoke import Collection
 
 from . import tasks
 from .__about__ import __version__
@@ -23,6 +25,7 @@ def include_plugins():
         discovered_plugins = entry_points(group="edwh.tasks")
     except Exception as e:
         warnings.warn(f"Error locating plugins: {e}")
+        return
 
     try:
         for plugin in discovered_plugins:
@@ -31,6 +34,7 @@ def include_plugins():
             except Exception as e:
                 print(f"Error loading plugin {plugin.name}: {e}")
                 continue
+
             plugin_collection = Collection.from_module(plugin_module)
             collection.add_collection(plugin_collection, plugin.name)
     except Exception as e:
@@ -75,9 +79,26 @@ def include_cwd_tasks():
     sys.path = old_path
 
 
-include_plugins()
-include_packaged_plugins()
-include_cwd_tasks()
+def include_other_project_tasks():
+    for file in glob.glob("*.tasks.py"):
+        namespace = file.split(".")[0]
+
+        spec = importlib.util.spec_from_file_location(
+            name=namespace,  # note that ".test" is not a valid module name
+            location=file,
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # module = importlib.import_module(file, package="edwh")
+        plugin_collection = Collection.from_module(module)
+        collection.add_collection(plugin_collection, namespace)
+
+
+include_plugins()  # pip plugins
+include_packaged_plugins()  # from src.edwh.local_tasks
+include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
+include_other_project_tasks()  # *.tasks.py in current project
 
 program = ExtendableFab(
     executor_class=Executor,

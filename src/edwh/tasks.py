@@ -24,11 +24,7 @@ from .__about__ import __version__ as edwh_version
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import (  # noqa
-    confirm,
-    executes_correctly,
-    execution_fails,
-)
+from .helpers import confirm, executes_correctly, execution_fails  # noqa
 from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
