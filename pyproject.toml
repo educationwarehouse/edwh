@@ -69,6 +69,7 @@ plugins = [
     'edwh-locust-plugin',
     'edwh-sshfs-plugin',
     'edwh-files-plugin',
+    'edwh-whitelabel-plugin',
 ]
 
 server-provisioning = [
@@ -117,6 +118,10 @@ sshfs = [
 
 files = [
     'edwh-files-plugin'
+]
+
+whitelabel = [
+    'edwh-whitelabel-plugin'
 ]
 
 [project.scripts]
