@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.30.1 (2023-10-31)
+### Documentation
+* **pyproject:** Added whitelabel plugin as extra's ([`b4d493d`](https://github.com/educationwarehouse/edwh/commit/b4d493dca510dd38a8dd48cbfd02c32d68114708))
+
 ## v0.30.0 (2023-10-31)
 ### Feature
 * Local tasks in the format `namespace.tasks.py` are now also loaded ([`3e0fdd8`](https://github.com/educationwarehouse/edwh/commit/3e0fdd8b87e4c4416c40116feb2457c37f15ec3c))
