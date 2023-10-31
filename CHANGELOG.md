@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.30.0 (2023-10-31)
+### Feature
+* Local tasks in the format `namespace.tasks.py` are now also loaded ([`3e0fdd8`](https://github.com/educationwarehouse/edwh/commit/3e0fdd8b87e4c4416c40116feb2457c37f15ec3c))
+
 ## v0.29.6 (2023-10-27)
 ### Fix
 * Remove add_global_flag pt2 ([`b8e7648`](https://github.com/educationwarehouse/edwh/commit/b8e764891c9938c9a8f399597b5bd3ebae6f6c86))
