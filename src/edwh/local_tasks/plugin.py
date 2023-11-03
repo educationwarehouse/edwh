@@ -445,9 +445,9 @@ def sort_and_filter_changelog(changelog: dict, since: str = None):
             (since == "major" and version.major < prev_major)
             or (since == "minor" and (version.minor < prev_minor or version.major < prev_major))
             or (
-                since == "patch"
-                and (version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major)
-            )
+            since == "patch"
+            and (version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major)
+        )
             or (since.isnumeric() and idx >= int(since))
         ):
             break
@@ -604,20 +604,16 @@ def release(
         )
     )
 
-    #  to \d+\.\d+\.\d+.*
-
-    print(semver.stderr)
+    new_version = re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr)
 
     cprint("Starting build", "blue")
     hatch_build = c.run("hatch build -c")
 
-    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+\.tar\.gz", hatch_build.stderr)
-
-    print(pkg)
+    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+.+tar\.gz", hatch_build.stderr)
 
     if not noop:
         cprint("Starting release", "blue")
         c.run("hatch publish")
-        cprint("[tool]:[version] released!", "green")
+        cprint(f"{pkg} {new_version} released!", "green")
     else:
-        cprint("Not publishing [tool]:[version] due to --noop", "yellow")
+        cprint(f"Not publishing {pkg} {new_version} due to --noop", "yellow")
