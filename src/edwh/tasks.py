@@ -128,7 +128,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool):
             del local_tasks
         except ImportError:
             # silence this error, if the import cannot be performed, that's not a problem
-            if Path("tasks.py"):
+            if Path("tasks.py").exists():
                 print(f"Could not import tasks.py from {path}")
                 raise
             else:
