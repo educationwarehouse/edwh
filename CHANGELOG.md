@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.32.0-beta.1 (2023-11-03)
+### Feature
+* Work in progress for `plugin.release` command ([`d00cd9b`](https://github.com/educationwarehouse/edwh/commit/d00cd9b7a0f50bdb9f559e9c3a501e202a327b4e))
+
 ## v0.31.0 (2023-11-03)
 ### Feature
 * Get_task en task_for_namespace functies om makkelijk andere tasks uit te kunnen voeren (ipv zelf met imports lopen klooien) ([`0faeda5`](https://github.com/educationwarehouse/edwh/commit/0faeda55eb6274965e2f68bbc9100d36ef571e43))
