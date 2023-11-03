@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.32.0 (2023-11-03)
+### Fix
+* `ew plugin.release` now properly prints the package name and new version! ([`50159b7`](https://github.com/educationwarehouse/edwh/commit/50159b7c41fdcf8432b31d89bcb82f8eef6113fe))
+
 ## v0.32.0-beta.2 (2023-11-03)
 
 
