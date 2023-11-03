@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.31.0 (2023-11-03)
+### Feature
+* Get_task en task_for_namespace functies om makkelijk andere tasks uit te kunnen voeren (ipv zelf met imports lopen klooien) ([`0faeda5`](https://github.com/educationwarehouse/edwh/commit/0faeda55eb6274965e2f68bbc9100d36ef571e43))
+
 ## v0.30.2 (2023-11-03)
 ### Fix
 * **setup:** Don't crash if missing local tasks.py ([`0f80851`](https://github.com/educationwarehouse/edwh/commit/0f808516e4e826bd7b92aecb474397b1959f5925))
