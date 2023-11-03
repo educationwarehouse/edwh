@@ -11,6 +11,7 @@ from invoke import Argument, Context
 
 from .extendable_fab import ExtendableFab
 
+
 # from .cli import program # <- WILL BREAK TASK DETECTION!
 
 
@@ -70,6 +71,33 @@ def arg_was_passed(flag: str | tuple[str, ...]) -> typing.Optional[int]:
     flag = tuple(_add_dash(f) for f in flag)
     # flag and sys.argv should now both be in the same format: -x and --flag
     return next((i for i, item in enumerate(sys.argv) if item in flag), None)
+
+
+def kwargs_to_options(data: dict = None, **kw) -> str:
+    """
+    Convert a dictionary of options to the cli variant
+    e.g. {'a': 1, 'key': 2} -> -a 1 --key 2
+    """
+    if data:
+        kw |= data
+
+    options = []
+    for key, value in kw.items():
+        if value in (None, "", False):
+            # skip falsey, but keep 0
+            continue
+
+        pref = ("-" if len(key) == 1 else "--") + key
+
+        if isinstance(value, bool):
+            options.append(f"{pref}")
+
+        elif isinstance(value, list):
+            options.extend(f"{pref} {subvalue}" for subvalue in value)
+        else:
+            options.append(f"{pref} {value}")
+
+    return " " + " ".join(options)
 
 
 class Logger(abc.ABC):

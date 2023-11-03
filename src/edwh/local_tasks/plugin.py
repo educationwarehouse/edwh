@@ -16,6 +16,7 @@ from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 
+from .. import kwargs_to_options
 from ..meta import (
     Version,
     _gather_package_metadata_threaded,
@@ -571,3 +572,52 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
         return _changelog_specific(ctx, plugin, since, new)
     else:
         return _changelog_all(ctx, plugin, since, new)
+
+
+@task()
+def release(
+    c, noop: bool = False, major: bool = False, minor: bool = False, patch: bool = False, prerelease: bool = False
+):
+    """
+    Release a new version of a plugin.
+
+    Args:
+        c (Context)
+        noop: don't actually publish anything, just show what would happen
+        major: bump major version
+        minor: bump minor version
+        patch: bump patch version
+        prerelease: release as beta version (e.g. 1.0.0b1)
+    """
+    cprint("bumping version", "blue")
+
+    semver = c.run(
+        "semantic-release publish "
+        + kwargs_to_options(
+            {
+                "noop": noop,
+                "major": major,
+                "minor": minor,
+                "patch": patch,
+                "prerelease": prerelease,
+            }
+        )
+    )
+
+    #  to \d+\.\d+\.\d+.*
+
+    print(semver.stderr)
+
+    cprint("Starting build", "blue")
+    hatch_build = c.run("hatch build -c")
+
+    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+\.tar\.gz", hatch_build.stderr)
+
+    print(pkg)
+
+    if not noop:
+        cprint("Starting release", "blue")
+        c.run("hatch publish")
+        cprint("[tool]:[version] released!", "green")
+    else:
+        cprint("Not publishing [tool]:[version] due to --noop", "yellow")
