@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.30.2 (2023-11-03)
+### Fix
+* **setup:** Don't crash if missing local tasks.py ([`0f80851`](https://github.com/educationwarehouse/edwh/commit/0f808516e4e826bd7b92aecb474397b1959f5925))
+
 ## v0.30.1 (2023-10-31)
 ### Documentation
 * **pyproject:** Added whitelabel plugin as extra's ([`b4d493d`](https://github.com/educationwarehouse/edwh/commit/b4d493dca510dd38a8dd48cbfd02c32d68114708))
