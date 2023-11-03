@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.32.0-beta.2 (2023-11-03)
+
+
 ## v0.32.0-beta.1 (2023-11-03)
 ### Feature
 * Work in progress for `plugin.release` command ([`d00cd9b`](https://github.com/educationwarehouse/edwh/commit/d00cd9b7a0f50bdb9f559e9c3a501e202a327b4e))
