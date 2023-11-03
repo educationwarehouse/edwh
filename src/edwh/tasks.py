@@ -16,7 +16,7 @@ import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from ansi.color import fg
 from ansi.color.fx import bold, reset
-from invoke import Context, task
+from invoke import Context, task, Task
 from rapidfuzz import fuzz
 from termcolor import colored
 
@@ -94,48 +94,49 @@ def calculate_schema_hash():
     return hasher.hexdigest()
 
 
-def exec_setup_in_other_task(c: Context, run_setup: bool):
+def task_for_namespace(namespace: str, task_name: str) -> Task | None:
+    """
+    Get a task by namespace + task_name.
+
+    Example:
+        namespace: local, task_name: setup
+    """
+    from .cli import collection
+
+    if ns := collection.collections.get(namespace):
+        return ns.tasks.get(task_name)
+
+    return None
+
+
+def get_task(identifier: str) -> Task | None:
+    """
+    Get a task by the identifier you would use in the terminal.
+
+    Example:
+        local.setup
+    """
+    from .cli import collection
+
+    if "." in identifier:
+        return task_for_namespace(*identifier.split("."))
+    else:
+        return collection.tasks.get(identifier)
+
+
+def exec_setup_in_other_task(c: Context, run_setup: bool) -> bool:
     """
     Run a setup function in another task.py.
     """
-    # execute local_tasks setup
-    old_path = sys.path[:]
+    if local_setup := task_for_namespace("local", "setup"):
+        if run_setup:
+            local_setup(c)
 
-    path = pathlib.Path(".").absolute()
-    success = False
-    while path != path.parent:
-        sys.path = [str(path), *old_path]
+        return True
+    else:
+        print("No (local) setup function found in your nearest tasks.py", file=sys.stderr)
 
-        path = path.parent.absolute()  # before anything that can crash, to prevent infinite loop!
-        try:
-            import tasks as local_tasks
-
-            if run_setup:
-                try:
-                    local_tasks.setup(c)
-                    success = True
-                    break
-                except AttributeError:
-                    if hasattr(local_tasks, "setup"):
-                        # reraise because we can't handle it here, and the user should be informed fully
-                        raise
-
-                    print(
-                        "No setup function found in your nearest tasks.py",
-                        local_tasks,
-                    )
-                    break
-            del local_tasks
-        except ImportError:
-            # silence this error, if the import cannot be performed, that's not a problem
-            if Path("tasks.py").exists():
-                print(f"Could not import tasks.py from {path}")
-                raise
-            else:
-                continue
-        finally:
-            sys.path = old_path
-    return success
+    return False
 
 
 _dotenv_settings = {}

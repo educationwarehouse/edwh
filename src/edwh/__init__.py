@@ -14,4 +14,6 @@ from .tasks import (  # noqa: this exposes it as a library
     get_env_value,
     read_dotenv,
     set_env_value,
+    task_for_namespace,
+    get_task,
 )

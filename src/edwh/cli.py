@@ -16,7 +16,7 @@ from .extendable_fab import ExtendableFab  # instanceof invoke.Program
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
-collection = Collection.from_module(tasks)
+collection: Collection = Collection.from_module(tasks)
 
 
 ### extra's tasks ###
