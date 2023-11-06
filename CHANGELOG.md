@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.4 (2023-11-06)
+### Fix
+* **self-update:** Actually pass prerelease option to version checker ([`813bf7c`](https://github.com/educationwarehouse/edwh/commit/813bf7c9abb7c1221a141400bffe6ae6a2c7e2e7))
+
 ## v0.33.0-beta.3 (2023-11-06)
 ### Documentation
 * **log:** Add ycrecream and errors to help ([`50f8ebc`](https://github.com/educationwarehouse/edwh/commit/50f8ebc9401d7f5c1f634dfcc6915d5a3d0948c1))
