@@ -913,7 +913,7 @@ def logs(
             target.append("e")
 
         target = "|".join(target)
-        cmdline.append(f"grep -E ' ({target})\\|.+' --color=never")
+        cmdline.append(f"| grep -E ' ({target})\\|.+' --color=never")
         # catch y| and/or e|
         # -> grep -E ' (y|e)|\.+'
 
