@@ -17,6 +17,16 @@
 
 ```console
 pipx install edwh
+
+# or with all plugins:
+pipx install[plugins]
+# or with specific plugins: 
+pipx install[multipass,restic]
+
+# managing plugins later:
+edwh plugins
+edwh plugin.add multipass
+edwh plugin.remove multipass
 ```
 
 ## Usage
@@ -90,6 +100,12 @@ ew --help
 - github: [`educationwarehouse/edwh-files-plugin`](https://github.com/educationwarehouse/edwh-files-plugin)
 - plugin name `edwh[files]`
 - subcommand namespace `file`
+
+### whitelabel
+- pip name: [`edwh-whitelabel-plugin`](https://pypi.org/project/edwh-whitelabel-plugin)
+- github: [`educationwarehouse/edwh-whitelabel-plugin`](https://github.com/educationwarehouse/edwh-whitelabel-plugin)
+- plugin name `edwh[whitelabel]`
+- subcommand namespace `wl`
 
 ## License
 
