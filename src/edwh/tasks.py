@@ -918,11 +918,7 @@ def logs(
         # catch y| and/or e|
         # -> grep -E ' (y|e)|\.+'
 
-    cmd = " ".join(cmdline)
-    if verbose:
-        print(cmd, file=sys.stderr)
-
-    ctx.run(cmd)
+    ctx.run(" ".join(cmdline), echo=verbose, pty=True)
 
 
 @task(
