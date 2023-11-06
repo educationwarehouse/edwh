@@ -629,9 +629,9 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         new_config_toml
         and config_toml.exists()
         and confirm(
-        colored("Are you sure you want to remove the config.toml? [yN]", "red"),
-        default=False,
-    )
+            colored("Are you sure you want to remove the config.toml? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -766,7 +766,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -963,7 +963,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):

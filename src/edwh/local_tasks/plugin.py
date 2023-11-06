@@ -16,7 +16,7 @@ from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 
-from .. import kwargs_to_options
+from .. import kwargs_to_options, confirm
 from ..meta import (
     Version,
     _gather_package_metadata_threaded,
@@ -574,9 +574,21 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
         return _changelog_all(ctx, plugin, since, new)
 
 
+def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) -> str:
+    semver = c.run("semantic-release publish " + kwargs_to_options(flags), **kw)
+
+    return re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr)[0]
+
+
 @task(aliases=("publish",))
 def release(
-    c, noop: bool = False, major: bool = False, minor: bool = False, patch: bool = False, prerelease: bool = False
+    c,
+    noop: bool = False,
+    major: bool = False,
+    minor: bool = False,
+    patch: bool = False,
+    prerelease: bool = False,
+    yes: bool = False,
 ):
     """
     Release a new version of a plugin.
@@ -588,23 +600,37 @@ def release(
         minor: bump minor version
         patch: bump patch version
         prerelease: release as beta version (e.g. 1.0.0b1)
+        yes: don't ask for confirmation
     """
     cprint("bumping version", "blue")
 
-    semver = c.run(
-        "semantic-release publish "
-        + kwargs_to_options(
+    if not (yes or noop):
+        new_version = _semantic_release_publish(
+            c,
             {
-                "noop": noop,
+                "noop": True,
                 "major": major,
                 "minor": minor,
                 "patch": patch,
                 "prerelease": prerelease,
-            }
+            },
+            hide=True,
         )
-    )
 
-    new_version = re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr)
+        if not confirm(f"Are you sure you would like to release version {new_version}? [yN] ", default=False):
+            print("bye!")
+            return
+
+    new_version = _semantic_release_publish(
+        c,
+        {
+            "noop": noop,
+            "major": major,
+            "minor": minor,
+            "patch": patch,
+            "prerelease": prerelease,
+        },
+    )
 
     cprint("Starting build", "blue")
     hatch_build = c.run("hatch build -c")
