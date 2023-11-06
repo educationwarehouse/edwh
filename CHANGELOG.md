@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.3 (2023-11-06)
+### Documentation
+* **log:** Add ycrecream and errors to help ([`50f8ebc`](https://github.com/educationwarehouse/edwh/commit/50f8ebc9401d7f5c1f634dfcc6915d5a3d0948c1))
+
 ## v0.33.0-beta.2 (2023-11-06)
 ### Feature
 * **self-update:** Allow --prerelease to update to beta versions ([`54fe3bf`](https://github.com/educationwarehouse/edwh/commit/54fe3bf5fde0104833df1bda743af28423a6d124))
