@@ -167,7 +167,7 @@ def _self_update(c: Context, prerelease: bool = False):
     if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
 
-    old_plugins = _determine_outdated_threaded(edwh_packages)
+    old_plugins = _determine_outdated_threaded(edwh_packages, prerelease=prerelease)
 
     if not old_plugins:
         cprint("Nothing to update", "blue")
