@@ -886,6 +886,7 @@ def logs(
     all: bool = False,
     ycecream: bool = False,
     errors: bool = False,
+    verbose: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -917,7 +918,11 @@ def logs(
         # catch y| and/or e|
         # -> grep -E ' (y|e)|\.+'
 
-    ctx.run(" ".join(cmdline))
+    cmd = " ".join(cmdline)
+    if verbose:
+        print(cmd, file=sys.stderr)
+
+    ctx.run(cmd)
 
 
 @task(
