@@ -574,7 +574,7 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
         return _changelog_all(ctx, plugin, since, new)
 
 
-@task()
+@task(aliases=("publish",))
 def release(
     c, noop: bool = False, major: bool = False, minor: bool = False, patch: bool = False, prerelease: bool = False
 ):
