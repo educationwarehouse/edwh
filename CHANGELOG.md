@@ -3,45 +3,17 @@
 <!--next-version-placeholder-->
 
 ## v0.33.0 (2023-11-06)
-
-
-## v0.33.0-beta.7 (2023-11-06)
-
-
-## v0.33.0-beta.6 (2023-11-06)
-
-
-## v0.33.0-beta.5 (2023-11-06)
-### Fix
-* **logs:** Pipe to grep ([`8f53965`](https://github.com/educationwarehouse/edwh/commit/8f53965af583ae5ccba3b378e8c9873ded99d775))
-
-## v0.33.0-beta.4 (2023-11-06)
-### Fix
-* **self-update:** Actually pass prerelease option to version checker ([`813bf7c`](https://github.com/educationwarehouse/edwh/commit/813bf7c9abb7c1221a141400bffe6ae6a2c7e2e7))
-
-## v0.33.0-beta.3 (2023-11-06)
-### Documentation
-* **log:** Add ycrecream and errors to help ([`50f8ebc`](https://github.com/educationwarehouse/edwh/commit/50f8ebc9401d7f5c1f634dfcc6915d5a3d0948c1))
-
-## v0.33.0-beta.2 (2023-11-06)
-### Feature
-* **self-update:** Allow --prerelease to update to beta versions ([`54fe3bf`](https://github.com/educationwarehouse/edwh/commit/54fe3bf5fde0104833df1bda743af28423a6d124))
-
-## v0.33.0-beta.1 (2023-11-06)
 ### Feature
 * **plugin:** Ew plugin.publish alias for plugin.release ([`0d7ead7`](https://github.com/educationwarehouse/edwh/commit/0d7ead72edcced7b3a4965835d963644362bc48b))
-* Ew logs now accepts --errors and --ycecream to filter on y| and e| prefix ([`7209f89`](https://github.com/educationwarehouse/edwh/commit/7209f8970106e2415c5243d91aa87f7e440113cb))
+* ew logs now accepts --errors and --ycecream to filter on y| and e| prefix ([`7209f89`](https://github.com/educationwarehouse/edwh/commit/7209f8970106e2415c5243d91aa87f7e440113cb))
+* **self-update:** Allow --prerelease to update to beta versions ([`54fe3bf`](https://github.com/educationwarehouse/edwh/commit/54fe3bf5fde0104833df1bda743af28423a6d124))
 
 ## v0.32.0 (2023-11-03)
+### Feature
+*  `plugin.release` command ([`d00cd9b`](https://github.com/educationwarehouse/edwh/commit/d00cd9b7a0f50bdb9f559e9c3a501e202a327b4e))
+
 ### Fix
 * `ew plugin.release` now properly prints the package name and new version! ([`50159b7`](https://github.com/educationwarehouse/edwh/commit/50159b7c41fdcf8432b31d89bcb82f8eef6113fe))
-
-## v0.32.0-beta.2 (2023-11-03)
-
-
-## v0.32.0-beta.1 (2023-11-03)
-### Feature
-* Work in progress for `plugin.release` command ([`d00cd9b`](https://github.com/educationwarehouse/edwh/commit/d00cd9b7a0f50bdb9f559e9c3a501e202a327b4e))
 
 ## v0.31.0 (2023-11-03)
 ### Feature
