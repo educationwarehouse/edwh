@@ -872,6 +872,8 @@ def ls(ctx, quiet=False):
         "debug": "Add timestamps",
         "tail": "Start with how many lines of history.",
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
+        "ycecream": "Filter on entries with y|",
+        "errors": "Filter on entries with e|",
     },
 )
 def logs(
