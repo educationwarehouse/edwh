@@ -85,7 +85,19 @@ def _gather_package_metadata_threaded(packages: typing.Iterable[str]):
     return all_data
 
 
-def _determine_outdated_threaded(installed_plugins: typing.Iterable[str]) -> dict[str, Version]:
+def _determine_newest_version(releases: typing.Iterable[str]) -> str:
+    sorted_releases = sorted(releases, key=lambda _: Version(_))
+    return sorted_releases[-1]
+
+
+def test_me():
+    metadata = _gather_package_metadata_threaded(["edwh"])["edwh"]
+    print(parse_package_version(_determine_newest_version(metadata["releases"].keys())))
+
+
+def _determine_outdated_threaded(
+    installed_plugins: typing.Iterable[str], prerelease: bool = False
+) -> dict[str, Version]:
     """
     Like _determine_outdated but parallelized with Threading
 
@@ -98,7 +110,10 @@ def _determine_outdated_threaded(installed_plugins: typing.Iterable[str]) -> dic
         try:
             name, current_version = plugin.split("==")
             current_version = parse_package_version(current_version)
-            latest_version = parse_package_version(metadata["info"]["version"])
+
+            latest_stable = metadata["info"]["version"]
+            latest_prerelease = _determine_newest_version(metadata["releases"].keys()) if prerelease else None
+            latest_version = parse_package_version(latest_prerelease if prerelease else latest_stable)
         except Exception:
             # no current or latest version found? skip
             continue
@@ -140,7 +155,7 @@ def plugins(c, verbose=False, changelog=False):
         return plugin.list_plugins(c, verbose=verbose)
 
 
-def _self_update(c: Context):
+def _self_update(c: Context, prerelease: bool = False):
     """
     Wrapper for self-update that can handle type hint Context
     """
@@ -177,11 +192,12 @@ def _self_update(c: Context):
 
 
 @task()
-def self_update(c):
+def self_update(c, prerelease: bool = False):
     """
     Updates `edwh` and all installed plugins.
 
     :param c: invoke ctx
     :type c: Context
+    :param prerelease: allow non-stable releases?
     """
-    return _self_update(c)
+    return _self_update(c, prerelease)
