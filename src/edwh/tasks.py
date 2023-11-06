@@ -18,7 +18,7 @@ from ansi.color import fg
 from ansi.color.fx import bold, reset
 from invoke import Context, task, Task
 from rapidfuzz import fuzz
-from termcolor import colored
+from termcolor import colored, cprint
 
 from .__about__ import __version__ as edwh_version
 
@@ -109,6 +109,12 @@ def task_for_namespace(namespace: str, task_name: str) -> Task | None:
     return None
 
 
+def task_for_identifier(identifier: str) -> Task | None:
+    from .cli import collection
+
+    return collection.tasks.get(identifier)
+
+
 def get_task(identifier: str) -> Task | None:
     """
     Get a task by the identifier you would use in the terminal.
@@ -116,12 +122,11 @@ def get_task(identifier: str) -> Task | None:
     Example:
         local.setup
     """
-    from .cli import collection
 
     if "." in identifier:
         return task_for_namespace(*identifier.split("."))
     else:
-        return collection.tasks.get(identifier)
+        return task_for_identifier(identifier)
 
 
 def exec_setup_in_other_task(c: Context, run_setup: bool) -> bool:
@@ -624,9 +629,9 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         new_config_toml
         and config_toml.exists()
         and confirm(
-            colored("Are you sure you want to remove the config.toml? [yN]", "red"),
-            default=False,
-        )
+        colored("Are you sure you want to remove the config.toml? [yN]", "red"),
+        default=False,
+    )
     ):
         config_toml.unlink()
 
@@ -761,7 +766,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to config.toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -958,7 +963,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -970,37 +975,47 @@ def build(ctx, yes=False):
     """
     reqs = list(Path(".").rglob("*/requirements.in"))
 
-    try:
-        # noinspection PyUnresolvedReferences
-        from edwh_pipcompile_plugin import compile as pip_compile
-
-        pip_compile: typing.Optional[typing.Callable[[Context, str], None]]
+    if pip_compile := get_task("pip.compile"):
         with_compile = True
-    except ImportError:
-        print("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.")
+    else:
+        with_compile = False
+
+        cprint("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.", "red")
         print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
         print()
         print("possible files to compile:")
         for req in reqs:
             print("  ", req)
-        with_compile = False
-        pip_compile = None  # will not be called due to with_compile is False
 
-    if with_compile:
+    if not reqs:
+        cprint("No .in files found to compile!", "yellow")
+
+    elif with_compile:
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"
-            print(
+            cprint(
                 f"{idx}/{len(reqs)}: working on {req}",
+                "blue",
             )
-            if (not reqtxt.exists()) or (reqtxt.stat().st_ctime < req.stat().st_ctime):
-                print("outdated" if reqtxt.exists() else "requirements.txt doesn't exist.")
-                if yes or confirm(f"recompile {req}? [Yn]", default=True):
+
+            missing = not reqtxt.exists()
+            outdated = not missing and reqtxt.stat().st_ctime < req.stat().st_ctime
+
+            if missing or outdated:
+                print("The .txt file is outdated." if outdated else "requirements.txt doesn't exist.")
+
+                question = f"compile {req}? [Yn]"
+                if outdated:
+                    question = f"re{question}"  # recompile
+
+                if yes or confirm(question, default=True):
                     pip_compile(ctx, str(req.parent))
             else:
                 print("still current")
     else:
         print("Compilation of requirements.in files skipped.")
-    if yes or (not with_compile and confirm("Build docker images? [yN]", default=False)):
+
+    if yes or confirm("Build docker images? [yN]", default=False):
         ctx.run(f"{DOCKER_COMPOSE} build")
 
 
