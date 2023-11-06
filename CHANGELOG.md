@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.1 (2023-11-06)
+### Feature
+* **plugin:** Ew plugin.publish alias for plugin.release ([`0d7ead7`](https://github.com/educationwarehouse/edwh/commit/0d7ead72edcced7b3a4965835d963644362bc48b))
+* Ew logs now accepts --errors and --ycecream to filter on y| and e| prefix ([`7209f89`](https://github.com/educationwarehouse/edwh/commit/7209f8970106e2415c5243d91aa87f7e440113cb))
+
 ## v0.32.0 (2023-11-03)
 ### Fix
 * `ew plugin.release` now properly prints the package name and new version! ([`50159b7`](https://github.com/educationwarehouse/edwh/commit/50159b7c41fdcf8432b31d89bcb82f8eef6113fe))
