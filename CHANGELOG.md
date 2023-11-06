@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.2 (2023-11-06)
+### Feature
+* **self-update:** Allow --prerelease to update to beta versions ([`54fe3bf`](https://github.com/educationwarehouse/edwh/commit/54fe3bf5fde0104833df1bda743af28423a6d124))
+
 ## v0.33.0-beta.1 (2023-11-06)
 ### Feature
 * **plugin:** Ew plugin.publish alias for plugin.release ([`0d7ead7`](https://github.com/educationwarehouse/edwh/commit/0d7ead72edcced7b3a4965835d963644362bc48b))
