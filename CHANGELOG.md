@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.6 (2023-11-06)
+
+
 ## v0.33.0-beta.5 (2023-11-06)
 ### Fix
 * **logs:** Pipe to grep ([`8f53965`](https://github.com/educationwarehouse/edwh/commit/8f53965af583ae5ccba3b378e8c9873ded99d775))
