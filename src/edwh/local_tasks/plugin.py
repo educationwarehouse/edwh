@@ -445,9 +445,9 @@ def sort_and_filter_changelog(changelog: dict, since: str = None):
             (since == "major" and version.major < prev_major)
             or (since == "minor" and (version.minor < prev_minor or version.major < prev_major))
             or (
-            since == "patch"
-            and (version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major)
-        )
+                since == "patch"
+                and (version.micro < prev_patch or version.minor < prev_minor or version.major < prev_major)
+            )
             or (since.isnumeric() and idx >= int(since))
         ):
             break

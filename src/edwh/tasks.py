@@ -882,6 +882,8 @@ def logs(
     tail: int = 500,
     sort: bool = False,
     all: bool = False,
+    ycecream: bool = False,
+    errors: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -900,6 +902,18 @@ def logs(
     elif follow:
         # only allow follow is not sorting
         cmdline.insert(2, "-f")
+
+    if ycecream or errors:
+        target = []
+        if ycecream:
+            target.append("y")
+        if errors:
+            target.append("e")
+
+        target = "|".join(target)
+        cmdline.append(f"grep -E ' ({target})\\|.+' --color=never")
+        # catch y| and/or e|
+        # -> grep -E ' (y|e)|\.+'
 
     ctx.run(" ".join(cmdline))
 
