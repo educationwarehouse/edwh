@@ -574,10 +574,14 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
         return _changelog_all(ctx, plugin, since, new)
 
 
-def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) -> str:
-    semver = c.run("semantic-release publish " + kwargs_to_options(flags), **kw)
+def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) -> typing.Optional[str]:
+    semver = c.run(f"semantic-release publish {kwargs_to_options(flags)}", **kw)
 
-    return re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr)[0]
+    if new_version := re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr):
+        return new_version[0]
+
+    cprint("No new version found!", "yellow")
+    return None
 
 
 @task(aliases=("publish",))
@@ -617,7 +621,9 @@ def release(
             hide=True,
         )
 
-        if not confirm(f"Are you sure you would like to release version {new_version}? [yN] ", default=False):
+        if not new_version or not confirm(
+            f"Are you sure you would like to release version {new_version}? [yN] ", default=False
+        ):
             print("bye!")
             return
 
@@ -631,6 +637,9 @@ def release(
             "prerelease": prerelease,
         },
     )
+
+    if not new_version:
+        return
 
     cprint("Starting build", "blue")
     hatch_build = c.run("hatch build -c")
