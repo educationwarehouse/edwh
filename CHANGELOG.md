@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.0-beta.5 (2023-11-06)
+### Fix
+* **logs:** Pipe to grep ([`8f53965`](https://github.com/educationwarehouse/edwh/commit/8f53965af583ae5ccba3b378e8c9873ded99d775))
+
 ## v0.33.0-beta.4 (2023-11-06)
 ### Fix
 * **self-update:** Actually pass prerelease option to version checker ([`813bf7c`](https://github.com/educationwarehouse/edwh/commit/813bf7c9abb7c1221a141400bffe6ae6a2c7e2e7))
