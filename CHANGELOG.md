@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.2 (2023-11-06)
+### Fix
+* **plugin:** Don't crash if no new version to publish, but warn ([`6ccc166`](https://github.com/educationwarehouse/edwh/commit/6ccc16698569b5dbf75984ecae2b464f550b8866))
+
 ## v0.33.1 (2023-11-06)
 ### Fix
 * **plugin:** Unless you say --yes, `release` now asks you to confirm a new publication ([`324886c`](https://github.com/educationwarehouse/edwh/commit/324886cbc40e2e31d97e6283993fee945a533676))
