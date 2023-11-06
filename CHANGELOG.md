@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.33.1 (2023-11-06)
+### Fix
+* **plugin:** Unless you say --yes, `release` now asks you to confirm a new publication ([`324886c`](https://github.com/educationwarehouse/edwh/commit/324886cbc40e2e31d97e6283993fee945a533676))
+* **build:** Slightly improved UX for `ew build` + use get_task instead of import ([`53befa9`](https://github.com/educationwarehouse/edwh/commit/53befa9d7bd3ea42698c3d2416a9e30c789f24d8))
+
+### Documentation
+* Added more info about plugins ([`286d843`](https://github.com/educationwarehouse/edwh/commit/286d843425c859ab1290924299dff03bf1aa3ec0))
+* Merge prerelease versions into actual release changes ([`3568750`](https://github.com/educationwarehouse/edwh/commit/3568750842e3bba8e05d6aaf1583cfddfb1372df))
+
 ## v0.33.0 (2023-11-06)
 ### Feature
 * **plugin:** Ew plugin.publish alias for plugin.release ([`0d7ead7`](https://github.com/educationwarehouse/edwh/commit/0d7ead72edcced7b3a4965835d963644362bc48b))
