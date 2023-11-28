@@ -10,6 +10,7 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
+import humanize
 import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
@@ -1106,6 +1107,19 @@ def version(ctx):
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
 
+stdlib_print = print
+
+
+def noop(*a, **kw):
+    return None
+
+
+def dump_set_as_list(data):
+    if isinstance(data, set):
+        return list(data)
+    else:
+        return data
+
 
 @task(
     help={
@@ -1115,11 +1129,12 @@ def version(ctx):
         "host_labels": "Show host clauses from traefik labels",
     }
 )
-def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=False):
+def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, as_json=False):
     """Discover docker environments per host.
 
     Use ansi2txt to save readable output to a file.
     """
+    print = noop if as_json else stdlib_print
 
     def indent(text, prefix="  "):
         return prefix + text
@@ -1127,7 +1142,12 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
     def dedent(text, prefix="  "):
         return text.replace(prefix, "", 1)
 
-    print(f"{bold}", ctx.run("hostname", hide=True).stdout.strip(), reset)
+    data = {}  # todo: don't collect anything if not as_json
+
+    hostname = ctx.run("hostname", hide=True).stdout.strip()
+    print(f"{bold}", hostname, reset)
+    data["server"] = hostname
+
     i = indent("")
     compose_file_paths = (
         ctx.run(
@@ -1139,7 +1159,12 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
         .stdout.strip()
         .split("\n")
     )
+
+    data["projects"] = []
     for compose_file_path in compose_file_paths:
+        project = {}
+        data["projects"].append(project)
+
         folder = compose_file_path.split("/")[0]
         with ctx.cd(folder):
             # get the 2nd value of the 3rd line of the output
@@ -1151,6 +1176,9 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 f"{fg.brightyellow}{hosting_domain}",
                 reset,
             )
+
+            project["name"] = folder
+            project["hostingdomain"] = hosting_domain
 
             if short:
                 # only show the basic info, don't load the rest.
@@ -1164,43 +1192,60 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
             if config is None:
                 continue
             if du:
-                usage = ctx.run("du -sh .", echo=False, hide=True).stdout.strip()
+                usage_raw = ctx.run("du -sh . --block-size=1", echo=False, hide=True).stdout.strip().split("\t")[0]
+                usage = humanize.naturalsize(usage_raw, binary=True)
                 print(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
-            for name, service in config.get("services", {}).items():
+                project["disk_usage_human"] = usage
+                project["disk_usage_raw"] = int(usage_raw)
+
+            project["services"] = []
+            for name, docker_service in config.get("services", {}).items():
+                service = {}
+                project["services"].append(service)
                 i = indent(i)
                 print(f"{i}{fg.green}{name}{reset}")
+                service["name"] = name
                 i = indent(i)
                 if exposes:
-                    if _exposes := service.get("expose", ""):
+                    if _exposes := docker_service.get("expose", []):
                         print(
                             f"{i}{fg.boldred}Exposes",
                             ", ".join([str(port) for port in _exposes]),
                             reset,
                         )
+                    service["exposes"] = _exposes
                 if ports:
-                    _ports = service.get("ports", [])
-                    if ports:
+                    if _ports := docker_service.get("ports", []):
                         print(
                             f"{i}{fg.boldred}Ports:" + ", ".join([str(port) for port in _ports]) if _ports else "",
                             reset,
                         )
+                    service["ports"] = _ports
 
+                service["domains"] = set()
                 if host_labels:
                     strip_host = lambda s: re.findall(r"`(.*?)`", s.strip())[0]
                     darken_domain = lambda s: s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
-                    for label, value in (labels := service.get("labels", {})).items():
+                    for label, value in (labels := docker_service.get("labels", {})).items():
                         if "Host" in value:
                             if "||" in value:
                                 for host in value.split("||"):
-                                    print(f"{i}{darken_domain(strip_host(host))}")
+                                    hostname = strip_host(host)
+                                    print(f"{i}{darken_domain(hostname)}")
+                                    service["domains"].add(hostname)
                             else:
-                                print(f"{i}{darken_domain(strip_host(value))}")
+                                hostname = strip_host(value)
+                                print(f"{i}{darken_domain(hostname)}")
+                                service["domains"].add(hostname)
                 print(reset, end="")
                 i = dedent(i)
                 if labels:
                     print()
                 i = dedent(i)
             i = dedent(i)
+
+    if as_json:
+        stdlib_print(json.dumps({"data": data}, indent=2, default=dump_set_as_list))
 
 
 @task
