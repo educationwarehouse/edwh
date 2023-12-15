@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.34.1 (2023-12-15)
+### Fix
+* Only one newline between env vars; require humanize since its imported in edwh ([`328e546`](https://github.com/educationwarehouse/edwh/commit/328e54666e00aef1b0da1308f120cf48c23db628))
+
 ## v0.34.0 (2023-12-15)
 ### Feature
 * Added --as-json to ew discover ([`23e8e98`](https://github.com/educationwarehouse/edwh/commit/23e8e987a0f06de063f2ef1203e3b352d0a11f84))
