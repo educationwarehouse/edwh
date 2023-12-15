@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.34.0 (2023-12-15)
+### Feature
+* Added --as-json to ew discover ([`23e8e98`](https://github.com/educationwarehouse/edwh/commit/23e8e987a0f06de063f2ef1203e3b352d0a11f84))
+
 ## v0.33.2 (2023-11-06)
 ### Fix
 * **plugin:** Don't crash if no new version to publish, but warn ([`6ccc166`](https://github.com/educationwarehouse/edwh/commit/6ccc16698569b5dbf75984ecae2b464f550b8866))
