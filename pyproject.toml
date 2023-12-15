@@ -43,6 +43,7 @@ dependencies = [
     'yarl',
     'python-dateutil',
     'rapidfuzz',
+    'humanize',
 ]
 [project.optional-dependencies]
 dev = [
@@ -52,7 +53,6 @@ dev = [
 ]
 
 omgeving = [
-    'humanize',
     'tabulate',
     'pyyaml',
     'tomlkit'

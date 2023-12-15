@@ -32,6 +32,11 @@ from .helpers import generate_password as _generate_password
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
+# file.seek(_, whence), 'whence' can be one of:
+FILE_START = 0
+FILE_RELATIVE = 1
+FILE_END = 2
+
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 
 
@@ -199,7 +204,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
         source_lines = yaml_file.read().split("\n")
         new_lines = _apply_env_vars_to_template(source_lines, env)
         # move filepointer to the start of the file
-        yaml_file.seek(0, 0)
+        yaml_file.seek(0, FILE_START)
         # write all lines and newlines to the file
         yaml_file.write("\n".join(new_lines))
         # and remove any part that might be left over (when the new file is shorter than the old one)
@@ -368,15 +373,16 @@ def check_env(
 
     suffix = suffix or postfix
 
-    with env_path.open(mode="r+") as env_file:
-        response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-        value = response.strip() or default
-        if prefix:
-            value = prefix + value
-        if suffix:
-            value += suffix
-        env_file.seek(0, 2)
-        env_file.write(f"\n{key.upper()}={value}\n")
+    response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+    value = response.strip() or default
+    if prefix:
+        value = prefix + value
+    if suffix:
+        value += suffix
+
+    with env_path.open(mode="a") as env_file:
+        # append mode ensures we're writing at the end
+        env_file.write(f"\n{key.upper()}={value}")
 
         # update in memory too:
         env[key] = value
