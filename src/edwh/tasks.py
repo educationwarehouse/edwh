@@ -1,3 +1,4 @@
+import contextlib
 import fnmatch
 import io
 import json
@@ -17,7 +18,7 @@ import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from ansi.color import fg
 from ansi.color.fx import bold, reset
-from invoke import Context, task, Task
+from invoke import Context, Task, task
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 
@@ -146,6 +147,20 @@ def exec_setup_in_other_task(c: Context, run_setup: bool) -> bool:
         return True
     else:
         print("No (local) setup function found in your nearest tasks.py", file=sys.stderr)
+
+    return False
+
+
+def exec_up_in_other_task(c: Context) -> bool:
+    """
+    Run a setup function in another task.py.
+    """
+    if local_up := task_for_namespace("local", "up"):
+        local_up(c)
+
+        return True
+    else:
+        print("No (local) up function found in your nearest tasks.py", file=sys.stderr)
 
     return False
 
@@ -727,23 +742,41 @@ def fuzzy_match(val1: str, val2: str, verbose=False):
     return similarity
 
 
+def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
+    all_settings = read_dotenv().items()
+    if find is None:
+        # don't loop
+        return all_settings
+    else:
+        find = find.upper()
+        # if nothing found exactly, try again but fuzzy (could be slower)
+        return [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
+            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
+        ]
+
+
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
 def settings(_, find=None, fuzz_threshold=75):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    all_settings = read_dotenv().items()
-    if find is None:
-        # don't loop
-        rows = all_settings
-    else:
-        find = find.upper()
-        # if nothing found exactly, try again but fuzzy (could be slower)
-        rows = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
-            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
-        ]
+    rows = _settings(find, fuzz_threshold)
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
+
+
+def show_related_settings(ctx: Context, services: list[str]):
+    config = dc_config(ctx)
+
+    rows = {}
+    for service in services:
+        if service_settings := _settings(service):
+            rows |= service_settings
+        else:
+            with contextlib.suppress(TypeError, KeyError):
+                rows |= config["services"][service]["environment"]
+
+    print(tabulate.tabulate(rows.items(), headers=["Setting", "Value"]))
 
 
 @task(aliases=("volume",))
@@ -807,11 +840,9 @@ def up(
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
-    if "py4web" in services_ls:
-        ctx.run(
-            f"{DOCKER_COMPOSE} run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
-            warn=True,
-        )
+
+    exec_up_in_other_task(ctx)
+    show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
@@ -1127,6 +1158,13 @@ def dump_set_as_list(data):
         return data
 
 
+def dc_config(ctx: Context):
+    return yaml.load(
+        ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+        Loader=yaml.SafeLoader,
+    )
+
+
 @task(
     help={
         "du": "Show disk usage per folder",
@@ -1191,10 +1229,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 continue
 
             i = indent(i)
-            config = yaml.load(
-                ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-                Loader=yaml.SafeLoader,
-            )
+            config = dc_config(ctx)
             if config is None:
                 continue
             if du:
