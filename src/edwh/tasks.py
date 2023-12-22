@@ -151,12 +151,12 @@ def exec_setup_in_other_task(c: Context, run_setup: bool) -> bool:
     return False
 
 
-def exec_up_in_other_task(c: Context) -> bool:
+def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
     """
     Run a setup function in another task.py.
     """
     if local_up := task_for_namespace("local", "up"):
-        local_up(c)
+        local_up(c, services)
 
         return True
     else:
@@ -841,7 +841,7 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
 
-    exec_up_in_other_task(ctx)
+    exec_up_in_other_task(ctx, services)
     show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
