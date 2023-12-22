@@ -30,7 +30,7 @@ classifiers = [
 ]
 dependencies = [
     'invoke >= 2.1',
-    'fabric >= 3.0',
+    'fabric >= 3.1',
     'importlib_metadata >=3.6 ; python_version < "3.10"',
     'tabulate',
     'pyyaml',
