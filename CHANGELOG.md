@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.35.0 (2024-01-08)
+### Feature
+* `ew up` now also looks for local `up` tasks + shows related config ([`725db25`](https://github.com/educationwarehouse/edwh/commit/725db259fdf838724f4f1184d4c942e6e17d94fa))
+
+### Fix
+* Pass list of services to local `up` ([`65e8c11`](https://github.com/educationwarehouse/edwh/commit/65e8c119e0e056f30c246f65ba4e676751ebf341))
+* Invoke 2.1 requires fabic 3.1+, not 3.0 ([`8c47abd`](https://github.com/educationwarehouse/edwh/commit/8c47abde702ac2165eb2b708e39246f3d2e832d4))
+* Bump invoke so it should work with 3.12 ([`ba9421d`](https://github.com/educationwarehouse/edwh/commit/ba9421d6ad6fd023f871b0a341f53e40b287218e))
+
 ## v0.34.1 (2023-12-15)
 ### Fix
 * Only one newline between env vars; require humanize since its imported in edwh ([`328e546`](https://github.com/educationwarehouse/edwh/commit/328e54666e00aef1b0da1308f120cf48c23db628))
