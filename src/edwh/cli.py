@@ -8,6 +8,7 @@ import warnings
 from importlib.metadata import entry_points
 
 from fabric import Config, Executor
+from fabric.main import Fab
 from invoke import Collection
 
 from . import tasks
@@ -100,7 +101,8 @@ include_packaged_plugins()  # from src.edwh.local_tasks
 include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
 include_other_project_tasks()  # *.tasks.py in current project
 
-program = ExtendableFab(
+# ExtendableFab is not used right now
+program = Fab(
     executor_class=Executor,
     config_class=Config,
     namespace=collection,

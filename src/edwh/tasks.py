@@ -1165,6 +1165,56 @@ def dc_config(ctx: Context):
     )
 
 
+def print_aligned(plugin_commands: list[str]) -> None:
+    splitted = [_.split("\t") for _ in plugin_commands]
+    max_l = max([len(_[0]) for _ in splitted])
+
+    for before, after in splitted:
+        print("\t", before.ljust(max_l, " "), "\t\t", after)
+
+
+@task(
+    name="help",
+    help={
+        "about": "Plugin/Namespace or Subcommand you would like to see help about. "
+        "Use an empty string ('') to see help about everything."
+    },
+)
+def show_help(ctx: Context, about: str) -> None:
+    """
+    Show helpful information about a plugin or command.
+
+    Similar to `edwh {about} --help` but that does not work for whole plugins/namespaces.
+    """
+    # first check if 'about' is a plugin/namespace:
+    from .cli import collection
+
+    if ns := collection.collections.get(about):
+        ns: invoke.Collection
+        info = ns.serialized()
+
+        print("--- namespace", ns.name, "---")
+
+        print(info["help"])
+
+        plugin_commands = []
+        for subtask in info["tasks"]:
+            if aliases := subtask["aliases"]:
+                aliases = ", ".join(aliases)
+                aliases = f"({aliases})"
+            else:
+                aliases = ""
+
+            plugin_commands.append(" ".join([subtask["name"], aliases, "\t", subtask["help"]]))
+
+        print_aligned(plugin_commands)
+
+        return
+    else:
+        # just run edwh subcommand --help:
+        ctx.run(f"edwh {about} --help")
+
+
 @task(
     help={
         "du": "Show disk usage per folder",
