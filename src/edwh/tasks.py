@@ -1211,8 +1211,8 @@ def show_help(ctx: Context, about: str) -> None:
 
         return
     else:
-        # just run edwh subcommand --help:
-        ctx.run(f"edwh {about} --help")
+        # just run edwh --help <subcommand>:
+        ctx.run(f"edwh --help {about}")
 
 
 @task(
