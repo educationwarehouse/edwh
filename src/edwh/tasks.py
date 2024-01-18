@@ -1194,7 +1194,6 @@ def show_help(ctx: Context, about: str) -> None:
         info = ns.serialized()
 
         print("--- namespace", ns.name, "---")
-
         print(info["help"] or "")
 
         plugin_commands = []
@@ -1205,7 +1204,9 @@ def show_help(ctx: Context, about: str) -> None:
             else:
                 aliases = ""
 
-            plugin_commands.append(" ".join([subtask["name"], aliases, "\t", subtask["help"] or ""]))
+            cmd = f"{about}.{subtask['name']}"
+
+            plugin_commands.append(" ".join([cmd, aliases, "\t", subtask["help"] or ""]))
 
         print_aligned(plugin_commands)
 
