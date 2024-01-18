@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.2 (2024-01-18)
+### Fix
+* **help:** Include namespace in command example (pip.compile instead of compile) ([`de4a4b2`](https://github.com/educationwarehouse/edwh/commit/de4a4b29b03f8ba33649c6dea78f3587b9bc0e8c))
+* --help BEFORE the subcommand because otherwise it doesn't always work ([`6546876`](https://github.com/educationwarehouse/edwh/commit/654687661b65bb977c7ad275b3647211b1423e7b))
+
+### Documentation
+* **changelog:** Merge prerelease and actual release changelogs ([`3ebb8c3`](https://github.com/educationwarehouse/edwh/commit/3ebb8c341f88018e7c4b61b4aec7a0776b40d14a))
+
 ## v0.36.1 (2024-01-18)
 ### Fix
 * **help:** Deal with missing help docstring in plugin/namespace ([`b5e139f`](https://github.com/educationwarehouse/edwh/commit/b5e139f8bd98fff49186a122ddd3b3f1f959ad1a))
