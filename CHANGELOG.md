@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.0 (2024-01-18)
+### Fix
+* Don't show None if no global module docstring, just print an empty string instead ([`6081872`](https://github.com/educationwarehouse/edwh/commit/6081872d02863a2e0c47804414316ee1d4f7996e))
+
 ## v0.36.0-beta.1 (2024-01-18)
 ### Feature
 * Added `edwh[uptime]` extra and `edwh[server-plugins]` (because some plugins don't have to be installed on our servers, slowing them down) ([`57385b0`](https://github.com/educationwarehouse/edwh/commit/57385b01849d6dab929cefdb0140f689de0169fa))
