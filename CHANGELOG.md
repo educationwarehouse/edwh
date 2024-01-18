@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.1 (2024-01-18)
+### Fix
+* **help:** Deal with missing help docstring in plugin/namespace ([`b5e139f`](https://github.com/educationwarehouse/edwh/commit/b5e139f8bd98fff49186a122ddd3b3f1f959ad1a))
+* **plugin:** Deal with unreleased plugins ([`a2cc4d5`](https://github.com/educationwarehouse/edwh/commit/a2cc4d5def1b0c141ddcc53ed707b6617900591d))
+
 ## v0.36.0 (2024-01-18)
 ### Fix
 * Don't show None if no global module docstring, just print an empty string instead ([`6081872`](https://github.com/educationwarehouse/edwh/commit/6081872d02863a2e0c47804414316ee1d4f7996e))
