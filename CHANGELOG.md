@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.0-beta.1 (2024-01-18)
+### Feature
+* Added `edwh[uptime]` extra and `edwh[server-plugins]` (because some plugins don't have to be installed on our servers, slowing them down) ([`57385b0`](https://github.com/educationwarehouse/edwh/commit/57385b01849d6dab929cefdb0140f689de0169fa))
+* Added `edwh help` command to show help information about whole plugins/namespaces (instead of just --help for everything or one command) ([`f870f37`](https://github.com/educationwarehouse/edwh/commit/f870f374c478f8409ae4debd810e294ed0963840))
+
 ## v0.35.0 (2024-01-08)
 ### Feature
 * `ew up` now also looks for local `up` tasks + shows related config ([`725db25`](https://github.com/educationwarehouse/edwh/commit/725db259fdf838724f4f1184d4c942e6e17d94fa))
