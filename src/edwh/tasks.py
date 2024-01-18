@@ -1205,7 +1205,7 @@ def show_help(ctx: Context, about: str) -> None:
             else:
                 aliases = ""
 
-            plugin_commands.append(" ".join([subtask["name"], aliases, "\t", subtask["help"]]))
+            plugin_commands.append(" ".join([subtask["name"], aliases, "\t", subtask["help"] or ""]))
 
         print_aligned(plugin_commands)
 
