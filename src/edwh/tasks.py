@@ -1195,7 +1195,7 @@ def show_help(ctx: Context, about: str) -> None:
 
         print("--- namespace", ns.name, "---")
 
-        print(info["help"])
+        print(info["help"] or "")
 
         plugin_commands = []
         for subtask in info["tasks"]:
