@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.5 (2024-01-23)
+### Fix
+* **dc:** Dc_config now always returns a dict (possibly empty) instead of maybe None ([`3e0a7ab`](https://github.com/educationwarehouse/edwh/commit/3e0a7ab3c249393d2b28ad09c0df59c43c6e3e93))
+
 ## v0.36.4 (2024-01-23)
 ### Fix
 * **dotenv:** Make `read_dotenv` work even with an invalid dc.yml ([`86aeee4`](https://github.com/educationwarehouse/edwh/commit/86aeee49bdb15d7da678e60e55f0f5df7c8fdde3))
