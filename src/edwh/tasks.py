@@ -17,7 +17,7 @@ import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from ansi.color import fg
 from ansi.color.fx import bold, reset
-from invoke import Context, task, Task
+from invoke import Context, Task, task
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 
@@ -25,7 +25,13 @@ from .__about__ import __version__ as edwh_version
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import confirm, executes_correctly, execution_fails  # noqa
+from .helpers import noop  # noqa
+from .helpers import (  # noqa
+    confirm,
+    dump_set_as_list,
+    executes_correctly,
+    execution_fails,
+)
 from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
@@ -1110,15 +1116,42 @@ def version(ctx):
 stdlib_print = print
 
 
-def noop(*a, **kw):
-    return None
+def get_hostingdomain_from_env(ctx: Context) -> str:
+    hosting_domain = ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
+    return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
 
 
-def dump_set_as_list(data):
-    if isinstance(data, set):
-        return list(data)
-    else:
-        return data
+def dc_config(ctx: Context) -> typing.Optional[dict]:
+    return yaml.load(
+        ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+        Loader=yaml.SafeLoader,
+    )
+
+
+HOST_RE = re.compile(r"`(.*?)`")
+
+
+def strip_host(s: str) -> str:
+    return HOST_RE.findall(s.strip())[0]
+
+
+def get_hosts_for_service(docker_service: dict) -> set[str]:
+    domains = set()
+
+    for label, value in docker_service.get("labels", {}).items():
+        if "Host" not in value:
+            # irrelevant
+            continue
+
+        if "||" in value:
+            # OR
+            for host in value.split("||"):
+                domains.add(strip_host(host))
+        else:
+            # only one
+            domains.add(strip_host(value))
+
+    return domains
 
 
 @task(
@@ -1168,8 +1201,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
         folder = compose_file_path.split("/")[0]
         with ctx.cd(folder):
             # get the 2nd value of the 3rd line of the output
-            hosting_domain = ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
-            hosting_domain = hosting_domain.strip().split("=")[-1] if hosting_domain else ""
+            hosting_domain = get_hostingdomain_from_env(ctx)
             print(
                 i,
                 f"{fg.brightblue}{folder}{reset}",
@@ -1185,10 +1217,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 continue
 
             i = indent(i)
-            config = yaml.load(
-                ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-                Loader=yaml.SafeLoader,
-            )
+            config = dc_config(ctx)
             if config is None:
                 continue
             if du:
@@ -1224,22 +1253,15 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
 
                 service["domains"] = set()
                 if host_labels:
-                    strip_host = lambda s: re.findall(r"`(.*?)`", s.strip())[0]
                     darken_domain = lambda s: s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
-                    for label, value in (labels := docker_service.get("labels", {})).items():
-                        if "Host" in value:
-                            if "||" in value:
-                                for host in value.split("||"):
-                                    hostname = strip_host(host)
-                                    print(f"{i}{darken_domain(hostname)}")
-                                    service["domains"].add(hostname)
-                            else:
-                                hostname = strip_host(value)
-                                print(f"{i}{darken_domain(hostname)}")
-                                service["domains"].add(hostname)
+
+                    service["domains"] = get_hosts_for_service(docker_service)
+                    for domain in service["domains"]:
+                        print(f"{i}{darken_domain(domain)}")
+
                 print(reset, end="")
                 i = dedent(i)
-                if labels:
+                if service["domains"]:
                     print()
                 i = dedent(i)
             i = dedent(i)

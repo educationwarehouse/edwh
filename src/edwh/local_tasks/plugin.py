@@ -16,7 +16,7 @@ from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 
-from .. import kwargs_to_options, confirm
+from .. import confirm, kwargs_to_options
 from ..meta import (
     Version,
     _gather_package_metadata_threaded,

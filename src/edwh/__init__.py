@@ -12,8 +12,8 @@ from .tasks import (  # noqa: this exposes it as a library
     TomlConfig,
     check_env,
     get_env_value,
+    get_task,
     read_dotenv,
     set_env_value,
     task_for_namespace,
-    get_task,
 )

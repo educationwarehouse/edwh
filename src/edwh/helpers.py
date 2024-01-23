@@ -11,7 +11,6 @@ from invoke import Argument, Context
 
 from .extendable_fab import ExtendableFab
 
-
 # from .cli import program # <- WILL BREAK TASK DETECTION!
 
 
@@ -48,7 +47,7 @@ def generate_password(silent=True):
     return password
 
 
-T = typing.TypeVar("T", str, bool)
+# T = typing.TypeVar("T", str, bool)
 
 
 def _add_dash(flag: str) -> str:
@@ -130,5 +129,33 @@ class VerboseLogger(Logger):
 
 
 class NoopLogger(Logger):
-    def log(self, *a):
+    def log(self, *a) -> None:
         pass
+
+
+def noop(*_, **__) -> None:
+    return None
+
+
+T = typing.TypeVar("T")
+
+
+@typing.overload
+def dump_set_as_list(data: set[T]) -> list[T]:
+    """
+    Sets are converted to lists.
+    """
+
+
+@typing.overload
+def dump_set_as_list(data: T) -> T:
+    """
+    Other datatypes remain untouched.
+    """
+
+
+def dump_set_as_list(data: set[T] | T) -> list[T] | T:
+    if isinstance(data, set):
+        return list(data)
+    else:
+        return data
