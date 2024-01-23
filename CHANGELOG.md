@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.3 (2024-01-23)
+### Fix
+* **discover:** Add humanize as regular dependency instead of extra ([`a0d49df`](https://github.com/educationwarehouse/edwh/commit/a0d49df2271dc20ef283c0574d154a8558ceaa1e))
+
 ## v0.36.2 (2024-01-18)
 ### Fix
 * **help:** Include namespace in command example (pip.compile instead of compile) ([`de4a4b2`](https://github.com/educationwarehouse/edwh/commit/de4a4b29b03f8ba33649c6dea78f3587b9bc0e8c))
