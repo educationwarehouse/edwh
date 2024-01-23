@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.37.0 (2024-01-23)
+### Feature
+* **setup:** `require_sudo` and `interactive_selected_checkbox_values` functionality ([`404dd64`](https://github.com/educationwarehouse/edwh/commit/404dd643272206ed4ff4e51c4abc060e9ed0865b))
+
 ## v0.36.5 (2024-01-23)
 ### Fix
 * **dc:** Dc_config now always returns a dict (possibly empty) instead of maybe None ([`3e0a7ab`](https://github.com/educationwarehouse/edwh/commit/3e0a7ab3c249393d2b28ad09c0df59c43c6e3e93))
