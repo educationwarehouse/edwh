@@ -1,3 +1,4 @@
+import contextlib
 import fnmatch
 import io
 import json
@@ -37,6 +38,11 @@ from .helpers import generate_password as _generate_password
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
+
+# file.seek(_, whence), 'whence' can be one of:
+FILE_START = 0
+FILE_RELATIVE = 1
+FILE_END = 2
 
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 
@@ -151,6 +157,20 @@ def exec_setup_in_other_task(c: Context, run_setup: bool) -> bool:
     return False
 
 
+def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
+    """
+    Run a setup function in another task.py.
+    """
+    if local_up := task_for_namespace("local", "up"):
+        local_up(c, services)
+
+        return True
+    else:
+        print("No (local) up function found in your nearest tasks.py", file=sys.stderr)
+
+    return False
+
+
 _dotenv_settings = {}
 
 
@@ -205,7 +225,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
         source_lines = yaml_file.read().split("\n")
         new_lines = _apply_env_vars_to_template(source_lines, env)
         # move filepointer to the start of the file
-        yaml_file.seek(0, 0)
+        yaml_file.seek(0, FILE_START)
         # write all lines and newlines to the file
         yaml_file.write("\n".join(new_lines))
         # and remove any part that might be left over (when the new file is shorter than the old one)
@@ -374,15 +394,16 @@ def check_env(
 
     suffix = suffix or postfix
 
-    with env_path.open(mode="r+") as env_file:
-        response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-        value = response.strip() or default
-        if prefix:
-            value = prefix + value
-        if suffix:
-            value += suffix
-        env_file.seek(0, 2)
-        env_file.write(f"\n{key.upper()}={value}\n")
+    response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+    value = response.strip() or default
+    if prefix:
+        value = prefix + value
+    if suffix:
+        value += suffix
+
+    with env_path.open(mode="a") as env_file:
+        # append mode ensures we're writing at the end
+        env_file.write(f"\n{key.upper()}={value}")
 
         # update in memory too:
         env[key] = value
@@ -727,23 +748,41 @@ def fuzzy_match(val1: str, val2: str, verbose=False):
     return similarity
 
 
+def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
+    all_settings = read_dotenv().items()
+    if find is None:
+        # don't loop
+        return all_settings
+    else:
+        find = find.upper()
+        # if nothing found exactly, try again but fuzzy (could be slower)
+        return [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
+            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
+        ]
+
+
 # noinspection PyUnusedLocal
 @task(help=dict(find="search for this specific setting"))
 def settings(_, find=None, fuzz_threshold=75):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
-    all_settings = read_dotenv().items()
-    if find is None:
-        # don't loop
-        rows = all_settings
-    else:
-        find = find.upper()
-        # if nothing found exactly, try again but fuzzy (could be slower)
-        rows = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
-            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
-        ]
+    rows = _settings(find, fuzz_threshold)
     print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
+
+
+def show_related_settings(ctx: Context, services: list[str]):
+    config = dc_config(ctx)
+
+    rows = {}
+    for service in services:
+        if service_settings := _settings(service):
+            rows |= service_settings
+        else:
+            with contextlib.suppress(TypeError, KeyError):
+                rows |= config["services"][service]["environment"]
+
+    print(tabulate.tabulate(rows.items(), headers=["Setting", "Value"]))
 
 
 @task(aliases=("volume",))
@@ -807,11 +846,9 @@ def up(
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
-    if "py4web" in services_ls:
-        ctx.run(
-            f"{DOCKER_COMPOSE} run --rm migrate invoke -r /shared_code/edwh/core/backend -c support update-opengraph",
-            warn=True,
-        )
+
+    exec_up_in_other_task(ctx, services)
+    show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
@@ -1152,6 +1189,64 @@ def get_hosts_for_service(docker_service: dict) -> set[str]:
             domains.add(strip_host(value))
 
     return domains
+
+
+def dc_config(ctx: Context):
+    return yaml.load(
+        ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+        Loader=yaml.SafeLoader,
+    )
+
+
+def print_aligned(plugin_commands: list[str]) -> None:
+    splitted = [_.split("\t") for _ in plugin_commands]
+    max_l = max([len(_[0]) for _ in splitted])
+
+    for before, after in splitted:
+        print("\t", before.ljust(max_l, " "), "\t\t", after)
+
+
+@task(
+    name="help",
+    help={
+        "about": "Plugin/Namespace or Subcommand you would like to see help about. "
+        "Use an empty string ('') to see help about everything."
+    },
+)
+def show_help(ctx: Context, about: str) -> None:
+    """
+    Show helpful information about a plugin or command.
+
+    Similar to `edwh {about} --help` but that does not work for whole plugins/namespaces.
+    """
+    # first check if 'about' is a plugin/namespace:
+    from .cli import collection
+
+    if ns := collection.collections.get(about):
+        ns: invoke.Collection
+        info = ns.serialized()
+
+        print("--- namespace", ns.name, "---")
+        print(info["help"] or "")
+
+        plugin_commands = []
+        for subtask in info["tasks"]:
+            if aliases := subtask["aliases"]:
+                aliases = ", ".join(aliases)
+                aliases = f"({aliases})"
+            else:
+                aliases = ""
+
+            cmd = f"{about}.{subtask['name']}"
+
+            plugin_commands.append(" ".join([cmd, aliases, "\t", subtask["help"] or ""]))
+
+        print_aligned(plugin_commands)
+
+        return
+    else:
+        # just run edwh --help <subcommand>:
+        ctx.run(f"edwh --help {about}")
 
 
 @task(

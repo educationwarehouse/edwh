@@ -114,20 +114,27 @@ def _gather_plugin_info(c: Context, plugin_names: list[str]) -> list[Plugin]:
     installed_plugins_raw = list_installed_plugins(c)
     installed_plugins = _parse_versions(installed_plugins_raw)
     plugin_names = [_require_affixes(_) for _ in plugin_names]
-    plugin_info = _gather_package_metadata_threaded(plugin_names)
+    plugin_infos = _gather_package_metadata_threaded(plugin_names)
 
-    return [
-        Plugin(
-            raw_name=plugin,
-            is_installed=plugin in installed_plugins,
-            installed_version=installed_plugins.get(plugin),
-            latest_version=parse_package_version(plugin_info[plugin]["info"]["version"])
-            if plugin_info.get(plugin)
-            else None,
-            metadata=plugin_info.get(plugin),
+    result = []
+
+    for plugin_name in plugin_names:
+        metadata = plugin_infos.get(plugin_name, {})
+        if not (metadata and (info := metadata.get("info"))):
+            # invalid plugin
+            continue
+
+        result.append(
+            Plugin(
+                raw_name=plugin_name,
+                is_installed=plugin_name in installed_plugins,
+                installed_version=installed_plugins.get(plugin_name),
+                latest_version=parse_package_version(info["version"]),
+                metadata=metadata,
+            )
         )
-        for plugin in plugin_names
-    ]
+
+    return result
 
 
 def gather_plugin_info(c: Context) -> list[Plugin]:

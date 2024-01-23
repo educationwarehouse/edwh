@@ -29,8 +29,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    'invoke >= 2.0, < 2.1',
-    'fabric >= 3.0',
+    'invoke >= 2.1',
+    'fabric >= 3.1',
     'importlib_metadata >=3.6 ; python_version < "3.10"',
     "humanize",
     'tabulate',
@@ -55,19 +55,31 @@ dev = [
 omgeving = [
     # no extra dependencies anymore !
 ]
+
 plugins = [
-    'edwh-multipass-plugin',
-    'edwh-sshkey-plugin',
-    'edwh-demo-plugin',
-    'edwh-restic-plugin',
-    'edwh-pipcompile-plugin',
-    'edwh-bundler-plugin',
-    'edwh-server-provisioning-plugin',
     'edwh-b2-plugin',
-    'edwh-locust-plugin',
-    'edwh-sshfs-plugin',
+    'edwh-bundler-plugin',
+    'edwh-demo-plugin',
     'edwh-files-plugin',
+    'edwh-locust-plugin',
+    'edwh-multipass-plugin',
+    'edwh-pipcompile-plugin',
+    'edwh-restic-plugin',
+    'edwh-server-provisioning-plugin',
+    'edwh-sshfs-plugin',
+    'edwh-sshkey-plugin',
+    'edwh-uptime-plugin',
     'edwh-whitelabel-plugin',
+]
+
+# plugins that are useful on a (production) server:
+server-plugins = [
+    'edwh-b2-plugin',
+    'edwh-bundler-plugin',
+    'edwh-files-plugin',
+    'edwh-pipcompile-plugin',
+    'edwh-restic-plugin',
+    'edwh-uptime-plugin',
 ]
 
 server-provisioning = [
@@ -120,6 +132,10 @@ files = [
 
 whitelabel = [
     'edwh-whitelabel-plugin'
+]
+
+uptime = [
+    'edwh-uptime-plugin'
 ]
 
 [project.scripts]

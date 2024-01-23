@@ -2,6 +2,44 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.2 (2024-01-18)
+### Fix
+* **help:** Include namespace in command example (pip.compile instead of compile) ([`de4a4b2`](https://github.com/educationwarehouse/edwh/commit/de4a4b29b03f8ba33649c6dea78f3587b9bc0e8c))
+* --help BEFORE the subcommand because otherwise it doesn't always work ([`6546876`](https://github.com/educationwarehouse/edwh/commit/654687661b65bb977c7ad275b3647211b1423e7b))
+
+### Documentation
+* **changelog:** Merge prerelease and actual release changelogs ([`3ebb8c3`](https://github.com/educationwarehouse/edwh/commit/3ebb8c341f88018e7c4b61b4aec7a0776b40d14a))
+
+## v0.36.1 (2024-01-18)
+### Fix
+* **help:** Deal with missing help docstring in plugin/namespace ([`b5e139f`](https://github.com/educationwarehouse/edwh/commit/b5e139f8bd98fff49186a122ddd3b3f1f959ad1a))
+* **plugin:** Deal with unreleased plugins ([`a2cc4d5`](https://github.com/educationwarehouse/edwh/commit/a2cc4d5def1b0c141ddcc53ed707b6617900591d))
+
+## v0.36.0 (2024-01-18)
+### Feature
+* Added `edwh[uptime]` extra and `edwh[server-plugins]` (because some plugins don't have to be installed on our servers, slowing them down) ([`57385b0`](https://github.com/educationwarehouse/edwh/commit/57385b01849d6dab929cefdb0140f689de0169fa))
+* Added `edwh help` command to show help information about whole plugins/namespaces (instead of just --help for everything or one command) ([`f870f37`](https://github.com/educationwarehouse/edwh/commit/f870f374c478f8409ae4debd810e294ed0963840))
+
+### Fix
+* Don't show None if no global module docstring, just print an empty string instead ([`6081872`](https://github.com/educationwarehouse/edwh/commit/6081872d02863a2e0c47804414316ee1d4f7996e))
+
+## v0.35.0 (2024-01-08)
+### Feature
+* `ew up` now also looks for local `up` tasks + shows related config ([`725db25`](https://github.com/educationwarehouse/edwh/commit/725db259fdf838724f4f1184d4c942e6e17d94fa))
+
+### Fix
+* Pass list of services to local `up` ([`65e8c11`](https://github.com/educationwarehouse/edwh/commit/65e8c119e0e056f30c246f65ba4e676751ebf341))
+* Invoke 2.1 requires fabic 3.1+, not 3.0 ([`8c47abd`](https://github.com/educationwarehouse/edwh/commit/8c47abde702ac2165eb2b708e39246f3d2e832d4))
+* Bump invoke so it should work with 3.12 ([`ba9421d`](https://github.com/educationwarehouse/edwh/commit/ba9421d6ad6fd023f871b0a341f53e40b287218e))
+
+## v0.34.1 (2023-12-15)
+### Fix
+* Only one newline between env vars; require humanize since its imported in edwh ([`328e546`](https://github.com/educationwarehouse/edwh/commit/328e54666e00aef1b0da1308f120cf48c23db628))
+
+## v0.34.0 (2023-12-15)
+### Feature
+* Added --as-json to ew discover ([`23e8e98`](https://github.com/educationwarehouse/edwh/commit/23e8e987a0f06de063f2ef1203e3b352d0a11f84))
+
 ## v0.33.2 (2023-11-06)
 ### Fix
 * **plugin:** Don't crash if no new version to publish, but warn ([`6ccc166`](https://github.com/educationwarehouse/edwh/commit/6ccc16698569b5dbf75984ecae2b464f550b8866))
