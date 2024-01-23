@@ -1168,10 +1168,13 @@ def get_hostingdomain_from_env(ctx: Context) -> str:
     return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
 
 
-def dc_config(ctx: Context) -> typing.Optional[dict]:
-    return yaml.load(
-        ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-        Loader=yaml.SafeLoader,
+def dc_config(ctx: Context) -> dict[str, typing.Any]:
+    return (
+        yaml.load(
+            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+            Loader=yaml.SafeLoader,
+        )
+        or {}
     )
 
 
@@ -1199,13 +1202,6 @@ def get_hosts_for_service(docker_service: dict) -> set[str]:
             domains.add(strip_host(value))
 
     return domains
-
-
-def dc_config(ctx: Context):
-    return yaml.load(
-        ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-        Loader=yaml.SafeLoader,
-    )
 
 
 def print_aligned(plugin_commands: list[str]) -> None:
