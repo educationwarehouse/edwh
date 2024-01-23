@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.36.4 (2024-01-23)
+### Fix
+* **dotenv:** Make `read_dotenv` work even with an invalid dc.yml ([`86aeee4`](https://github.com/educationwarehouse/edwh/commit/86aeee49bdb15d7da678e60e55f0f5df7c8fdde3))
+
 ## v0.36.3 (2024-01-23)
 ### Fix
 * **discover:** Add humanize as regular dependency instead of extra ([`a0d49df`](https://github.com/educationwarehouse/edwh/commit/a0d49df2271dc20ef283c0574d154a8558ceaa1e))
