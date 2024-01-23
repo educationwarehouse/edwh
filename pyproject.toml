@@ -54,6 +54,7 @@ dev = [
 
 omgeving = [
     # no extra dependencies anymore !
+    # don't remove me, because then pip install edwh[omgeving] might complain
 ]
 
 plugins = [

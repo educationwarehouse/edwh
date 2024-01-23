@@ -6,12 +6,9 @@ import datetime
 import sys
 import typing
 
+import click
 import diceware
-from invoke import Argument, Context
-
-from .extendable_fab import ExtendableFab
-
-# from .cli import program # <- WILL BREAK TASK DETECTION!
+from invoke import Context
 
 
 def confirm(prompt: str, default: bool = False) -> bool:
@@ -159,3 +156,64 @@ def dump_set_as_list(data: set[T] | T) -> list[T] | T:
         return list(data)
     else:
         return data
+
+
+KEY_ENTER = "\r"
+KEY_ARROWUP = "\033[A"
+KEY_ARROWDOWN = "\033[B"
+
+
+def interactive_selected_checkbox_values(
+    options: list[str],
+    prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
+) -> list[str]:
+    """
+    This function provides an interactive checkbox selection in the console.
+
+    The user can navigate through the options using the arrow keys,
+    select/deselect options using the spacebar or digit keys, and finish the selection by pressing 'Enter'.
+
+    Args:
+        options (list[str]): A list of options to be displayed as checkboxes.
+        prompt (str, optional): A string that is displayed as a prompt for the user.
+
+    Returns:
+        list[str]: A list of selected option values.
+
+    """
+    checked_indices = dict()  # instead of set to keep ordering
+    current_index = 0
+
+    def print_checkbox(label: str, checked: bool, current: bool, number: int) -> None:
+        checkbox = "[x]" if checked else "[ ]"
+        indicator = ">" if current else " "
+        click.echo(f"{indicator}{number}. {checkbox} {label}")
+
+    while True:
+        click.clear()
+        click.echo(prompt)
+
+        for i, option in enumerate(options, start=1):
+            print_checkbox(option, i - 1 in checked_indices, i - 1 == current_index, i)
+
+        key = click.getchar()
+
+        if key == KEY_ENTER:
+            break
+        elif key == KEY_ARROWUP:  # Up arrow
+            current_index = (current_index - 1) % len(options)
+        elif key == KEY_ARROWDOWN:  # Down arrow
+            current_index = (current_index + 1) % len(options)
+        elif key.isdigit() and 1 <= int(key) <= len(options):
+            current_index = int(key) - 1
+            if current_index in checked_indices:
+                del checked_indices[current_index]
+            else:
+                checked_indices[current_index] = options[current_index]
+        elif key == " ":
+            if current_index in checked_indices:
+                del checked_indices[current_index]
+            else:
+                checked_indices[current_index] = options[current_index]
+
+    return list(checked_indices.values())

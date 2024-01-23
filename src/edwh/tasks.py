@@ -9,6 +9,7 @@ import sys
 import typing
 import warnings
 from dataclasses import dataclass
+from getpass import getpass
 from pathlib import Path
 
 import humanize
@@ -26,7 +27,6 @@ from .__about__ import __version__ as edwh_version
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import noop  # noqa
 from .helpers import (  # noqa
     confirm,
     dump_set_as_list,
@@ -34,6 +34,7 @@ from .helpers import (  # noqa
     execution_fails,
 )
 from .helpers import generate_password as _generate_password
+from .helpers import interactive_selected_checkbox_values, noop  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -479,28 +480,28 @@ def set_env_value(path: Path, target: str, value: str) -> None:
         env_file.write("\n")
 
 
-def print_services(services: list, selected_services: list = None, warn: str = None):
-    """
-    print all the services that are in the docker-compose.yml
-
-    :param services: docker services that are in the docker-compose.yml
-    :return: a list of all services in the docker-compose.yml
-    """
-    if warn is not None:
-        print(warn)
-
-    print("\nservices:")
-    for index in range(len(services)):
-        if services[index] == "":
-            continue
-        print(f"{index + 1}: {services[index]}")
-
-    if selected_services is None:
-        return
-
-    print("\nselected services:")
-    for index in range(len(selected_services)):
-        print(f"{index + 1}:", selected_services[index])
+# def print_services(services: list, selected_services: list = None, warn: str = None):
+#     """
+#     print all the services that are in the docker-compose.yml
+#
+#     :param services: docker services that are in the docker-compose.yml
+#     :return: a list of all services in the docker-compose.yml
+#     """
+#     if warn is not None:
+#         print(warn)
+#
+#     print("\nservices:")
+#     for index in range(len(services)):
+#         if services[index] == "":
+#             continue
+#         print(f"{index + 1}: {services[index]}")
+#
+#     if selected_services is None:
+#         return
+#
+#     print("\nselected services:")
+#     for index in range(len(selected_services)):
+#         print(f"{index + 1}:", selected_services[index])
 
 
 def write_content_to_toml_file(content_key: str, content: str, filename="config.toml"):
@@ -516,11 +517,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename="config.
 
 
 def get_content_from_toml_file(
-    services: list,
-    toml_contents: dict,
+    services: list[str],
+    toml_contents: dict[str, typing.Any],
     content_key: str,
     content: str,
-    default: typing.Container,
+    default: typing.Container[str] | str,
 ):
     """
     Gets content from a TOML file.
@@ -537,26 +538,7 @@ def get_content_from_toml_file(
     if "services" in toml_contents and content_key in toml_contents["services"]:
         return ""
 
-    print_services(services)
-    print(
-        colored(
-            "NOTE: To select multiple services please use single spaces or ',' inbetween numbers\n"
-            "For example '1, 2, 3, 4'",
-            "green",
-        )
-    )
-    if content_key == "services":
-        print(colored("discover will include all services.\n", "green"))
-    chosen_services_ids = input(content)
-    if "," not in chosen_services_ids:
-        chosen_services_ids = chosen_services_ids.split(" ")
-    else:
-        chosen_services_ids = chosen_services_ids.replace(" ", "").split(",")
-
-    if chosen_services_ids[0] in default or len(chosen_services_ids[0]) == 0:
-        return default
-
-    return [services[int(service_id) - 1] for service_id in chosen_services_ids]
+    return interactive_selected_checkbox_values(services, content) or default
 
 
 def setup_config_file(filename="config.toml"):
@@ -587,7 +569,7 @@ def write_user_input_to_config_toml(all_services: list):
         all_services,
         config_toml_file,
         "services",
-        "select a service by number(default is 'discover'): ",
+        "select a service by number (default is 'discover'): ",
         "discover",
     )
     write_content_to_toml_file("services", services_list)
@@ -645,11 +627,36 @@ def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "d
     return yaml.safe_load(io.StringIO(processed_config))
 
 
+@task()
+def require_sudo(c: Context):
+    """
+    Can be used as a 'pre' hook for invoke tasks to make sure sudo is ready to be used,
+    without prompting for a password later on (which could fail due to not passing data to stdin on a remote host).
+
+    Usage:
+        @task(pre=[require_sudo])
+        def setup(c): ...
+    """
+    if c.run("sudo --non-interactive echo ''", warn=True, hide=True).ok:
+        # prima
+        return
+
+    sudo_pass = getpass("Please enter the sudo password: ")
+    c.config.sudo.password = sudo_pass
+
+    try:
+        c.sudo("echo ''", warn=True, hide=True)
+        cprint("Sudo password accepted!", color="green", file=sys.stderr)
+    except invoke.exceptions.AuthFailure as e:
+        cprint(str(e), color="red", file=sys.stderr)
+
+
 @task(
+    pre=[require_sudo],
     help={
-        "run_local_setup": "executes local_tasks setup(default is True)",
+        "run_local_setup": "executes local_tasks setup (default is True)",
         "new_config_toml": "will REMOVE and create a new config.toml file",
-    }
+    },
 )
 def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     """
