@@ -264,17 +264,18 @@ class TomlConfig:
         """
         singleton_key = (str(fname), str(dotenv_path))
 
+        if instance := tomlconfig_singletons.get(singleton_key):
+            return instance
+
+        config_path = Path(fname)  # probably config.toml
         dc_path = Path("docker-compose.yml")
+
         if not dc_path.exists():
             warnings.warn(
                 "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited."
             )
             return None
 
-        if instance := tomlconfig_singletons.get(singleton_key):
-            return instance
-
-        config_path = Path(fname)
         if not pathlib.Path.exists(config_path):
             setup(invoke.Context())
 
@@ -317,28 +318,8 @@ class TomlConfig:
         return instance
 
 
-def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
-    """
-    Read .env file from env_path and return a dict of key/value pairs.
-
-    If env_path is not given, TomlConfig.load().dotenv_path is used.
-
-    :param env_path: optional path to .env file
-    :return: dict of key/value pairs from the .env file
-    """
-    cache_key = str(env_path) if env_path else "."
-    if existing := _dotenv_settings.get(cache_key):
-        # 'cache'
-        return existing
-
+def process_env_file(env_path: Path) -> dict[str, str]:
     items = {}
-
-    if not env_path:
-        if config := TomlConfig.load(dotenv_path=env_path):
-            env_path = config.dotenv_path
-        else:
-            env_path = Path(DEFAULT_DOTENV_PATH)
-
     with env_path.open(mode="r") as env_file:
         for line in env_file:
             # remove comments and redundant whitespace
@@ -353,6 +334,35 @@ def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
 
             # clean the tuples and add to dict
             items[k.strip()] = v.strip()
+    return items
+
+
+def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
+    """
+    Read .env file from env_path and return a dict of key/value pairs.
+
+    If env_path is not given, TomlConfig.load().dotenv_path is used.
+
+    :param env_path: optional path to .env file
+    :return: dict of key/value pairs from the .env file
+    """
+    cache_key = str(env_path) if env_path else "."
+    if existing := _dotenv_settings.get(cache_key):
+        # 'cache'
+        return existing
+
+    if not env_path:
+        try:
+            config = TomlConfig.load(dotenv_path=env_path)
+        except Exception:
+            config = None
+
+        if config:
+            env_path = config.dotenv_path
+        else:
+            env_path = Path(DEFAULT_DOTENV_PATH)
+
+    items = process_env_file(env_path)
 
     _dotenv_settings[cache_key] = items
     return items
@@ -1370,3 +1380,8 @@ def ew_self_update(ctx):
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
     ctx.run("~/.local/bin/edwh self-update")
+
+
+@task
+def debug(_):
+    print(get_env_value("IS_DEBUG", "0"))
