@@ -321,6 +321,9 @@ class TomlConfig:
 
 def process_env_file(env_path: Path) -> dict[str, str]:
     items = {}
+    if not env_path.exists():
+        return items
+
     with env_path.open(mode="r") as env_file:
         for line in env_file:
             # remove comments and redundant whitespace
