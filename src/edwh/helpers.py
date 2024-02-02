@@ -162,10 +162,13 @@ KEY_ENTER = "\r"
 KEY_ARROWUP = "\033[A"
 KEY_ARROWDOWN = "\033[B"
 
+T_Key = typing.TypeVar("T_Key", bound=typing.Hashable)
+
 
 def interactive_selected_checkbox_values(
-    options: list[str],
+    options: list[str] | dict[T_Key, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
+    selected: typing.Iterable[T_Key] = (),
 ) -> list[str]:
     """
     This function provides an interactive checkbox selection in the console.
@@ -174,26 +177,56 @@ def interactive_selected_checkbox_values(
     select/deselect options using the spacebar or digit keys, and finish the selection by pressing 'Enter'.
 
     Args:
-        options (list[str]): A list of options to be displayed as checkboxes.
+        options: A list or dict (value: label) of options to be displayed as checkboxes.
         prompt (str, optional): A string that is displayed as a prompt for the user.
+        selected: a list (/other iterable) of pre-selected options.
+            T_Key means the values have to be the same type as the keys of options.
+            Example:
+                options = {1: "something", "two": "else"}
+                selected = [2, "three"] # valid type (int and str are keys of options)
+                selected = [1.5, "two"] # invalid type (none of the keys of options are a float)
 
     Returns:
         list[str]: A list of selected option values.
 
+    Examples:
+        interactive_selected_checkbox_values(["first", "second", "third"])
+
+        interactive_selected_checkbox_values({100: "first", 211: "second", 355: "third"})
+
+        interactive_selected_checkbox_values(["first", "second", "third"], selected=["third"])
+
+        interactive_selected_checkbox_values({1: "first", 2: "second", 3: "third"}, selected=[3])
     """
     checked_indices = dict()  # instead of set to keep ordering
     current_index = 0
+
+    if isinstance(options, list):
+        labels = options
+    else:
+        labels = list(options.values())
+        options = list(options.keys())
+
+    for item in selected:
+        if item not in options:
+            # invalid
+            continue
+
+        idx = options.index(item)
+        checked_indices[idx] = options[idx]
 
     def print_checkbox(label: str, checked: bool, current: bool, number: int) -> None:
         checkbox = "[x]" if checked else "[ ]"
         indicator = ">" if current else " "
         click.echo(f"{indicator}{number}. {checkbox} {label}")
 
+    # todo: set checked_instances
+
     while True:
         click.clear()
         click.echo(prompt)
 
-        for i, option in enumerate(options, start=1):
+        for i, option in enumerate(labels, start=1):
             print_checkbox(option, i - 1 in checked_indices, i - 1 == current_index, i)
 
         key = click.getchar()

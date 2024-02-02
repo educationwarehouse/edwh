@@ -27,7 +27,7 @@ from ..meta import (
 )
 
 
-def list_installed_plugins(c: Context, pip_command=None) -> list[str]:
+def list_installed_plugins(c: Context, pip_command: str = None) -> list[str]:
     """
     List installed edwh-plugins
     """
@@ -584,7 +584,7 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
 def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) -> typing.Optional[str]:
     semver = c.run(f"semantic-release publish {kwargs_to_options(flags)}", **kw)
 
-    if new_version := re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr):
+    if new_version := re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr if semver else ""):
         return new_version[0]
 
     cprint("No new version found!", "yellow")
