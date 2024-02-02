@@ -250,3 +250,76 @@ def interactive_selected_checkbox_values(
                 checked_indices[current_index] = options[current_index]
 
     return list(checked_indices.values())
+
+
+def interactive_selected_radio_value(
+    options: list[str] | dict[T_Key, str],
+    prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
+    selected: T_Key = None,
+) -> str:
+    """
+    This function provides an interactive radio box selection in the console.
+
+    The user can navigate through the options using the arrow keys,
+    select an option using the spacebar or digit keys, and finish the selection by pressing 'Enter'.
+
+    Args:
+        options: A list or dict (value: label) of options to be displayed as radio boxes.
+        prompt (str, optional): A string that is displayed as a prompt for the user.
+        selected: a pre-selected option.
+            T_Key means the value has to be the same type as the keys of options.
+            Example:
+                options = {1: "something", "two": "else"}
+                selected = 2 # valid type (int is a key of options)
+                selected = 1.5 # invalid type (none of the keys of options are a float)
+
+    Returns:
+        str: The selected option value.
+
+    Examples:
+        interactive_selected_radio_values(["first", "second", "third"])
+
+        interactive_selected_radio_values({100: "first", 211: "second", 355: "third"})
+
+        interactive_selected_radio_values(["first", "second", "third"], selected="third")
+
+        interactive_selected_radio_values({1: "first", 2: "second", 3: "third"}, selected=3)
+    """
+    selected_index = None
+    current_index = 0
+
+    if isinstance(options, list):
+        labels = options
+    else:
+        labels = list(options.values())
+        options = list(options.keys())
+
+    if selected in options:
+        selected_index = current_index = options.index(selected)
+
+    def print_radio_box(label: str, selected: bool, current: bool, number: int) -> None:
+        radio_box = "(o)" if selected else "( )"
+        indicator = ">" if current else " "
+        click.echo(f"{indicator}{number}. {radio_box} {label}")
+
+    while True:
+        click.clear()
+        click.echo(prompt)
+
+        for i, option in enumerate(labels, start=1):
+            print_radio_box(option, i - 1 == selected_index, i - 1 == current_index, i)
+
+        key = click.getchar()
+
+        if key == KEY_ENTER:
+            break
+        elif key == KEY_ARROWUP:  # Up arrow
+            current_index = (current_index - 1) % len(options)
+        elif key == KEY_ARROWDOWN:  # Down arrow
+            current_index = (current_index + 1) % len(options)
+        elif key.isdigit() and 1 <= int(key) <= len(options):
+            selected_index = int(key) - 1
+        elif key == " ":
+            selected_index = current_index
+
+    return options[selected_index]

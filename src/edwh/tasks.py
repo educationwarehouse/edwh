@@ -34,7 +34,11 @@ from .helpers import (  # noqa
     execution_fails,
 )
 from .helpers import generate_password as _generate_password
-from .helpers import interactive_selected_checkbox_values, noop  # noqa
+from .helpers import (  # noqa
+    interactive_selected_checkbox_values,
+    interactive_selected_radio_value,
+    noop,
+)
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
