@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.38.0 (2024-02-02)
+### Feature
+* **interactive-select:** Added a variant with a radio select instead of checkboxes ([`e33826b`](https://github.com/educationwarehouse/edwh/commit/e33826bc0bb27d9d18596f6785a13ecd10524a09))
+* **checkboxes:** Options can now be a dict of value: label and you can add a list of pre-selected values via `selected=` ([`60001a9`](https://github.com/educationwarehouse/edwh/commit/60001a9428c37168190312d6bac034f08a27e44a))
+
 ## v0.37.1 (2024-01-29)
 ### Fix
 * **process_env_file:** If .env file is missing, don't crash but simply return an empty dict ([`6a79a24`](https://github.com/educationwarehouse/edwh/commit/6a79a24e17d04d9141a6c7ee2b285a6e078a2dc0))
