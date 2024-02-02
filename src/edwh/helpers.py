@@ -3,6 +3,7 @@ This file contains re-usable helpers.
 """
 import abc
 import datetime
+import functools
 import sys
 import typing
 
@@ -165,6 +166,12 @@ KEY_ARROWDOWN = "\033[B"
 T_Key = typing.TypeVar("T_Key", bound=typing.Hashable)
 
 
+def print_box(label: str, selected: bool, current: bool, number: int, fmt: str = "[%s]", filler: str = "x") -> None:
+    box = fmt % (filler if selected else " ")
+    indicator = ">" if current else " "
+    click.echo(f"{indicator}{number}. {box} {label}")
+
+
 def interactive_selected_checkbox_values(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
@@ -215,12 +222,7 @@ def interactive_selected_checkbox_values(
         idx = options.index(item)
         checked_indices[idx] = options[idx]
 
-    def print_checkbox(label: str, checked: bool, current: bool, number: int) -> None:
-        checkbox = "[x]" if checked else "[ ]"
-        indicator = ">" if current else " "
-        click.echo(f"{indicator}{number}. {checkbox} {label}")
-
-    # todo: set checked_instances
+    print_checkbox = functools.partial(print_box, fmt="[%s]", filler="x")
 
     while True:
         click.clear()
@@ -277,13 +279,13 @@ def interactive_selected_radio_value(
         str: The selected option value.
 
     Examples:
-        interactive_selected_radio_values(["first", "second", "third"])
+        interactive_selected_radio_value(["first", "second", "third"])
 
-        interactive_selected_radio_values({100: "first", 211: "second", 355: "third"})
+        interactive_selected_radio_value({100: "first", 211: "second", 355: "third"})
 
-        interactive_selected_radio_values(["first", "second", "third"], selected="third")
+        interactive_selected_radio_value(["first", "second", "third"], selected="third")
 
-        interactive_selected_radio_values({1: "first", 2: "second", 3: "third"}, selected=3)
+        interactive_selected_radio_value({1: "first", 2: "second", 3: "third"}, selected=3)
     """
     selected_index = None
     current_index = 0
@@ -297,10 +299,7 @@ def interactive_selected_radio_value(
     if selected in options:
         selected_index = current_index = options.index(selected)
 
-    def print_radio_box(label: str, selected: bool, current: bool, number: int) -> None:
-        radio_box = "(o)" if selected else "( )"
-        indicator = ">" if current else " "
-        click.echo(f"{indicator}{number}. {radio_box} {label}")
+    print_radio_box = functools.partial(print_box, fmt="(%s)", filler="o")
 
     while True:
         click.clear()
@@ -312,7 +311,13 @@ def interactive_selected_radio_value(
         key = click.getchar()
 
         if key == KEY_ENTER:
-            break
+            if selected_index is None:
+                # no you may not leave.
+                continue
+            else:
+                # done!
+                break
+
         elif key == KEY_ARROWUP:  # Up arrow
             current_index = (current_index - 1) % len(options)
         elif key == KEY_ARROWDOWN:  # Down arrow
