@@ -175,7 +175,7 @@ def print_box(label: str, selected: bool, current: bool, number: int, fmt: str =
 def interactive_selected_checkbox_values(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: typing.Iterable[T_Key] = (),
+    selected: set[T_Key] = (),
 ) -> list[str]:
     """
     This function provides an interactive checkbox selection in the console.
@@ -186,7 +186,8 @@ def interactive_selected_checkbox_values(
     Args:
         options: A list or dict (value: label) of options to be displayed as checkboxes.
         prompt (str, optional): A string that is displayed as a prompt for the user.
-        selected: a list (/other iterable) of pre-selected options.
+        selected: a set (/other iterable) of pre-selected options (set is preferred).
+
             T_Key means the values have to be the same type as the keys of options.
             Example:
                 options = {1: "something", "two": "else"}
