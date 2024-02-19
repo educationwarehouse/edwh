@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.38.2 (2024-02-19)
+
+
 ## v0.38.1 (2024-02-19)
 ### Fix
 * Added missing dependency (click) that was only installed for dev before ([`b2dae24`](https://github.com/educationwarehouse/edwh/commit/b2dae24d29e06b134aa71e96aeb7d6a19534183e))
