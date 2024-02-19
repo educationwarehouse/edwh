@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.38.1 (2024-02-19)
+### Fix
+* Added missing dependency (click) that was only installed for dev before ([`b2dae24`](https://github.com/educationwarehouse/edwh/commit/b2dae24d29e06b134aa71e96aeb7d6a19534183e))
+
+### Documentation
+* Added newline to docstring ([`9589bb0`](https://github.com/educationwarehouse/edwh/commit/9589bb05ae046cc921b73864618407a548e44cc3))
+
 ## v0.38.0 (2024-02-02)
 ### Feature
 * **interactive-select:** Added a variant with a radio select instead of checkboxes ([`e33826b`](https://github.com/educationwarehouse/edwh/commit/e33826bc0bb27d9d18596f6785a13ecd10524a09))
