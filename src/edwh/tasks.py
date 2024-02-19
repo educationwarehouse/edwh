@@ -444,7 +444,8 @@ def get_env_value(key: str, default: str = KeyError):
 
 
 def set_env_value(path: Path, target: str, value: str) -> None:
-    """update/set environment variables in the .env file, keeping comments intact
+    """
+    Update/set environment variables in the .env file, keeping comments intact.
 
     set_env_value(Path('.env'), 'SCHEMA_VERSION', schemaversion)
 
