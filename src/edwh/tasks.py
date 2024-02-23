@@ -1164,6 +1164,7 @@ def version(ctx):
     Show edwh app version and docker + compose version.
     """
     print("edwh version", edwh_version)
+    print("Python version", sys.version.split(" ")[0])
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
 
