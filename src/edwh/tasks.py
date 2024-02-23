@@ -50,6 +50,8 @@ FILE_RELATIVE = 1
 FILE_END = 2
 
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
+DEFAULT_TOML_NAME = "config.toml"
+DEFAULT_DOTENV_PATH = Path(".env")
 
 
 def service_names(
@@ -77,8 +79,13 @@ def service_names(
                 return config.services_minimal
             case "logs":
                 return config.services_log
+            case "celeries":
+                return config.celeries
             case None:
                 return []
+
+    # todo: allow 'all', 'celeries' etc.
+    #   as -s
 
     # service_arg is specified, filter through all available services:
 
@@ -204,7 +211,7 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
 
 
 # used for treafik config
-def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
+def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path = DEFAULT_DOTENV_PATH):
     """Indention preserving templating of yaml files, uses dotenv_path for variables.
 
     Pythong formatting is used with a dictionary of environment variables used from os environment variables
@@ -236,9 +243,6 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path):
         # and remove any part that might be left over (when the new file is shorter than the old one)
         yaml_file.truncate()
 
-
-DEFAULT_TOML_NAME = "config.toml"
-DEFAULT_DOTENV_PATH = ".env"
 
 # Singleton but depending on 'fname' (toml file name) and 'dotenv_path'
 tomlconfig_singletons: dict[tuple[str, str], "TomlConfig"] = {}
@@ -345,7 +349,7 @@ def process_env_file(env_path: Path) -> dict[str, str]:
     return items
 
 
-def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
+def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
     """
     Read .env file from env_path and return a dict of key/value pairs.
 
@@ -354,21 +358,14 @@ def read_dotenv(env_path: Path = None) -> dict[str, typing.Any]:
     :param env_path: optional path to .env file
     :return: dict of key/value pairs from the .env file
     """
+    if not env_path:
+        # for backwards compatibility, if None is passed: still use the default.
+        env_path = DEFAULT_DOTENV_PATH
+
     cache_key = str(env_path) if env_path else "."
     if existing := _dotenv_settings.get(cache_key):
         # 'cache'
         return existing
-
-    if not env_path:
-        try:
-            config = TomlConfig.load(dotenv_path=env_path)
-        except Exception:
-            config = None
-
-        if config:
-            env_path = config.dotenv_path
-        else:
-            env_path = Path(DEFAULT_DOTENV_PATH)
 
     items = process_env_file(env_path)
 
@@ -684,7 +681,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     ):
         config_toml.unlink()
 
-    Path("config.toml").touch()
+    config_toml.touch()
 
     if not dc_path.exists():
         warnings.warn("docker-compose file is missing, setup could not be completed!")
@@ -854,7 +851,7 @@ def up(
     ctx: Context = ctx
     config = TomlConfig.load()
     # recalculate the hash and save it, so with the next up, migrate will see differences and start migration
-    set_env_value(config.dotenv_path, "SCHEMA_VERSION", calculate_schema_hash())
+    set_env_value(DEFAULT_DOTENV_PATH, "SCHEMA_VERSION", calculate_schema_hash())
     # test for --service arguments, if none given: use defaults
     services = service_names(service or config.services_minimal)
     services_ls = " ".join(services)
