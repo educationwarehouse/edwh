@@ -567,26 +567,20 @@ def write_user_input_to_config_toml(all_services: list):
     :param c: invoke Context
     :param all_services: list of all docker services that are in the docker-compose.yml
     :return:
-
     """
-    setup_config_file()
-    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    services_no_celery = [service for service in all_services if "celery" not in service]
+    services_celery = [service for service in all_services if "celery" in service]
 
+    setup_config_file()
     # services
-    services_list = get_content_from_toml_file(
-        all_services,
-        config_toml_file,
-        "services",
-        "select a service by number (default is 'discover'): ",
-        "discover",
-    )
+    services_list = "discover"
     write_content_to_toml_file("services", services_list)
 
     config_toml_file = tomlkit.loads(Path("config.toml").read_text())
 
     # get chosen services for minimal and logs
     minimal_services = (
-        all_services
+        services_no_celery
         if config_toml_file["services"]["services"] == "discover"
         else config_toml_file["services"]["services"]
     )
@@ -596,13 +590,15 @@ def write_user_input_to_config_toml(all_services: list):
         minimal_services,
         config_toml_file,
         "minimal",
-        "select minimal services you want to run on `ew up` by number: ",
+        "select minimal services you want to run on `ew up`: ",
         [],
     )
     write_content_to_toml_file("minimal", content)
 
-    # check if minimal exists if yes add celeries to services
-    if "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]:
+    # check if minimal and celeries exist, if so add celeries to services
+    if services_celery and (
+        "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
+    ):
         # check if user wants to include celeries
         include_celeries = (
             "true"
@@ -615,7 +611,7 @@ def write_user_input_to_config_toml(all_services: list):
         minimal_services,
         config_toml_file,
         "log",
-        "select services to be logged by number: ",
+        "select services to be logged: ",
         [],
     )
     write_content_to_toml_file("log", content)
@@ -701,8 +697,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         docker_compose = load_dockercompose_with_includes(c, dc_path)
 
         services: dict[str, typing.Any] = docker_compose["services"]
-        services_no_celery = [service for service in services if "celery" not in service]
-        write_user_input_to_config_toml(services_no_celery)
+        write_user_input_to_config_toml(list(services.keys()))
     except Exception as e:
         warnings.warn(
             "Something went wrong trying to create a config.toml from docker-compose.yml",
