@@ -5,6 +5,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import sys
 import typing
 import warnings
@@ -50,13 +51,29 @@ FILE_RELATIVE = 1
 FILE_END = 2
 
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
-DEFAULT_TOML_NAME = "config.toml"
+DEFAULT_TOML_NAME = ".toml"  # was config.toml
+FALLBACK_TOML_NAME = "default.toml"
 DEFAULT_DOTENV_PATH = Path(".env")
+
+
+def copy_fallback_toml(tomlfile=DEFAULT_TOML_NAME, fallback=FALLBACK_TOML_NAME, force: bool = False):
+    tomlfile_path = Path(tomlfile)
+    fallback_path = Path(fallback)
+
+    if tomlfile_path.exists() and not force:
+        return False
+
+    if not fallback_path.exists():
+        tomlfile_path.touch()
+        return False
+
+    shutil.copy(fallback_path, tomlfile_path)
+    return True
 
 
 def service_names(
     service_arg: list[str],
-    default: typing.Literal["all", "minimal", "logs"] | None = None,
+    default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -72,21 +89,21 @@ def service_names(
 
     if not service_arg:
         # fallback to default
-        match default:
-            case "all":
-                return config.all_services
-            case "minimal":
-                return config.services_minimal
-            case "logs":
-                return config.services_log
-            case "celeries":
-                return config.celeries
-            case None:
-                return []
+        service_arg = [str(default)] if default else []
 
-    # todo: allow 'all', 'celeries' etc.
-    #   as -s
-
+    # NOT elif because you can pass -s "minimal" -s "celeries" for example
+    if "all" in service_arg:
+        service_arg.remove("all")
+        service_arg.extend(config.all_services)
+    if "minimal" in service_arg:
+        service_arg.remove("minimal")
+        service_arg.extend(config.services_minimal)
+    if "logs" in service_arg:
+        service_arg.remove("logs")
+        service_arg.extend(config.services_minimal)
+    if "celeries" in service_arg:
+        service_arg.remove("celeries")
+        service_arg.extend(config.celeries)
     # service_arg is specified, filter through all available services:
 
     for service in service_arg:
@@ -509,16 +526,16 @@ def set_env_value(path: Path, target: str, value: str) -> None:
 #         print(f"{index + 1}:", selected_services[index])
 
 
-def write_content_to_toml_file(content_key: str, content: str, filename="config.toml"):
+def write_content_to_toml_file(content_key: str, content: str, filename=DEFAULT_TOML_NAME):
     if not content:
         return
 
-    config_toml_file = tomlkit.loads(Path(filename).read_text())
+    filepath = Path(filename)
+
+    config_toml_file = tomlkit.loads(filepath.read_text())
     config_toml_file["services"][content_key] = content
 
-    with open("config.toml", "w") as config_file:
-        config_file.write(tomlkit.dumps(config_toml_file))
-        config_file.close()
+    filepath.write_text(tomlkit.dumps(config_toml_file))
 
 
 def get_content_from_toml_file(
@@ -546,25 +563,26 @@ def get_content_from_toml_file(
     return interactive_selected_checkbox_values(services, content) or default
 
 
-def setup_config_file(filename="config.toml"):
+def setup_config_file(filename=DEFAULT_TOML_NAME):
     """
     sets up config.toml for use
     """
-    config_toml_file = tomlkit.loads(Path(filename).read_text())
+    filepath = Path(filename)
+
+    config_toml_file = tomlkit.loads(filepath.read_text())
     if "services" not in config_toml_file:
-        with open(filename, "w") as config_file:
-            config_file.write("\n[services]\n")
-            config_file.close()
+        filepath.write_text("\n[services]\n")
 
 
-def write_user_input_to_config_toml(all_services: list):
+def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TOML_NAME):
     """
     write chosen user dockers to config.toml
 
-    :param c: invoke Context
     :param all_services: list of all docker services that are in the docker-compose.yml
     :return:
     """
+    filepath = Path(filename)
+
     services_no_celery = [service for service in all_services if "celery" not in service]
     services_celery = [service for service in all_services if "celery" in service]
 
@@ -573,7 +591,7 @@ def write_user_input_to_config_toml(all_services: list):
     services_list = "discover"
     write_content_to_toml_file("services", services_list)
 
-    config_toml_file = tomlkit.loads(Path("config.toml").read_text())
+    config_toml_file = tomlkit.loads(filepath.read_text())
 
     # get chosen services for minimal and logs
     minimal_services = (
@@ -590,7 +608,7 @@ def write_user_input_to_config_toml(all_services: list):
         "select minimal services you want to run on `ew up`: ",
         [],
     )
-    write_content_to_toml_file("minimal", content)
+    write_content_to_toml_file("minimal", content, filename)
 
     # check if minimal and celeries exist, if so add celeries to services
     if services_celery and (
@@ -611,7 +629,7 @@ def write_user_input_to_config_toml(all_services: list):
         "select services to be logged: ",
         [],
     )
-    write_content_to_toml_file("log", content)
+    write_content_to_toml_file("log", content, filename)
 
 
 def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "docker-compose.yml"):
@@ -668,20 +686,20 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
-    config_toml = Path("config.toml")
+    config_toml = Path(DEFAULT_TOML_NAME)
     dc_path = Path("docker-compose.yml")
 
     if (
         new_config_toml
         and config_toml.exists()
         and confirm(
-            colored("Are you sure you want to remove the config.toml? [yN]", "red"),
+            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
             default=False,
         )
     ):
         config_toml.unlink()
 
-    config_toml.touch()
+    copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
     if not dc_path.exists():
         warnings.warn("docker-compose file is missing, setup could not be completed!")
@@ -692,12 +710,12 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     try:
         # run `docker compose config` to build a yaml with all processing done, include statements included.
         docker_compose = load_dockercompose_with_includes(c, dc_path)
-
         services: dict[str, typing.Any] = docker_compose["services"]
         write_user_input_to_config_toml(list(services.keys()))
     except Exception as e:
+        raise e
         warnings.warn(
-            "Something went wrong trying to create a config.toml from docker-compose.yml",
+            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml",
             source=e,
         )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
@@ -828,7 +846,7 @@ def volumes(ctx):
 # noinspection PyShadowingNames
 @task(
     help=dict(
-        service="Service to up, defaults to config.toml's [services].minimal. "
+        service="Service to up, defaults to .toml's [services].minimal. "
         "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
