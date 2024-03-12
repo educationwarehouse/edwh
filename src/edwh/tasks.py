@@ -114,7 +114,7 @@ def service_names(
     if service_arg and not selected:
         # when no service matches the name, don't return an empty list, as that would `up` all services
         # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
-        print(f"ERROR: No services found matching: {service_arg!r}")
+        cprint(f"ERROR: No services found matching: {service_arg!r}", color="red")
         exit(1)
 
     return list(selected)
@@ -299,8 +299,9 @@ class TomlConfig:
         dc_path = Path("docker-compose.yml")
 
         if not dc_path.exists():
-            warnings.warn(
-                "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited."
+            cprint(
+                "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited.",
+                color="yellow"
             )
             return None
 
@@ -704,7 +705,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
     if not dc_path.exists():
-        warnings.warn("docker-compose file is missing, setup could not be completed!")
+        cprint("docker-compose file is missing, setup could not be completed!", color="red")
         return False
 
     print("getting services...")
@@ -715,10 +716,9 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         services: dict[str, typing.Any] = docker_compose["services"]
         write_user_input_to_config_toml(list(services.keys()))
     except Exception as e:
-        raise e
-        warnings.warn(
-            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml",
-            source=e,
+        cprint(
+            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})",
+            color="red"
         )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
@@ -873,7 +873,7 @@ def up(
     # recalculate the hash and save it, so with the next up, migrate will see differences and start migration
     set_env_value(DEFAULT_DOTENV_PATH, "SCHEMA_VERSION", calculate_schema_hash())
     # test for --service arguments, if none given: use defaults
-    services = service_names(service or config.services_minimal)
+    services = service_names(service or (config.services_minimal if config else []))
     services_ls = " ".join(services)
 
     if build:

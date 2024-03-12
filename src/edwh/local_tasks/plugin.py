@@ -34,7 +34,10 @@ def list_installed_plugins(c: Context, pip_command: str = None) -> list[str]:
     if not pip_command:
         pip_command = _pip()
 
-    return c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
+    packages = c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
+
+    # filter out comments and editable (local) installs:
+    return [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
 
 
 @dataclass
