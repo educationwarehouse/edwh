@@ -691,7 +691,7 @@ def require_sudo(c: Context):
         "new_config_toml": "will REMOVE and create a new config.toml file",
     },
 )
-def setup(c, run_local_setup=True, new_config_toml=False, _retry=False, verbose=False):
+def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -731,7 +731,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False, verbose=
             f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})", color="red"
         )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
-    exec_setup_in_other_task(c, run_local_setup, verbose=verbose)
+    exec_setup_in_other_task(c, run_local_setup)
     return True
 
 
@@ -772,21 +772,38 @@ def next_value(c: Context, key: list[str] | str, lowest, silent=True):
     return max(values) + 1 if any(values) else lowest
 
 
-def set_permissions(
-    c: Context, path, uid=1050, gid=1050, filepermissions=664, directorypermissions=775, verbose: bool = False
-) -> None:
-    def sudo(command: str):
-        if verbose:
-            print("sudo", command, file=sys.stderr)
-        c.sudo(command)
+THREE_WEEKS = 60 * 24 * 7 * 3
 
+
+@task
+def clean_old_sessions(c: Context, relative_glob="web2py/apps/*/sessions", minutes: int = THREE_WEEKS):
+    for directory in Path.cwd().glob(relative_glob):
+        c.sudo(f'find "{directory}" -type f -mmin +{minutes} -exec rm -f "{{}}" +;')
+        remove_empty_dirs(c, directory)
+
+
+@task
+def remove_empty_dirs(c: Context, path: str | Path):
+    c.sudo(f'find "{path}" -type d -exec rmdir --ignore-fail-on-non-empty {{}} +')
+
+
+def set_permissions(
+    c: Context,
+    path: str,
+    uid: int = 1050,
+    gid: int = 1050,
+    filepermissions: int = 664,
+    directorypermissions: int = 775,
+) -> None:
     # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
     # command.
-    sudo(f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}')
+    # sudo(f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}')
+    c.sudo(f'find "{path}" -type d -exec chmod {directorypermissions} {{}} +')
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
-    sudo(f'find "{path}" -type f -print0 | sudo xargs --no-run-if-empty -0 chmod {filepermissions}')
+    # sudo(f'find "{path}" -type f -print0 | sudo xargs --no-run-if-empty -0 chmod {filepermissions}')
+    c.sudo(f'find "{path}" -type f -exec chmod {filepermissions} {{}} +')
     # simply apply new ownership to each and every directory
-    sudo(f'chown -R {uid}:{gid} "{path}" ')
+    c.sudo(f'chown -R {uid}:{gid} "{path}" ')
 
 
 @task(help=dict(silent="do not echo the password"))
