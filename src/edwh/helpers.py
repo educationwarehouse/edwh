@@ -6,6 +6,7 @@ import datetime
 import functools
 import sys
 import typing
+from typing import Optional
 
 import click
 import diceware
@@ -60,7 +61,7 @@ def _add_dash(flag: str) -> str:
         return f"--{flag}"
 
 
-def arg_was_passed(flag: str | tuple[str, ...]) -> typing.Optional[int]:
+def arg_was_passed(flag: str | tuple[str, ...]) -> Optional[int]:
     """
     Returns the index of the flag in sys.argv if passed, else None
     """
@@ -70,7 +71,7 @@ def arg_was_passed(flag: str | tuple[str, ...]) -> typing.Optional[int]:
     return next((i for i, item in enumerate(sys.argv) if item in flag), None)
 
 
-def kwargs_to_options(data: dict = None, **kw) -> str:
+def kwargs_to_options(data: Optional[dict] = None, **kw) -> str:
     """
     Convert a dictionary of options to the cli variant
     e.g. {'a': 1, 'key': 2} -> -a 1 --key 2

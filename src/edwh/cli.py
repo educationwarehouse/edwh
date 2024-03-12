@@ -13,7 +13,6 @@ from invoke import Collection
 
 from . import tasks
 from .__about__ import __version__
-from .extendable_fab import ExtendableFab  # instanceof invoke.Program
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 

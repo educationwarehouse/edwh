@@ -276,7 +276,7 @@ select = [
     # "PTH", # use pathlib
     "RUF", # ruff rules
     "C90", # mccabe (complexity)
-    "I", # isort
+#    "I", # isort
     "N", # pep-8 naming
     # "D", # pydocstyle
     # "UP", # pyupgrade
@@ -340,3 +340,9 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.su6]
+directory = "src"
+include = []
+exclude = []
+stop-after-first-failure = true

@@ -1,9 +1,11 @@
 from fabric.main import Fab
-from invoke import Argument, Collection, Program
+from invoke import Argument
+from typing_extensions import deprecated
 
 
+@deprecated
 class ExtendableFab(Fab):
-    _core_args: list[Argument] = []  # class variable, can be filled without instance
+    _core_args: list[Argument] = []  # noqa RUF012: class variable, can be filled without instance
 
     def __init__(
         self,

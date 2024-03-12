@@ -5,6 +5,7 @@ This files contains everything to do with meta-tasks such as self-updating
 import concurrent.futures
 import sys
 import typing
+from typing import Optional
 
 import requests
 from invoke import Context, task
@@ -47,7 +48,7 @@ def _get_latest_version_from_pypi(package: str) -> Version:
     return parse_package_version(data["info"]["version"])
 
 
-def _get_available_plugins_from_pypi(package: str, extra: str = None) -> list[str]:
+def _get_available_plugins_from_pypi(package: str, extra: Optional[str] = None) -> list[str]:
     """
     List all plugins available for package, optionally for a specific 'extra'.
 

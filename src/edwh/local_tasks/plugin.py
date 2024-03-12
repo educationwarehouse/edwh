@@ -8,6 +8,7 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import Optional
 
 import dateutil.parser
 import requests
@@ -27,7 +28,7 @@ from ..meta import (
 )
 
 
-def list_installed_plugins(c: Context, pip_command: str = None) -> list[str]:
+def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> list[str]:
     """
     List installed edwh-plugins
     """
@@ -255,7 +256,7 @@ def add(c, plugin_names: str):
 
 
 @task(aliases=("upgrade",))
-def update(c, plugin_names: str, version: str = None, verbose: bool = False):
+def update(c, plugin_names: str, version: Optional[str] = None, verbose: bool = False):
     """
     Update a plugin (or 'all') to the latest version
 
@@ -434,7 +435,7 @@ def to_version(key: str):
         return Version("0.0.0")
 
 
-def sort_and_filter_changelog(changelog: dict, since: str = None):
+def sort_and_filter_changelog(changelog: dict, since: Optional[str] = None):
     """
     Since can be:
     - a number - amount of releases to show.

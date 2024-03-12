@@ -12,6 +12,7 @@ import warnings
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
+from typing import Optional
 
 import humanize
 import invoke
@@ -53,27 +54,34 @@ FILE_END = 2
 DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
 DEFAULT_TOML_NAME = ".toml"  # was config.toml
 FALLBACK_TOML_NAME = "default.toml"
+LEGACY_TOML_NAME = "config.toml"  # set to None when no longer supported
 DEFAULT_DOTENV_PATH = Path(".env")
 
 
-def copy_fallback_toml(tomlfile=DEFAULT_TOML_NAME, fallback=FALLBACK_TOML_NAME, force: bool = False):
+def copy_fallback_toml(
+    tomlfile=DEFAULT_TOML_NAME, fallbacks=(LEGACY_TOML_NAME, FALLBACK_TOML_NAME), force: bool = False
+):
     tomlfile_path = Path(tomlfile)
-    fallback_path = Path(fallback)
 
     if tomlfile_path.exists() and not force:
         return False
 
-    if not fallback_path.exists():
-        tomlfile_path.touch()
-        return False
+    for fallback_name in fallbacks:
+        fallback_path = Path(fallback_name)
 
-    shutil.copy(fallback_path, tomlfile_path)
-    return True
+        if fallback_name is None or not fallback_path.exists():
+            continue
+
+        shutil.copy(fallback_path, tomlfile_path)
+        return True
+
+    tomlfile_path.touch()
+    return False
 
 
 def service_names(
-        service_arg: list[str],
-        default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
+    service_arg: list[str],
+    default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -87,11 +95,12 @@ def service_names(
     config = TomlConfig.load()
     selected = set()
 
-    if not service_arg:
-        # fallback to default
-        service_arg = [str(default)] if default else []
-    else:
-        service_arg = [_.strip("/") for _ in service_arg]
+    service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
+    # if not service_arg:
+    #     # fallback to default
+    #     service_arg = [str(default)] if default else []
+    # else:
+    #     service_arg = [_.strip("/") for _ in service_arg]
 
     # NOT elif because you can pass -s "minimal" -s "celeries" for example
     if "all" in service_arg:
@@ -280,9 +289,9 @@ class TomlConfig:
 
     @classmethod
     def load(
-            cls,
-            fname: str | Path = DEFAULT_TOML_NAME,
-            dotenv_path: typing.Optional[Path] = None,
+        cls,
+        fname: str | Path = DEFAULT_TOML_NAME,
+        dotenv_path: Optional[Path] = None,
     ):
         """
         Load config toml file, raising an error if it does not exist.
@@ -301,7 +310,7 @@ class TomlConfig:
         if not dc_path.exists():
             cprint(
                 "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited.",
-                color="yellow"
+                color="yellow",
             )
             return None
 
@@ -326,7 +335,7 @@ class TomlConfig:
         if config["services"]["services"] == "discover":
             compose = load_dockercompose_with_includes(dc_path=dc_path)
 
-            all_services = compose["services"].keys()
+            all_services = list(compose["services"].keys())
         else:
             all_services = config["services"]["services"]
 
@@ -394,21 +403,23 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
 
 
 def check_env(
-        key: str,
-        default: typing.Optional[str],
-        comment: str,
-        # optionals:
-        prefix: typing.Optional[str] = None,
-        suffix: typing.Optional[str] = None,
-        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-        postfix: typing.Optional[str] = None,
-        # different config paths:
-        env_path: typing.Optional[str | Path] = None,
-        toml_path: str | Path = DEFAULT_TOML_NAME,
+    key: str,
+    default: Optional[str],
+    comment: str,
+    # optionals:
+    prefix: Optional[str] = None,
+    suffix: Optional[str] = None,
+    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+    postfix: Optional[str] = None,
+    # different config paths:
+    env_path: Optional[str | Path] = None,
+    toml_path: str | Path = DEFAULT_TOML_NAME,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
+    if toml_path:
+        cprint(f"Deprecated: toml_path ({toml_path} is not used by check_env anymore.)")
 
     env_path = Path(env_path or DEFAULT_DOTENV_PATH)
     if not env_path.exists():
@@ -542,11 +553,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename=DEFAULT_
 
 
 def get_content_from_toml_file(
-        services: list[str],
-        toml_contents: dict[str, typing.Any],
-        content_key: str,
-        content: str,
-        default: typing.Container[str] | str,
+    services: list[str],
+    toml_contents: dict[str, typing.Any],
+    content_key: str,
+    content: str,
+    default: typing.Container[str] | str,
 ):
     """
     Gets content from a TOML file.
@@ -615,7 +626,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
 
     # check if minimal and celeries exist, if so add celeries to services
     if services_celery and (
-            "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
+        "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
     ):
         # check if user wants to include celeries
         include_celeries = (
@@ -693,12 +704,12 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     dc_path = Path("docker-compose.yml")
 
     if (
-            new_config_toml
-            and config_toml.exists()
-            and confirm(
-        colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
-        default=False,
-    )
+        new_config_toml
+        and config_toml.exists()
+        and confirm(
+            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -717,8 +728,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
         write_user_input_to_config_toml(list(services.keys()))
     except Exception as e:
         cprint(
-            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})",
-            color="red"
+            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})", color="red"
         )
         # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
@@ -849,7 +859,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to .toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -859,13 +869,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -963,16 +973,16 @@ def ls(ctx, quiet=False):
     },
 )
 def logs(
-        ctx,
-        service: list[str] = None,
-        follow: bool = True,
-        debug: bool = False,
-        tail: int = 500,
-        sort: bool = False,
-        all: bool = False,
-        ycecream: bool = False,
-        errors: bool = False,
-        verbose: bool = False,
+    ctx,
+    service: Optional[list[str]] = None,
+    follow: bool = True,
+    debug: bool = False,
+    tail: int = 500,
+    sort: bool = False,
+    all: bool = False,  # noqa A002
+    ycecream: bool = False,
+    errors: bool = False,
+    verbose: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -1044,7 +1054,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -1108,9 +1118,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -1198,11 +1208,11 @@ def get_hostingdomain_from_env(ctx: Context) -> str:
 
 def dc_config(ctx: Context) -> dict[str, typing.Any]:
     return (
-            yaml.load(
-                ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-                Loader=yaml.SafeLoader,
-            )
-            or {}
+        yaml.load(
+            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+            Loader=yaml.SafeLoader,
+        )
+        or {}
     )
 
 
@@ -1244,7 +1254,7 @@ def print_aligned(plugin_commands: list[str]) -> None:
     name="help",
     help={
         "about": "Plugin/Namespace or Subcommand you would like to see help about. "
-                 "Use an empty string ('') to see help about everything."
+        "Use an empty string ('') to see help about everything."
     },
 )
 def show_help(ctx: Context, about: str) -> None:
@@ -1296,7 +1306,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
 
     Use ansi2txt to save readable output to a file.
     """
-    print = noop if as_json else stdlib_print
+    print_fn = noop if as_json else stdlib_print
 
     def indent(text, prefix="  "):
         return prefix + text
@@ -1307,7 +1317,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
     data = {}  # todo: don't collect anything if not as_json
 
     hostname = ctx.run("hostname", hide=True).stdout.strip()
-    print(f"{bold}", hostname, reset)
+    print_fn(f"{bold}", hostname, reset)
     data["server"] = hostname
 
     i = indent("")
@@ -1331,7 +1341,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
         with ctx.cd(folder):
             # get the 2nd value of the 3rd line of the output
             hosting_domain = get_hostingdomain_from_env(ctx)
-            print(
+            print_fn(
                 i,
                 f"{fg.brightblue}{folder}{reset}",
                 f"{fg.brightyellow}{hosting_domain}",
@@ -1352,7 +1362,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
             if du:
                 usage_raw = ctx.run("du -sh . --block-size=1", echo=False, hide=True).stdout.strip().split("\t")[0]
                 usage = humanize.naturalsize(usage_raw, binary=True)
-                print(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
+                print_fn(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
                 project["disk_usage_human"] = usage
                 project["disk_usage_raw"] = int(usage_raw)
 
@@ -1361,12 +1371,12 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 service = {}
                 project["services"].append(service)
                 i = indent(i)
-                print(f"{i}{fg.green}{name}{reset}")
+                print_fn(f"{i}{fg.green}{name}{reset}")
                 service["name"] = name
                 i = indent(i)
                 if exposes:
                     if _exposes := docker_service.get("expose", []):
-                        print(
+                        print_fn(
                             f"{i}{fg.boldred}Exposes",
                             ", ".join([str(port) for port in _exposes]),
                             reset,
@@ -1374,7 +1384,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                     service["exposes"] = _exposes
                 if ports:
                     if _ports := docker_service.get("ports", []):
-                        print(
+                        print_fn(
                             f"{i}{fg.boldred}Ports:" + ", ".join([str(port) for port in _ports]) if _ports else "",
                             reset,
                         )
@@ -1382,16 +1392,18 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
 
                 service["domains"] = set()
                 if host_labels:
-                    darken_domain = lambda s: s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
+
+                    def darken_domain(s: str) -> str:
+                        return s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
 
                     service["domains"] = get_hosts_for_service(docker_service)
                     for domain in service["domains"]:
-                        print(f"{i}{darken_domain(domain)}")
+                        print_fn(f"{i}{darken_domain(domain)}")
 
-                print(reset, end="")
+                print_fn(reset, end="")
                 i = dedent(i)
                 if service["domains"]:
-                    print()
+                    print_fn()
                 i = dedent(i)
             i = dedent(i)
 
@@ -1404,6 +1416,12 @@ def ew_self_update(ctx):
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
     ctx.run("~/.local/bin/edwh self-update")
+
+
+@task
+def show_config(_):
+    config = TomlConfig.load()
+    cprint(f"TomlConfig: {json.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
 
 
 @task
