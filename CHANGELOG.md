@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.39.0-beta.1 (2024-03-12)
+### Feature
+* Add --verbose to setup to find out which permissions are so slow ([`dca6437`](https://github.com/educationwarehouse/edwh/commit/dca6437e604cb75445b8408c1dd2f53659f01d65))
+* Implement default.toml, rename config.toml to .toml, allow aliases like "-s celeries" ([`498ef2b`](https://github.com/educationwarehouse/edwh/commit/498ef2b3eef70a96723fbce6a85f4700e13e0dbe))
+* `ew version` now includes Python version ([`bf0d64e`](https://github.com/educationwarehouse/edwh/commit/bf0d64ec8aa3b4457289413fda02fbb1662ca1cf))
+
+### Fix
+* Better colored prints instead of warnings, don't crash on editable local/git install ([`e496a37`](https://github.com/educationwarehouse/edwh/commit/e496a3718444c527eb1afcf0876b34503c8fdb61))
+* Strip / from services ([#1972](https://github.com/educationwarehouse/edwh/issues/1972)) ([`be476fd`](https://github.com/educationwarehouse/edwh/commit/be476fdfac034c91ff9ce5eb2910da427dc755a5))
+* Improved 'setup': no 'discovery', don't query for celeries when no celeries were found ([`0147530`](https://github.com/educationwarehouse/edwh/commit/0147530c9c1d96fbeab887487076f672232fc35e))
+
 ## v0.38.3 (2024-02-19)
 
 
