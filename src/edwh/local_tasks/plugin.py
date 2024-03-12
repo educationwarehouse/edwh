@@ -313,7 +313,7 @@ def get_changelog(github_repo: str | yarl.URL):
     github_repo = github_repo.path.removeprefix("/")  # e.g. educationwarehouse/edwh
     changelog_url = GITHUB_RAW_URL / github_repo / "master/CHANGELOG.md"  # replace github.com with github raw
 
-    return requests.get(str(changelog_url)).text
+    return requests.get(str(changelog_url), timeout=10).text
 
 
 def get_changelogs_threaded(github_repos: dict[str, str]):
