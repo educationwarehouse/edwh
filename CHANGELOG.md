@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.39.0-beta.2 (2024-03-12)
+### Feature
+* Functionality to clean w2p sessions (to speed up permisisons setup) ([`cc89b7f`](https://github.com/educationwarehouse/edwh/commit/cc89b7f00ade1c7ab8bea6dd740d19184278081a))
+
 ## v0.39.0-beta.1 (2024-03-12)
 ### Feature
 * Add --verbose to setup to find out which permissions are so slow ([`dca6437`](https://github.com/educationwarehouse/edwh/commit/dca6437e604cb75445b8408c1dd2f53659f01d65))
