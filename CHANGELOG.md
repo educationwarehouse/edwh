@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.39.2 (2024-03-15)
+### Fix
+* **check_env:** Set default of `toml_path` to None so you don't get a warning when not explicitly stating toml_path ([`775957b`](https://github.com/educationwarehouse/edwh/commit/775957b198fd911a428d116bd50bd2c506b97473))
+
 ## v0.39.1 (2024-03-15)
 ### Fix
 * Introduce 'warn_once' so `Deprecated: toml_path (.toml is not used by check_env anymore.)` doesn't get spammed anymore ([`098b330`](https://github.com/educationwarehouse/edwh/commit/098b330f458795596818d14fae16f4eb43c51bc5))
