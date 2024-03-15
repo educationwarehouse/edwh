@@ -59,7 +59,7 @@ DEFAULT_DOTENV_PATH = Path(".env")
 
 
 def copy_fallback_toml(
-        tomlfile=DEFAULT_TOML_NAME, fallbacks=(LEGACY_TOML_NAME, FALLBACK_TOML_NAME), force: bool = False
+    tomlfile=DEFAULT_TOML_NAME, fallbacks=(LEGACY_TOML_NAME, FALLBACK_TOML_NAME), force: bool = False
 ):
     tomlfile_path = Path(tomlfile)
 
@@ -80,8 +80,8 @@ def copy_fallback_toml(
 
 
 def service_names(
-        service_arg: list[str],
-        default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
+    service_arg: list[str],
+    default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -289,9 +289,9 @@ class TomlConfig:
 
     @classmethod
     def load(
-            cls,
-            fname: str | Path = DEFAULT_TOML_NAME,
-            dotenv_path: Optional[Path] = None,
+        cls,
+        fname: str | Path = DEFAULT_TOML_NAME,
+        dotenv_path: Optional[Path] = None,
     ):
         """
         Load config toml file, raising an error if it does not exist.
@@ -403,9 +403,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
 
 
 # noinspection PyDefaultArgument
-def warn_once(warning: str,
-              previously_shown: list[str] = [],
-              color: Optional[str] = None, **print_kwargs: typing.Any):
+def warn_once(warning: str, previously_shown: list[str] = [], color: Optional[str] = None, **print_kwargs: typing.Any):
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
     """
@@ -423,17 +421,17 @@ def warn_once(warning: str,
 
 
 def check_env(
-        key: str,
-        default: Optional[str],
-        comment: str,
-        # optionals:
-        prefix: Optional[str] = None,
-        suffix: Optional[str] = None,
-        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-        postfix: Optional[str] = None,
-        # different config paths:
-        env_path: Optional[str | Path] = None,
-        toml_path: None = None,
+    key: str,
+    default: Optional[str],
+    comment: str,
+    # optionals:
+    prefix: Optional[str] = None,
+    suffix: Optional[str] = None,
+    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+    postfix: Optional[str] = None,
+    # different config paths:
+    env_path: Optional[str | Path] = None,
+    toml_path: None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -573,11 +571,11 @@ def write_content_to_toml_file(content_key: str, content: str, filename=DEFAULT_
 
 
 def get_content_from_toml_file(
-        services: list[str],
-        toml_contents: dict[str, typing.Any],
-        content_key: str,
-        content: str,
-        default: typing.Container[str] | str,
+    services: list[str],
+    toml_contents: dict[str, typing.Any],
+    content_key: str,
+    content: str,
+    default: typing.Container[str] | str,
 ):
     """
     Gets content from a TOML file.
@@ -646,7 +644,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
 
     # check if minimal and celeries exist, if so add celeries to services
     if services_celery and (
-            "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
+        "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
     ):
         # check if user wants to include celeries
         include_celeries = (
@@ -724,12 +722,12 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
     dc_path = Path("docker-compose.yml")
 
     if (
-            new_config_toml
-            and config_toml.exists()
-            and confirm(
-        colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
-        default=False,
-    )
+        new_config_toml
+        and config_toml.exists()
+        and confirm(
+            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -808,12 +806,12 @@ def remove_empty_dirs(c: Context, path: str | Path):
 
 
 def set_permissions(
-        c: Context,
-        path: str,
-        uid: int = 1050,
-        gid: int = 1050,
-        filepermissions: int = 664,
-        directorypermissions: int = 775,
+    c: Context,
+    path: str,
+    uid: int = 1050,
+    gid: int = 1050,
+    filepermissions: int = 664,
+    directorypermissions: int = 775,
 ) -> None:
     """
     Set all directories in path to 'directorypermissions',
@@ -911,7 +909,7 @@ def volumes(ctx):
 @task(
     help=dict(
         service="Service to up, defaults to .toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -921,13 +919,13 @@ def volumes(ctx):
     iterable=["service"],
 )
 def up(
-        ctx,
-        service=None,
-        build=False,
-        quickest=False,
-        stop_timeout=2,
-        tail=False,
-        clean=False,
+    ctx,
+    service=None,
+    build=False,
+    quickest=False,
+    stop_timeout=2,
+    tail=False,
+    clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     ctx: Context = ctx
@@ -1027,16 +1025,16 @@ def ls(ctx, quiet=False):
     },
 )
 def logs(
-        ctx,
-        service: Optional[list[str]] = None,
-        follow: bool = True,
-        debug: bool = False,
-        tail: int = 500,
-        sort: bool = False,
-        all: bool = False,  # noqa A002
-        ycecream: bool = False,
-        errors: bool = False,
-        verbose: bool = False,
+    ctx,
+    service: Optional[list[str]] = None,
+    follow: bool = True,
+    debug: bool = False,
+    tail: int = 500,
+    sort: bool = False,
+    all: bool = False,  # noqa A002
+    ycecream: bool = False,
+    errors: bool = False,
+    verbose: bool = False,
 ):
     """Smart docker logging"""
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
@@ -1108,7 +1106,7 @@ def upgrade(ctx, build=False):
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
     )
 )
 def build(ctx, yes=False):
@@ -1172,9 +1170,9 @@ def build(ctx, yes=False):
     iterable=["service"],
 )
 def rebuild(
-        ctx,
-        service=None,
-        force_rebuild=False,
+    ctx,
+    service=None,
+    force_rebuild=False,
 ):
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -1262,11 +1260,11 @@ def get_hostingdomain_from_env(ctx: Context) -> str:
 
 def dc_config(ctx: Context) -> dict[str, typing.Any]:
     return (
-            yaml.load(
-                ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-                Loader=yaml.SafeLoader,
-            )
-            or {}
+        yaml.load(
+            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+            Loader=yaml.SafeLoader,
+        )
+        or {}
     )
 
 
@@ -1308,7 +1306,7 @@ def print_aligned(plugin_commands: list[str]) -> None:
     name="help",
     help={
         "about": "Plugin/Namespace or Subcommand you would like to see help about. "
-                 "Use an empty string ('') to see help about everything."
+        "Use an empty string ('') to see help about everything."
     },
 )
 def show_help(ctx: Context, about: str) -> None:
