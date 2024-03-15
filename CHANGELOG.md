@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.0 (2024-03-15)
+### Feature
+* **#2043:** Use `uv` in self-update and plugin.add for blazingly fast performance :rocket: ([`6adb1d3`](https://github.com/educationwarehouse/edwh/commit/6adb1d38b666e9b51106c1b92418b9894f3ba991))
+
 ## v0.39.2 (2024-03-15)
 ### Fix
 * **check_env:** Set default of `toml_path` to None so you don't get a warning when not explicitly stating toml_path ([`775957b`](https://github.com/educationwarehouse/edwh/commit/775957b198fd911a428d116bd50bd2c506b97473))
