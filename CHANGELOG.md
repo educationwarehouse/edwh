@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.1 (2024-03-15)
+### Fix
+* Replace raw uv bin with python -m uv because that will use the right environment ([`dc2e9f6`](https://github.com/educationwarehouse/edwh/commit/dc2e9f65bc595446a89a10fd05fb36fe2a8d1f8a))
+
 ## v0.40.0 (2024-03-15)
 ### Feature
 * **#2043:** Use `uv` in self-update and plugin.add for blazingly fast performance :rocket: ([`6adb1d3`](https://github.com/educationwarehouse/edwh/commit/6adb1d38b666e9b51106c1b92418b9894f3ba991))
