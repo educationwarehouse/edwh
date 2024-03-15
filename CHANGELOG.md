@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.39.1 (2024-03-15)
+### Fix
+* Introduce 'warn_once' so `Deprecated: toml_path (.toml is not used by check_env anymore.)` doesn't get spammed anymore ([`098b330`](https://github.com/educationwarehouse/edwh/commit/098b330f458795596818d14fae16f4eb43c51bc5))
+
 ## v0.39.0 (2024-03-15)
 ### Fix
 * Don't crash on `ew ps` if no dc-file (there already is a warning beforehand); + docs ([`ecb9d02`](https://github.com/educationwarehouse/edwh/commit/ecb9d026401323e61a4af062d8d605045605fdab))
