@@ -300,7 +300,7 @@ def remove(c, plugin_names: str):
     # ensure the prefix and suffix exist, but not twice:
     plugin_names = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} uninstall --yes " + " ".join(plugin_names))
+    c.run(f"{pip} uninstall " + " ".join(plugin_names))
 
 
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")

@@ -45,6 +45,7 @@ dependencies = [
     'yarl',
     'python-dateutil',
     'rapidfuzz',
+    'uv',
 ]
 [project.optional-dependencies]
 dev = [

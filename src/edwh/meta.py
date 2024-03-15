@@ -8,6 +8,7 @@ import typing
 from typing import Optional
 
 import requests
+import uv
 from invoke import Context, task
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
@@ -23,11 +24,12 @@ def _python() -> str:
     return sys.executable
 
 
-def _pip(python=_python()) -> str:
+def _pip() -> str:
     """
     used to detect current pip environment, even in pipx
     """
-    return f"{python} -m pip"
+    _uv = uv.find_uv_bin()
+    return f"{_uv} pip"
 
 
 def _get_pypi_info(package: str) -> dict:
@@ -179,15 +181,16 @@ def _self_update(c: Context, prerelease: bool = False):
     success = []
     failure = []
     for plugin, version in old_plugins.items():
-        result = c.run(f"{pip_command} install {plugin}=={version}", warn=True).stdout
+        result = c.run(f"{pip_command} install {plugin}=={version}", warn=True)
 
-        if f"Successfully installed {plugin}" in result:
+        if result.return_code == 0:
             success.append(plugin)
         else:
             failure.append(plugin)
 
     if success:
         cprint(f"{len(success)}/{len(old_plugins)} updated successfully.", "green")
+
     if failure:
         cprint(f"{', '.join(failure)} failed updating", "red")
 
