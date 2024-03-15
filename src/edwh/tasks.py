@@ -433,7 +433,7 @@ def check_env(
         postfix: Optional[str] = None,
         # different config paths:
         env_path: Optional[str | Path] = None,
-        toml_path: str | Path = DEFAULT_TOML_NAME,
+        toml_path: None = None,
 ):
     """
     Test if key is in .env file path, appends prompted or default value if missing.
