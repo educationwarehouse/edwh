@@ -795,8 +795,9 @@ def set_permissions(
     filepermissions: int = 664,
     directorypermissions: int = 775,
 ) -> None:
-    # find all directories, print the output, feed those to xargs which converts lines in to arguments to the chmod
-    # command.
+    """
+    Set all directories in path to 'directorypermissions', all files to 'filepermissions' and chown the right user+group.
+    """
     # sudo(f'find "{path}" -type d -print0 | sudo xargs --no-run-if-empty -0 chmod {directorypermissions}')
     c.sudo(f'find "{path}" -type d -exec chmod {directorypermissions} {{}} +')
     # find all files, print the output, feed those to xargs which converts lines in to arguments to the chmod command.
@@ -812,7 +813,12 @@ def generate_password(_, silent=False):
     return _generate_password(silent=silent)
 
 
-def fuzzy_match(val1: str, val2: str, verbose=False):
+def fuzzy_match(val1: str, val2: str, verbose=False) -> float:
+    """
+    Get the similarity score between two values.
+
+    Used by `edwh settings -f ...` when no exact match was found.
+    """
     similarity = fuzz.partial_ratio(val1, val2)
     if verbose:
         print(f"similarity of {val1} and {val2} is {similarity}", file=sys.stderr)
@@ -946,7 +952,9 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
     Show process status of services.
     """
     ps_output = ctx.run(
-        f'{DOCKER_COMPOSE} ps --format json {"-q" if quiet else ""} {" ".join(service_names(service or []))}', hide=True
+        f'{DOCKER_COMPOSE} ps --format json {"-q" if quiet else ""} {" ".join(service_names(service or []))}',
+        warn=True,
+        hide=True,
     ).stdout.strip()
 
     services = []
