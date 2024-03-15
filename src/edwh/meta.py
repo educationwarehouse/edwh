@@ -8,7 +8,6 @@ import typing
 from typing import Optional
 
 import requests
-import uv
 from invoke import Context, task
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
@@ -24,12 +23,12 @@ def _python() -> str:
     return sys.executable
 
 
-def _pip() -> str:
+def _pip(python=_python()) -> str:
     """
     used to detect current pip environment, even in pipx
     """
-    _uv = uv.find_uv_bin()
-    return f"{_uv} pip"
+    # uv.find_uv_bin() does not really work here, because then the right venv may not be used!
+    return f"{python} -m uv pip"
 
 
 def _get_pypi_info(package: str) -> dict:
