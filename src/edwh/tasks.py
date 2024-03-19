@@ -342,7 +342,7 @@ class TomlConfig:
         celeries = [s for s in all_services if "celery" in s.lower()]
 
         minimal_services = config["services"]["minimal"]
-        if config["services"]["include_celeries_in_minimal"] == "true":
+        if config["services"].get("include_celeries_in_minimal", "false") == "true":
             minimal_services += celeries
 
         tomlconfig_singletons[singleton_key] = instance = TomlConfig(
