@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.2 (2024-03-19)
+### Fix
+* Don't crash on services without celery (-> include_celeries_in_minimal missing) ([`c727837`](https://github.com/educationwarehouse/edwh/commit/c727837ab792ea88368b55e69fc0eabfa246baa6))
+
 ## v0.40.1 (2024-03-15)
 ### Fix
 * Replace raw uv bin with python -m uv because that will use the right environment ([`dc2e9f6`](https://github.com/educationwarehouse/edwh/commit/dc2e9f65bc595446a89a10fd05fb36fe2a8d1f8a))
