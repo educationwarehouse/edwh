@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.3 (2024-03-19)
+### Fix
+* Automatically set 'services' to 'discover' if not set ([`6b29542`](https://github.com/educationwarehouse/edwh/commit/6b295421f6a9a29322c97fe10923890c698198ed))
+
 ## v0.40.2 (2024-03-19)
 ### Fix
 * Don't crash on services without celery (-> include_celeries_in_minimal missing) ([`c727837`](https://github.com/educationwarehouse/edwh/commit/c727837ab792ea88368b55e69fc0eabfa246baa6))
