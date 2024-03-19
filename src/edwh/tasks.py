@@ -332,7 +332,7 @@ class TomlConfig:
             if service_name not in config["services"]:
                 setup(invoke.Context())
 
-        if config["services"]["services"] == "discover":
+        if config["services"].get("services", "discover") == "discover":
             compose = load_dockercompose_with_includes(dc_path=dc_path)
 
             all_services = list(compose["services"].keys())
