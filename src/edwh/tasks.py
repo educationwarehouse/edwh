@@ -576,6 +576,7 @@ def get_content_from_toml_file(
     content_key: str,
     content: str,
     default: typing.Container[str] | str,
+    overwrite: bool = False,
 ):
     """
     Gets content from a TOML file.
@@ -585,14 +586,23 @@ def get_content_from_toml_file(
     :param content_key: The key to look for in the TOML file.
     :param content: The content to display to the user.
     :param default: The default value to return if the conditions are not met.
+    :param overwrite: don't skip if key already exists
+
     :return: The content from the TOML file or the default value.
     :rtype: Any
     """
 
-    if "services" in toml_contents and content_key in toml_contents["services"]:
+    has_existing_value = "services" in toml_contents and content_key in toml_contents["services"]
+
+    if has_existing_value and not overwrite:
+        print("skipping", content_key)
         return ""
 
-    return interactive_selected_checkbox_values(services, content) or default
+    selected = set()
+    if has_existing_value:
+        selected.update(toml_contents["services"][content_key])
+
+    return interactive_selected_checkbox_values(services, content, selected=selected) or default
 
 
 def setup_config_file(filename=DEFAULT_TOML_NAME):
@@ -606,11 +616,13 @@ def setup_config_file(filename=DEFAULT_TOML_NAME):
         filepath.write_text("\n[services]\n")
 
 
-def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TOML_NAME):
+def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TOML_NAME, overwrite: bool = False):
     """
     write chosen user dockers to config.toml
 
     :param all_services: list of all docker services that are in the docker-compose.yml
+    :param filename: which toml file to write to (default = .toml)
+    :param overwrite: by default, skip keys that already have a value
     :return:
     """
     filepath = Path(filename)
@@ -639,6 +651,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
         "minimal",
         "select minimal services you want to run on `ew up`: ",
         [],
+        overwrite=overwrite,
     )
     write_content_to_toml_file("minimal", content, filename)
 
@@ -648,9 +661,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     ):
         # check if user wants to include celeries
         include_celeries = (
-            "true"
-            if input("do you want to include celeries in minimal(Y/n): ").replace(" ", "") in ["", "y", "Y"]
-            else "false"
+            "true" if confirm("do you want to include celeries in minimal(Y/n): ", default=True) else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
 
@@ -660,6 +671,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
         "log",
         "select services to be logged: ",
         [],
+        overwrite=overwrite,
     )
     write_content_to_toml_file("log", content, filename)
 
@@ -702,6 +714,12 @@ def require_sudo(c: Context):
         cprint(str(e), color="red", file=sys.stderr)
 
 
+def build_toml(c: Context, overwrite: bool = False):
+    docker_compose = load_dockercompose_with_includes(c)
+    services: dict[str, typing.Any] = docker_compose["services"]
+    write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
+
+
 @task(
     pre=[require_sudo],
     help={
@@ -709,7 +727,7 @@ def require_sudo(c: Context):
         "new_config_toml": "will REMOVE and create a new config.toml file",
     },
 )
-def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
+def setup(c: Context, run_local_setup=True, new_config_toml=False, _retry=False):
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -741,9 +759,7 @@ def setup(c, run_local_setup=True, new_config_toml=False, _retry=False):
 
     try:
         # run `docker compose config` to build a yaml with all processing done, include statements included.
-        docker_compose = load_dockercompose_with_includes(c, dc_path)
-        services: dict[str, typing.Any] = docker_compose["services"]
-        write_user_input_to_config_toml(list(services.keys()))
+        build_toml(c)
     except Exception as e:
         cprint(
             f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})", color="red"
@@ -1464,16 +1480,27 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
 
 
 @task
-def ew_self_update(ctx):
+def ew_self_update(ctx: Context):
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
     ctx.run("~/.local/bin/edwh self-update")
 
 
 @task
-def show_config(_):
+def show_config(_: Context):
+    """
+    Show the current values from .toml after loading.
+    """
     config = TomlConfig.load()
     cprint(f"TomlConfig: {json.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
+
+
+@task
+def change_config(c: Context):
+    """
+    Change the settings in .toml
+    """
+    build_toml(c, overwrite=True)
 
 
 @task
