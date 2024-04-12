@@ -1,6 +1,7 @@
 """
 Extra namespace for plugin tasks such as plugin.add
 """
+
 import concurrent.futures
 import datetime as dt
 import json

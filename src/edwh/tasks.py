@@ -292,6 +292,7 @@ class TomlConfig:
         cls,
         fname: str | Path = DEFAULT_TOML_NAME,
         dotenv_path: Optional[Path] = None,
+        cache: bool = True,
     ):
         """
         Load config toml file, raising an error if it does not exist.
@@ -301,7 +302,7 @@ class TomlConfig:
         """
         singleton_key = (str(fname), str(dotenv_path))
 
-        if instance := tomlconfig_singletons.get(singleton_key):
+        if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
 
         config_path = Path(fname)  # probably config.toml
@@ -657,7 +658,9 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
 
     # check if minimal and celeries exist, if so add celeries to services
     if services_celery and (
-        "services" not in config_toml_file or "include_celeries_in_minimal" not in config_toml_file["services"]
+        "services" not in config_toml_file
+        or "include_celeries_in_minimal" not in config_toml_file["services"]
+        or overwrite
     ):
         # check if user wants to include celeries
         include_celeries = (
@@ -675,8 +678,10 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     )
     write_content_to_toml_file("log", content, filename)
 
+    return TomlConfig.load(filename, cache=False)
 
-def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "docker-compose.yml"):
+
+def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "docker-compose.yml") -> dict:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
 
@@ -684,6 +689,11 @@ def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "d
     """
     if not c:
         c = Context()
+    if not isinstance(dc_path, Path):
+        dc_path = Path(dc_path)
+
+    if not dc_path.exists():
+        raise FileNotFoundError(dc_path)
 
     processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
     # mimic a file to load the yaml from
@@ -722,10 +732,15 @@ def require_sudo(c: Context) -> bool:
         return False
 
 
-def build_toml(c: Context, overwrite: bool = False):
-    docker_compose = load_dockercompose_with_includes(c)
+def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
+    try:
+        docker_compose = load_dockercompose_with_includes(c)
+    except FileNotFoundError:
+        cprint("docker-compose.yml file is missing, setup could not be completed!", color="red")
+        return None
+
     services: dict[str, typing.Any] = docker_compose["services"]
-    write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
+    return write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
 
 
 @task(
