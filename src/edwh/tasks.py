@@ -691,7 +691,7 @@ def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "d
 
 
 @task()
-def require_sudo(c: Context):
+def require_sudo(c: Context) -> bool:
     """
     Can be used as a 'pre' hook for invoke tasks to make sure sudo is ready to be used,
     without prompting for a password later on (which could fail due to not passing data to stdin on a remote host).
@@ -699,10 +699,16 @@ def require_sudo(c: Context):
     Usage:
         @task(pre=[require_sudo])
         def setup(c): ...
+
+        # or, if you're not in a @task but you do have access to c (Context), e.g. in a helper function:
+        def my_func(c):
+            if require_sudo(c):
+                c.sudo('echo "I am the captain now."')
+
     """
     if c.run("sudo --non-interactive echo ''", warn=True, hide=True).ok:
         # prima
-        return
+        return True
 
     sudo_pass = getpass("Please enter the sudo password: ")
     c.config.sudo.password = sudo_pass
@@ -710,8 +716,10 @@ def require_sudo(c: Context):
     try:
         c.sudo("echo ''", warn=True, hide=True)
         cprint("Sudo password accepted!", color="green", file=sys.stderr)
+        return True
     except invoke.exceptions.AuthFailure as e:
         cprint(str(e), color="red", file=sys.stderr)
+        return False
 
 
 def build_toml(c: Context, overwrite: bool = False):
