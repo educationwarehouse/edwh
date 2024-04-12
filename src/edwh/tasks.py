@@ -1149,9 +1149,10 @@ def upgrade(ctx, build=False):
     help=dict(
         yes="Don't ask for confirmation, just do it. "
         "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
     )
 )
-def build(ctx, yes=False):
+def build(ctx, yes=False, skip_compile=False):
     """
     Build all services.
 
@@ -1161,12 +1162,12 @@ def build(ctx, yes=False):
     reqs = list(Path(".").rglob("*/requirements.in"))
 
     if pip_compile := get_task("pip.compile"):
-        with_compile = True
+        with_compile = not skip_compile
     else:
         with_compile = False
 
         cprint("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.", "red")
-        print("Install with `pipx inject edwh edwh-pipcompile-plugin`")
+        cprint("💡 Install with `edwh plugin.add pipcompile`", "blue")
         print()
         print("possible files to compile:")
         for req in reqs:
@@ -1174,7 +1175,6 @@ def build(ctx, yes=False):
 
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
-
     elif with_compile:
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"

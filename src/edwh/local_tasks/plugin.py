@@ -147,6 +147,7 @@ def gather_plugin_info(c: Context) -> list[Plugin]:
     For all available plugins, get a Plugin instance with info
     """
     available_plugins = ["edwh", *_get_available_plugins_from_pypi("edwh", "plugins")]
+
     installed_plugins_raw = list_installed_plugins(c)
     if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
         raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
@@ -240,11 +241,13 @@ def remove_all(c):
 @task(aliases=("install",))
 def add(c, plugin_names: str):
     """
-    Install a new plugin
+    Install a new plugin.
 
     Args:
         c (Context): invoke ctx
-        plugin_name: which plugin to add
+        plugin_names: which plugin(s) to add. You can add multiple plugins by separating them with a comma
+            (e.g. `edwh plugin.add restic,multipass,bundler`).
+            You can install all plugins by using 'all': `edwh plugin.add all`.
     """
     if plugin_names == "all":
         return add_all(c)

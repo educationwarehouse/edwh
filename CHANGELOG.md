@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.6 (2024-04-12)
+
+### Fix
+
+* **plugins:** Pypi changed quotes from ' to " for extras ([`50a6b11`](https://github.com/educationwarehouse/edwh/commit/50a6b115c549e3f09ac9182facf46674de0a8f8f))
+* Work in progress on `ew build` (depends on state-of-development flag to be implemented) ([`db54ef9`](https://github.com/educationwarehouse/edwh/commit/db54ef9e7047671de4f71d32f801c9b093e18a86))
+
 ## v0.40.5 (2024-04-12)
 
 ### Fix
