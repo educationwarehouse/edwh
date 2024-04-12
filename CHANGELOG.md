@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.4 (2024-04-12)
+
+### Fix
+
+* Make require_sudo return a bool ([`b33e1ac`](https://github.com/educationwarehouse/edwh/commit/b33e1ac7711e84acc6b82f14ba32aeaa5628c322))
+* Add 'change-config' subcommand to change the values in .toml ([`a3f64b1`](https://github.com/educationwarehouse/edwh/commit/a3f64b1a4d64540cf0dad6b4582c34a77e6bf0b4))
+
 ## v0.40.3 (2024-03-19)
 ### Fix
 * Automatically set 'services' to 'discover' if not set ([`6b29542`](https://github.com/educationwarehouse/edwh/commit/6b295421f6a9a29322c97fe10923890c698198ed))
