@@ -69,7 +69,7 @@ def _get_available_plugins_from_pypi(package: str, extra: Optional[str] = None) 
     extras = data["info"]["requires_dist"]
 
     if extra:
-        extras = [_.split(";")[0] for _ in extras if _.endswith(f"; extra == '{extra}'")]
+        extras = [_.split(";")[0] for _ in extras if _.endswith(f'; extra == "{extra}"')]
 
     return list(extras)
 
