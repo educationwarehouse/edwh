@@ -1,7 +1,7 @@
 import contextlib
 import fnmatch
 import io
-import json
+import json as js
 import os
 import pathlib
 import re
@@ -898,13 +898,16 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
 
 
 # noinspection PyUnusedLocal
-@task(help=dict(find="search for this specific setting"))
-def settings(_, find=None, fuzz_threshold=75):
+@task(help=dict(find="search for this specific setting", json="output as json dictionary"))
+def settings(_, find=None, fuzz_threshold=75, json=False):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
     rows = _settings(find, fuzz_threshold)
-    print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
+    if json:
+        print(js.dumps(dict(rows), indent=3))
+    else:
+        print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
 def show_related_settings(ctx: Context, services: list[str]):
@@ -932,7 +935,7 @@ def volumes(ctx):
     for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
-            info = json.loads(ran.stdout)
+            info = js.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1026,7 +1029,7 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
             # empty line
             continue
 
-        service = json.loads(service_json)
+        service = js.loads(service_json)
         service = {k: v for k, v in service.items() if k in selected_columns}
         if not full_command:
             service["Command"] = shorten(service["Command"], 50)
@@ -1390,14 +1393,21 @@ def show_help(ctx: Context, about: str) -> None:
         "exposes": "Show exposed ports",
         "ports": "Show ports",
         "host_labels": "Show host clauses from traefik labels",
-    }
+        "short": "Oneline summary",
+        "settings": "show settings per folder",
+        "as_json": "(backward compatible) output json",
+        "json": "output json",
+    },
 )
-def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, as_json=False):
+def discover(
+    ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, json=False, settings=False, as_json=False
+):
     """Discover docker environments per host.
 
     Use ansi2txt to save readable output to a file.
     """
-    print_fn = noop if as_json else stdlib_print
+    json = json or as_json
+    print_fn = noop if json else stdlib_print
 
     def indent(text, prefix="  "):
         return prefix + text
@@ -1405,7 +1415,7 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
     def dedent(text, prefix="  "):
         return text.replace(prefix, "", 1)
 
-    data = {}  # todo: don't collect anything if not as_json
+    data = {}
 
     hostname = ctx.run("hostname", hide=True).stdout.strip()
     print_fn(f"{bold}", hostname, reset)
@@ -1427,7 +1437,6 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
     for compose_file_path in compose_file_paths:
         project = {}
         data["projects"].append(project)
-
         folder = compose_file_path.split("/")[0]
         with ctx.cd(folder):
             # get the 2nd value of the 3rd line of the output
@@ -1456,7 +1465,23 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 print_fn(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
                 project["disk_usage_human"] = usage
                 project["disk_usage_raw"] = int(usage_raw)
-
+            if settings:
+                settings_output = ctx.run(
+                    f"~/.local/bin/edwh settings {'--json' if json else ''}", echo=False, hide=True
+                ).stdout.strip()
+                if json:
+                    try:
+                        project["settings"] = js.loads(settings_output)
+                    except js.JSONDecodeError:
+                        print(f"Error loading settings for {hostname}/{project['name']}", file=sys.stderr)
+                else:
+                    print_fn(f"{i}{fg.boldred}Settings:", reset)
+                    i = indent(i)
+                    for line in settings_output.split("\n"):
+                        print_fn(
+                            f"{i}{line}",
+                        )
+                    i = dedent(i)
             project["services"] = []
             for name, docker_service in config.get("services", {}).items():
                 service = {}
@@ -1498,8 +1523,8 @@ def discover(ctx, du=False, exposes=False, ports=False, host_labels=True, short=
                 i = dedent(i)
             i = dedent(i)
 
-    if as_json:
-        stdlib_print(json.dumps({"data": data}, indent=2, default=dump_set_as_list))
+    if json:
+        stdlib_print(js.dumps({"data": data}, indent=2, default=dump_set_as_list))
 
 
 @task
@@ -1515,7 +1540,7 @@ def show_config(_: Context):
     Show the current values from .toml after loading.
     """
     config = TomlConfig.load()
-    cprint(f"TomlConfig: {json.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
+    cprint(f"TomlConfig: {js.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
 
 
 @task
