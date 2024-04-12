@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.41.0 (2024-04-12)
+### Feature
+* Add json output option for settings ([`defb609`](https://github.com/educationwarehouse/edwh/commit/defb6092b0ba6473d9a9d1a189810f7df4de5daa))
+
+### Documentation
+* Added more info to `plugin.add` ([`9205cee`](https://github.com/educationwarehouse/edwh/commit/9205ceebbad871005682f362bfc9198bc2095398))
+
 ## v0.40.6 (2024-04-12)
 
 ### Fix
