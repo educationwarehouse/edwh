@@ -241,11 +241,13 @@ def remove_all(c):
 @task(aliases=("install",))
 def add(c, plugin_names: str):
     """
-    Install a new plugin
+    Install a new plugin.
 
     Args:
         c (Context): invoke ctx
-        plugin_name: which plugin to add
+        plugin_names: which plugin(s) to add. You can add multiple plugins by separating them with a comma
+            (e.g. `edwh plugin.add restic,multipass,bundler`).
+            You can install all plugins by using 'all': `edwh plugin.add all`.
     """
     if plugin_names == "all":
         return add_all(c)
