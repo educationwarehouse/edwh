@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.40.5 (2024-04-12)
+
+### Fix
+
+* Make change-config more user-friendly ([`c451f81`](https://github.com/educationwarehouse/edwh/commit/c451f819dfdb55e38b16f6236cab69eb22442483))
+
 ## v0.40.4 (2024-04-12)
 
 ### Fix
