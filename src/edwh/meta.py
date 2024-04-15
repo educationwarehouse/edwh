@@ -157,7 +157,7 @@ def plugins(c, verbose=False, changelog=False):
         return plugin.list_plugins(c, verbose=verbose)
 
 
-def _self_update(c: Context, prerelease: bool = False):
+def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False):
     """
     Wrapper for self-update that can handle type hint Context
     """
@@ -180,7 +180,11 @@ def _self_update(c: Context, prerelease: bool = False):
     success = []
     failure = []
     for plugin, version in old_plugins.items():
-        result = c.run(f"{pip_command} install {plugin}=={version}", warn=True)
+        command = f"{pip_command} install {plugin}=={version}"
+        if no_cache:
+            command = f"{command} --no-cache"
+
+        result = c.run(command, warn=True)
 
         if result.return_code == 0:
             success.append(plugin)
@@ -195,12 +199,13 @@ def _self_update(c: Context, prerelease: bool = False):
 
 
 @task()
-def self_update(c, prerelease: bool = False):
+def self_update(c, prerelease: bool = False, no_cache: bool = False):
     """
     Updates `edwh` and all installed plugins.
 
     :param c: invoke ctx
     :type c: Context
     :param prerelease: allow non-stable releases?
+    :param no_cache: download fresh?
     """
-    return _self_update(c, prerelease)
+    return _self_update(c, prerelease, no_cache)
