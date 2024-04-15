@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.41.1 (2024-04-15)
+
+### Fix
+
+* **config:** Write celeries=False if no celery services available ([`40993fe`](https://github.com/educationwarehouse/edwh/commit/40993fec34ee0512a77676623569e0be754c629a))
+
 ## v0.41.0 (2024-04-12)
 ### Feature
 * Add json output option for settings ([`defb609`](https://github.com/educationwarehouse/edwh/commit/defb6092b0ba6473d9a9d1a189810f7df4de5daa))
