@@ -657,7 +657,9 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     write_content_to_toml_file("minimal", content, filename)
 
     # check if minimal and celeries exist, if so add celeries to services
-    if services_celery and (
+    if not services_celery:
+        write_content_to_toml_file("include_celeries_in_minimal", "false")
+    elif services_celery and (
         "services" not in config_toml_file
         or "include_celeries_in_minimal" not in config_toml_file["services"]
         or overwrite
