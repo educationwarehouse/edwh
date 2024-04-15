@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.41.2 (2024-04-15)
+
+### Fix
+
+* **self-update:** Allow --no-cache ([`a51271a`](https://github.com/educationwarehouse/edwh/commit/a51271ab8146d0a0b23a98d432a05c78c2656a90))
+
 ## v0.41.1 (2024-04-15)
 
 ### Fix
