@@ -46,6 +46,7 @@ dependencies = [
     'python-dateutil',
     'rapidfuzz',
     'uv',
+    'plumbum',
 ]
 [project.optional-dependencies]
 dev = [
