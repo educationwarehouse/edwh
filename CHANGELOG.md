@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.41.3 (2024-05-06)
+
+### Fix
+
+* Require plumbum ([`ad6599b`](https://github.com/educationwarehouse/edwh/commit/ad6599be64e9acb1fe144a3848e9049c08725d68))
+
 ## v0.41.2 (2024-04-15)
 
 ### Fix
