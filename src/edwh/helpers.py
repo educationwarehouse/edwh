@@ -5,13 +5,17 @@ This file contains re-usable helpers.
 import abc
 import datetime
 import functools
+import re
 import sys
 import typing
 from typing import Optional
 
 import click
 import diceware
+import yaml
 from invoke import Context
+
+from .constants import DOCKER_COMPOSE
 
 
 def confirm(prompt: str, default: bool = False) -> bool:
@@ -331,3 +335,45 @@ def interactive_selected_radio_value(
             selected_index = current_index
 
     return options[selected_index]
+
+
+def yaml_loads(text: str) -> dict[str, typing.Any]:
+    return yaml.load(
+        text,
+        Loader=yaml.SafeLoader,
+    )
+
+
+def dc_config(ctx: Context) -> dict[str, typing.Any]:
+    return (
+        yaml_loads(
+            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+        )
+        or {}
+    )
+
+
+def print_aligned(plugin_commands: list[str]) -> None:
+    """
+    Prints a list of plugin commands in an aligned format.
+
+    This function takes a list of plugin commands, each of which is a string containing two parts separated by a tab.
+    It splits each command into two parts, calculates the maximum length of the first part across all commands,
+    and then prints each command with the first part left-justified to the maximum length. This ensures that the
+    second parts of all commands are aligned in the output.
+
+    Args:
+        plugin_commands (list[str]): A list of plugin commands. Each command is a string containing two parts
+            separated by a tab.
+
+    Example:
+        print_aligned(["command1\tdescription1", "command_with_long_name\tdescription2"])
+        # Output:
+        #     command1                 description1
+        #     command_with_long_name   description2
+    """
+    splitted = [_.split("\t") for _ in plugin_commands]
+    max_l = max([len(_[0]) for _ in splitted])
+
+    for before, after in splitted:
+        print("\t", before.ljust(max_l, " "), "\t\t", after)
