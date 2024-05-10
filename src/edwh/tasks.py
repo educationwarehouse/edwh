@@ -1143,7 +1143,11 @@ def down(ctx, service=None):
     """
     Stops services using docker-compose down.
     """
-    service = service_names(service or [])
+    if service:
+        service = service_names(service or [])
+    else:
+        service = []
+
     ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}")
 
 
@@ -1387,6 +1391,124 @@ def ew_self_update(ctx: Context):
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
     ctx.run("~/.local/bin/edwh self-update")
+
+
+@task()
+def migrate(ctx):
+    up(ctx, service=["migrate"], tail=True)
+
+
+def find_container_id(container: str) -> Optional[str]:
+    return invoke.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True).stdout.strip()
+
+
+def find_container_ids(*containers: str) -> dict[str, Optional[str]]:
+    return {container: find_container_id(container) for container in containers}
+
+
+def stop_remove_container(container_name: str):
+    return invoke.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}")
+
+
+def stop_remove_containers(*container_names: str):
+    return [stop_remove_container(_) for _ in container_names]
+
+
+@task
+def clean_redis(_, db_count: int = 3):
+    import redis as r
+
+    env = read_dotenv(Path(".env"))
+    for db in range(db_count):
+        redis_client = r.Redis("localhost", int(env["REDIS_PORT"]), db)
+        print(f"Removing {len(redis_client.keys())} keys")
+        for k in redis_client.keys():
+            del redis_client[k]
+        redis_client.close()
+
+
+@task()
+def clean_postgres(ctx):
+    # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
+    confirm(
+        "Weet je zeker dat je de database wilt overschrijven? [ja,NEE]",
+        allowed={"ja"},
+        strict=True,  # raises RuntimeError
+    )
+
+    # clear backend flag files
+    flag_dir = pathlib.Path("migrate/flags")
+
+    for flag_file in flag_dir.glob("*.complete"):
+        print("removing", flag_file)
+        flag_file.unlink()
+
+    # find the images based on the instances
+    pg_data_volumes = []
+    for container_name, container_id in find_container_ids("pg-0", "pg-1", "pg-stats").items():
+        if not container_id:
+            continue
+
+        ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
+        if ran.ok:
+            info = json.loads(ran.stdout)
+            pg_data_volumes.extend([_["Name"] for _ in info[0]["Mounts"]])
+        else:
+            print(ran.stderr)
+            raise EnvironmentError(f"docker inspect {container_id} failed")
+
+    # stop, remove the postgres instances and remove anonymous volumes
+    stop_remove_containers("pg-0 pg-1 pgpool pg-stats")
+
+    # remove images after containers have been stopped and removed
+    print("removing", pg_data_volumes)
+    if pg_data_volumes:
+        ctx.run("docker volume rm " + " ".join(pg_data_volumes), warn=True)
+    else:
+        print("No data volumes to remove!")
+
+
+@task(flags={"clean_all": ["all", "a"]})
+def clean(
+    ctx,
+    clean_all=False,
+    db=False,
+    postgres=False,
+    redis=False,
+):
+    """Rebuild the databases, possibly rebuild microservices.
+
+    Execution:
+    0. build microservices (all, microservices)
+       if force_rebuild:
+         does not use docker-image cache, thus refreshing even with the same backend version.
+         use this is you wish to rebuild the same backend. Easier and faster to use fix: or perf: in the backend...
+    1. stopping postgres instances (all, db, postgres)
+    2. removing volumes (all, db, postgres)
+    3. rebooting postgres instances (all, db, postgres)
+    4. ~~purge redis instances (all, redis)~~ IGNORED
+
+    Removes all ../backend_config/*.complete flags to allow migrate to function properly
+    """
+    print("-------------------CLEAN -------------------------")
+    ctx: Context = ctx
+    if clean_all or db or postgres:
+        clean_postgres(ctx)
+
+    if clean_all or redis:
+        clean_redis(ctx)
+
+
+@task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
+def wipe_db(ctx, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
+    down(ctx)
+
+    for p in Path(flag_path).glob("migrate-*.complete"):
+        p.unlink()
+
+    clean(ctx, db=True, clean_all=clean_all)
+    up(ctx, service=[database])
+    up(ctx, service=["migrate"], tail=True)
 
 
 @task
