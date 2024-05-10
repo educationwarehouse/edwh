@@ -5,7 +5,6 @@ This file contains re-usable helpers.
 import abc
 import datetime
 import functools
-import re
 import sys
 import typing
 from typing import Optional
@@ -18,19 +17,24 @@ from invoke import Context
 from .constants import DOCKER_COMPOSE
 
 
-def confirm(prompt: str, default: bool = False) -> bool:
+def confirm(prompt: str, default: bool = False, allowed: set[str] = None, strict=False) -> bool:
     """
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
     """
-    allowed = {"y", "1"}
+    allowed = allowed or {"y", "1"}
     if default:
         allowed.add(" ")
 
     answer = input(prompt).lower().strip()
     answer += " "
 
-    return answer[0] in allowed
+    confirmed = answer.strip() in allowed or answer[0] in allowed
+
+    if strict and not confirmed:
+        raise RuntimeError(f"Stopping now because '{answer.strip()}' did not match {allowed}.")
+
+    return confirmed
 
 
 def executes_correctly(c: Context, argument: str) -> bool:
