@@ -967,8 +967,8 @@ def volumes(ctx):
     },
 )
 def up(
-    ctx,
-    service=None,
+    ctx: Context,
+    service: str = None,
     build=False,
     quickest=False,
     stop_timeout=2,
@@ -976,7 +976,6 @@ def up(
     clean=False,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
-    ctx: Context = ctx
     config = TomlConfig.load()
     # recalculate the hash and save it, so with the next up, migrate will see differences and start migration
     set_env_value(DEFAULT_DOTENV_PATH, "SCHEMA_VERSION", calculate_schema_hash())
@@ -1388,24 +1387,24 @@ def ew_self_update(ctx: Context):
 
 
 @task()
-def migrate(ctx):
+def migrate(ctx: Context):
     up(ctx, service=["migrate"], tail=True)
 
 
-def find_container_id(container: str) -> Optional[str]:
-    return invoke.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True).stdout.strip()
+def find_container_id(ctx: Context, container: str) -> Optional[str]:
+    return ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True).stdout.strip()
 
 
-def find_container_ids(*containers: str) -> dict[str, Optional[str]]:
-    return {container: find_container_id(container) for container in containers}
+def find_container_ids(ctx: Context, *containers: str) -> dict[str, Optional[str]]:
+    return {container: find_container_id(ctx, container) for container in containers}
 
 
-def stop_remove_container(container_name: str):
-    return invoke.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}")
+def stop_remove_container(ctx: Context, container_name: str):
+    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}")
 
 
-def stop_remove_containers(*container_names: str):
-    return [stop_remove_container(_) for _ in container_names]
+def stop_remove_containers(ctx: Context, *container_names: str):
+    return [stop_remove_container(ctx, _) for _ in container_names]
 
 
 @task
@@ -1439,8 +1438,9 @@ def clean_postgres(ctx):
 
     # find the images based on the instances
     pg_data_volumes = []
-    for container_name, container_id in find_container_ids("pg-0", "pg-1", "pg-stats").items():
+    for container_name, container_id in find_container_ids(ctx, "pg-0", "pg-1", "pg-stats").items():
         if not container_id:
+            # probably missing (such as pg-1, pgstats in some environments)
             continue
 
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
@@ -1452,7 +1452,7 @@ def clean_postgres(ctx):
             raise EnvironmentError(f"docker inspect {container_id} failed")
 
     # stop, remove the postgres instances and remove anonymous volumes
-    stop_remove_containers("pg-0 pg-1 pgpool pg-stats")
+    stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
 
     # remove images after containers have been stopped and removed
     print("removing", pg_data_volumes)
@@ -1464,7 +1464,7 @@ def clean_postgres(ctx):
 
 @task(flags={"clean_all": ["all", "a"]})
 def clean(
-    ctx,
+    ctx: Context,
     clean_all=False,
     db=False,
     postgres=False,
@@ -1485,7 +1485,6 @@ def clean(
     Removes all ../backend_config/*.complete flags to allow migrate to function properly
     """
     print("-------------------CLEAN -------------------------")
-    ctx: Context = ctx
     if clean_all or db or postgres:
         clean_postgres(ctx)
 
