@@ -1019,13 +1019,29 @@ def shorten(text: str, max_chars: int) -> str:
         columns="Which columns to display?",
         full_command="Don't truncate the command.",
     ),
+    flags={
+        "show_all": ["all", "a"],
+    },
 )
-def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
+def ps(ctx, quiet=False, service=None, columns=None, full_command=False, show_all=False):
     """
     Show process status of services.
     """
+    flags = []
+
+    if show_all:
+        flags.append("-a")
+    if quiet:
+        flags.append("-q")
+    if full_command:
+        flags.append("--no-trunc")
+
+    flags.extend(service_names(service or []))
+
+    args_str = " ".join(flags)
+
     ps_output = ctx.run(
-        f'{DOCKER_COMPOSE} ps --format json {"-q" if quiet else ""} {" ".join(service_names(service or []))}',
+        f"{DOCKER_COMPOSE} ps --format json {args_str}",
         warn=True,
         hide=True,
     ).stdout.strip()
