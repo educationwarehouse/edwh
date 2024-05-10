@@ -1,7 +1,7 @@
 import contextlib
 import fnmatch
 import io
-import json as js
+import json
 import os
 import pathlib
 import re
@@ -14,23 +14,32 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
-import humanize
 import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
-from ansi.color import fg
-from ansi.color.fx import bold, reset
-from invoke import Context, Task, task
+from invoke import Context  # , Task, task
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 
 from .__about__ import __version__ as edwh_version
+from .constants import (
+    DEFAULT_DOTENV_PATH,
+    DEFAULT_TOML_NAME,
+    DOCKER_COMPOSE,
+    FALLBACK_TOML_NAME,
+    FILE_END,
+    FILE_RELATIVE,
+    FILE_START,
+    LEGACY_TOML_NAME,
+)
+from .discover import discover
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa
     confirm,
+    dc_config,
     dump_set_as_list,
     executes_correctly,
     execution_fails,
@@ -40,22 +49,14 @@ from .helpers import (  # noqa
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     noop,
+    print_aligned,
 )
+from .improved_invoke import ImprovedTask as Task
+from .improved_invoke import improved_task as task
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
-
-# file.seek(_, whence), 'whence' can be one of:
-FILE_START = 0
-FILE_RELATIVE = 1
-FILE_END = 2
-
-DOCKER_COMPOSE = "docker compose"  # used to be docker-compose. includes in docker-compose requires
-DEFAULT_TOML_NAME = ".toml"  # was config.toml
-FALLBACK_TOML_NAME = "default.toml"
-LEGACY_TOML_NAME = "config.toml"  # set to None when no longer supported
-DEFAULT_DOTENV_PATH = Path(".env")
 
 
 def copy_fallback_toml(
@@ -222,7 +223,7 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
         old, template = needle.split(line)
         template = template.strip()
         # save the indention part, add an addition if no indention was found
-        indention = (re.findall(r"^[\s]*", old) + [""])[0]  # noqa: RUF005 would make this complex
+        indention = (re.findall(r"^\s*", old) + [""])[0]  # noqa: RUF005 would make this complex
         if not old.lstrip().startswith("#"):
             # skip comment only lines
             new = template.format(**env)
@@ -894,14 +895,20 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
 
 
 # noinspection PyUnusedLocal
-@task(help=dict(find="search for this specific setting", json="output as json dictionary"))
-def settings(_, find=None, fuzz_threshold=75, json=False):
+@task(
+    help=dict(find="search for this specific setting", as_json="output as json dictionary"),
+    flags={
+        "as_json": ["j", "json", "as-json"],
+        "fuzz_threshold": ["t", "fuzz-threshold"],
+    },
+)
+def settings(_, find=None, fuzz_threshold=75, as_json=False):
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
     rows = _settings(find, fuzz_threshold)
-    if json:
-        print(js.dumps(dict(rows), indent=3))
+    if as_json:
+        print(json.dumps(dict(rows), indent=3))
     else:
         print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
@@ -931,7 +938,7 @@ def volumes(ctx):
     for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
         if ran.ok:
-            info = js.loads(ran.stdout)
+            info = json.loads(ran.stdout)
             container = info[0]["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -955,6 +962,9 @@ def volumes(ctx):
         clean="adds `--renew-anon-volumes --build` to `docker-compose up` command ",
     ),
     iterable=["service"],
+    flags={
+        "tail": ["l", "tail", "logs"],  # instead of -a
+    },
 )
 def up(
     ctx,
@@ -1025,7 +1035,7 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False):
             # empty line
             continue
 
-        service = js.loads(service_json)
+        service = json.loads(service_json)
         service = {k: v for k, v in service.items() if k in selected_columns}
         if not full_command:
             service["Command"] = shorten(service["Command"], 50)
@@ -1217,9 +1227,13 @@ def rebuild(
     """
     if service is None:
         service = []
+
     ctx.run(f"{DOCKER_COMPOSE} down")
     services = service_names(service)
-    ctx.run(f"{DOCKER_COMPOSE} build {'--no-cache' if force_rebuild else ''} " + " ".join(services))
+
+    cache_flag = "--no-cache" if force_rebuild else ""
+    services_str = " ".join(services)
+    ctx.run(f"{DOCKER_COMPOSE} build {cache_flag} {services_str}")
 
 
 @task()
@@ -1288,57 +1302,6 @@ def version(ctx):
 
 # for meta tasks such as `plugins` and `self-update`, see meta.py
 
-stdlib_print = print
-
-
-def get_hostingdomain_from_env(ctx: Context) -> str:
-    hosting_domain = ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
-    return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
-
-
-def dc_config(ctx: Context) -> dict[str, typing.Any]:
-    return (
-        yaml.load(
-            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
-            Loader=yaml.SafeLoader,
-        )
-        or {}
-    )
-
-
-HOST_RE = re.compile(r"`(.*?)`")
-
-
-def strip_host(s: str) -> str:
-    return HOST_RE.findall(s.strip())[0]
-
-
-def get_hosts_for_service(docker_service: dict) -> set[str]:
-    domains = set()
-
-    for label, value in docker_service.get("labels", {}).items():
-        if "Host" not in value:
-            # irrelevant
-            continue
-
-        if "||" in value:
-            # OR
-            for host in value.split("||"):
-                domains.add(strip_host(host))
-        else:
-            # only one
-            domains.add(strip_host(value))
-
-    return domains
-
-
-def print_aligned(plugin_commands: list[str]) -> None:
-    splitted = [_.split("\t") for _ in plugin_commands]
-    max_l = max([len(_[0]) for _ in splitted])
-
-    for before, after in splitted:
-        print("\t", before.ljust(max_l, " "), "\t\t", after)
-
 
 @task(
     name="help",
@@ -1375,152 +1338,42 @@ def show_help(ctx: Context, about: str) -> None:
 
             plugin_commands.append(" ".join([cmd, aliases, "\t", subtask["help"] or ""]))
 
-        print_aligned(plugin_commands)
-
-        return
+        return print_aligned(plugin_commands)
     else:
         # just run edwh --help <subcommand>:
         ctx.run(f"edwh --help {about}")
 
 
 @task(
+    name="discover",
     help={
         "du": "Show disk usage per folder",
         "exposes": "Show exposed ports",
         "ports": "Show ports",
         "host_labels": "Show host clauses from traefik labels",
         "short": "Oneline summary",
-        "settings": "show settings per folder",
-        "as_json": "(backward compatible) output json",
-        "json": "output json",
+        "show_settings": "show settings per folder",
+        "as_json": "output json",
     },
+    flags={"show_settings": ["settings", "show-settings"], "as_json": ["j", "json", "as-json"]},  # -s is for short
 )
-def discover(
-    ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, json=False, settings=False, as_json=False
+def task_discover(
+    ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, show_settings=False, as_json=False
 ):
     """Discover docker environments per host.
 
     Use ansi2txt to save readable output to a file.
     """
-    json = json or as_json
-    print_fn = noop if json else stdlib_print
-
-    def indent(text, prefix="  "):
-        return prefix + text
-
-    def dedent(text, prefix="  "):
-        return text.replace(prefix, "", 1)
-
-    data = {}
-
-    hostname = ctx.run("hostname", hide=True).stdout.strip()
-    print_fn(f"{bold}", hostname, reset)
-    data["server"] = hostname
-
-    i = indent("")
-    compose_file_paths = (
-        ctx.run(
-            "find */docker-compose.yaml */docker-compose.yml",
-            echo=False,
-            hide=True,
-            warn=True,
-        )
-        .stdout.strip()
-        .split("\n")
+    return discover(
+        ctx,
+        du=du,
+        exposes=exposes,
+        ports=ports,
+        host_labels=host_labels,
+        short=short,
+        as_json=as_json,
+        settings=show_settings,
     )
-
-    data["projects"] = []
-    for compose_file_path in compose_file_paths:
-        project = {}
-        data["projects"].append(project)
-        folder = compose_file_path.split("/")[0]
-        with ctx.cd(folder):
-            # get the 2nd value of the 3rd line of the output
-            hosting_domain = get_hostingdomain_from_env(ctx)
-            print_fn(
-                i,
-                f"{fg.brightblue}{folder}{reset}",
-                f"{fg.brightyellow}{hosting_domain}",
-                reset,
-            )
-
-            project["name"] = folder
-            project["hostingdomain"] = hosting_domain
-
-            if short:
-                # only show the basic info, don't load the rest.
-                continue
-
-            i = indent(i)
-            config = dc_config(ctx)
-            if config is None:
-                continue
-            if du:
-                usage_raw = ctx.run("du -sh . --block-size=1", echo=False, hide=True).stdout.strip().split("\t")[0]
-                usage = humanize.naturalsize(usage_raw, binary=True)
-                print_fn(f"{i}{fg.boldred}Disk usage: {usage}{reset}")
-                project["disk_usage_human"] = usage
-                project["disk_usage_raw"] = int(usage_raw)
-            if settings:
-                settings_output = ctx.run(
-                    f"~/.local/bin/edwh settings {'--json' if json else ''}", echo=False, hide=True
-                ).stdout.strip()
-                if json:
-                    try:
-                        project["settings"] = js.loads(settings_output)
-                    except js.JSONDecodeError:
-                        print(f"Error loading settings for {hostname}/{project['name']}", file=sys.stderr)
-                else:
-                    print_fn(f"{i}{fg.boldred}Settings:", reset)
-                    i = indent(i)
-                    for line in settings_output.split("\n"):
-                        print_fn(
-                            f"{i}{line}",
-                        )
-                    i = dedent(i)
-            project["services"] = []
-            for name, docker_service in config.get("services", {}).items():
-                service = {}
-                project["services"].append(service)
-                i = indent(i)
-                print_fn(f"{i}{fg.green}{name}{reset}")
-                service["name"] = name
-                i = indent(i)
-                if exposes:
-                    if _exposes := docker_service.get("expose", []):
-                        print_fn(
-                            f"{i}{fg.boldred}Exposes",
-                            ", ".join([str(port) for port in _exposes]),
-                            reset,
-                        )
-                    service["exposes"] = _exposes
-                if ports:
-                    if _ports := docker_service.get("ports", []):
-                        print_fn(
-                            f"{i}{fg.boldred}Ports:" + ", ".join([str(port) for port in _ports]) if _ports else "",
-                            reset,
-                        )
-                    service["ports"] = _ports
-
-                service["domains"] = set()
-                if host_labels:
-
-                    def darken_domain(s: str) -> str:
-                        return s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
-
-                    service["domains"] = get_hosts_for_service(docker_service)
-                    for domain in service["domains"]:
-                        print_fn(f"{i}{darken_domain(domain)}")
-
-                print_fn(reset, end="")
-                i = dedent(i)
-                if service["domains"]:
-                    print_fn()
-                i = dedent(i)
-            i = dedent(i)
-
-    if json:
-        stdlib_print(js.dumps({"data": data}, indent=2, default=dump_set_as_list))
 
 
 @task
@@ -1536,7 +1389,7 @@ def show_config(_: Context):
     Show the current values from .toml after loading.
     """
     config = TomlConfig.load()
-    cprint(f"TomlConfig: {js.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
+    cprint(f"TomlConfig: {json.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
 
 
 @task

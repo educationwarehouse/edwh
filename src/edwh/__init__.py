@@ -8,6 +8,7 @@ This file exposes some functions so this tool can be used as a library.
 
 from . import tasks  # noqa F401: this exposes it as a library
 from .helpers import *  # noqa F401: this exposes it as a library
+from .improved_invoke import ImprovedTask, improved_task  # noqa F401
 from .tasks import (  # noqa F401: this exposes it as a library
     TomlConfig,
     check_env,
