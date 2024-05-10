@@ -974,7 +974,7 @@ def volumes(ctx):
 )
 def up(
     ctx: Context,
-    service: str = None,
+    service: list[str] = None,
     build=False,
     quickest=False,
     stop_timeout=2,
