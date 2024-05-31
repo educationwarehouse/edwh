@@ -94,13 +94,7 @@ def service_names(
 
     config = TomlConfig.load()
     selected = set()
-
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
-    # if not service_arg:
-    #     # fallback to default
-    #     service_arg = [str(default)] if default else []
-    # else:
-    #     service_arg = [_.strip("/") for _ in service_arg]
 
     # NOT elif because you can pass -s "minimal" -s "celeries" for example
     if "all" in service_arg:
@@ -111,7 +105,7 @@ def service_names(
         service_arg.extend(config.services_minimal)
     if "logs" in service_arg:
         service_arg.remove("logs")
-        service_arg.extend(config.services_minimal)
+        service_arg.extend(config.services_log)
     if "celeries" in service_arg:
         service_arg.remove("celeries")
         service_arg.extend(config.celeries)
