@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.41.4 (2024-05-31)
+
+### Fix
+
+* `ew logs` should look at the log section of config, not minimal ([`3f10042`](https://github.com/educationwarehouse/edwh/commit/3f10042fe77192084880c9f25af575cc00f1bc6d))
+
 ## v0.41.3 (2024-05-06)
 
 ### Fix
