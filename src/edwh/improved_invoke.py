@@ -6,10 +6,8 @@
 """
 
 import functools
-import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
-from invoke import Context
 from invoke import Task as InvokeTask
 from invoke import task as invoke_task
 

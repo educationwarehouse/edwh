@@ -1,11 +1,14 @@
 import contextlib
 import fnmatch
+import functools
+import hashlib
 import io
 import json
 import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import typing
 import warnings
@@ -14,6 +17,7 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
+import anyio
 import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
@@ -53,6 +57,7 @@ from .helpers import (  # noqa
 )
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
+from .improved_logging import tail
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -969,7 +974,7 @@ def volumes(ctx):
     ),
     iterable=["service"],
     flags={
-        "tail": ["l", "tail", "logs"],  # instead of -a
+        "tail": ["tail", "logs", "l"],  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
     },
 )
 def up(
@@ -1077,6 +1082,29 @@ def ls(ctx, quiet=False):
     List running compose projects.
     """
     ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
+
+
+async def logs_improved_async(c: Context):
+    services = service_names(None, default="logs")
+
+    ids = c.run(f"{DOCKER_COMPOSE} ps -aq {' '.join(services)}", hide=True)
+
+    containers = dict(zip(ids.stdout.split("\n"), services))
+
+    async with anyio.create_task_group() as task_group:
+        for container, container_name in containers.items():
+            file = f"/var/lib/docker/containers/{container}/{container}-json.log"
+            task_group.start_soon(tail, file, container_name, container)
+
+
+@task(pre=[require_sudo])
+def logs_improved(c: Context):
+    # sudo /path/to/edwh argv
+    if os.geteuid() != 0:
+        # c.sudo(" ".join(sys.argv))
+        subprocess.call(["sudo", sys.argv[0], "logs-improved"])
+    else:
+        anyio.run(lambda: logs_improved_async(c))  # type: ignore
 
 
 @task(
@@ -1546,3 +1574,12 @@ def change_config(c: Context):
 @task
 def debug(_):
     print(get_env_value("IS_DEBUG", "0"))
+
+
+@task
+def ew(_):
+    """
+    Do absolutely nothing.
+
+    For oopsies like `ew ew up logs`
+    """
