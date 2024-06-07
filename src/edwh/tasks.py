@@ -1,7 +1,6 @@
 import contextlib
+import datetime as dt
 import fnmatch
-import functools
-import hashlib
 import io
 import json
 import os
@@ -13,6 +12,7 @@ import sys
 import typing
 import warnings
 from dataclasses import dataclass
+from datetime import datetime
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
@@ -32,8 +32,6 @@ from .constants import (
     DEFAULT_TOML_NAME,
     DOCKER_COMPOSE,
     FALLBACK_TOML_NAME,
-    FILE_END,
-    FILE_RELATIVE,
     FILE_START,
     LEGACY_TOML_NAME,
 )
@@ -57,7 +55,7 @@ from .helpers import (  # noqa
 )
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
-from .improved_logging import tail
+from .improved_logging import parse_regex, parse_timedelta, tail
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -1078,8 +1076,20 @@ def ls(ctx, quiet=False):
     ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
 
 
-async def logs_improved_async(c: Context):
-    services = service_names(None, default="logs")
+async def logs_improved_async(
+    c: Context,
+    service: Optional[list[str]] = None,
+    since: Optional[str] = None,
+    new: bool = False,
+    stream: Optional[str] = None,
+    re_filter: Optional[str] = None,
+):
+    if new:
+        since = "now"
+    since = parse_timedelta(since)
+    re_filter = parse_regex(re_filter)
+
+    services = service_names(service, default="logs")
 
     ids = c.run(f"{DOCKER_COMPOSE} ps -aq {' '.join(services)}", hide=True)
 
@@ -1088,24 +1098,63 @@ async def logs_improved_async(c: Context):
     async with anyio.create_task_group() as task_group:
         for container, container_name in containers.items():
             file = f"/var/lib/docker/containers/{container}/{container}-json.log"
-            task_group.start_soon(tail, file, container_name, container)
+            task_group.start_soon(
+                tail,
+                {
+                    "filename": file,
+                    "human_name": container_name,
+                    "container_id": container,
+                    "stream": stream,
+                    "since": since,
+                    "re_filter": re_filter,
+                },
+            )
 
 
-@task(pre=[require_sudo])
-def logs_improved(c: Context):
-    # sudo /path/to/edwh argv
+@task(
+    pre=[require_sudo],
+    iterable=["service"],
+    help={
+        "service": "What services to follow. "
+        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
+        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now)",
+        "new": "Don't show old entries (conflicts with since, same as --since now)",
+        "stream": "Filter by stdout/stderr (defaults to both)",
+        "filter": "Search ",
+    },
+)
+def logs_improved(
+    c: Context,
+    service: Optional[list[str]] = None,
+    since: Optional[str] = None,
+    new: bool = False,
+    stream: Optional[str] = None,
+    filter: Optional[str] = None,
+):
     if os.geteuid() != 0:
-        # c.sudo(" ".join(sys.argv))
-        subprocess.call(["sudo", sys.argv[0], "logs-improved"])
+        # not root, try again with sudo:
+        split_idx = sys.argv.index("logs-improved")
+        relevant_args = sys.argv[split_idx:]
+        subprocess.call(["sudo", sys.argv[0], *relevant_args])
     else:
-        anyio.run(lambda: logs_improved_async(c))  # type: ignore
+        anyio.run(
+            lambda: logs_improved_async(
+                c,
+                service=service,
+                since=since,
+                new=new,
+                stream=stream,
+                re_filter=filter,
+            )
+        )  # type: ignore
 
 
 @task(
     aliases=("log",),
     iterable=["service"],
     help={
-        "service": "What services to follow. Defaults to all, can be applied multiple times. ",
+        "service": "What services to follow. "
+        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
         "all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output.",
         "debug": "Add timestamps",

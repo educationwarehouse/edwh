@@ -29,25 +29,28 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    'invoke >= 2.1',
-    'fabric >= 3.1',
-    'importlib_metadata >=3.6 ; python_version < "3.10"',
+    "ansi",
+    "anyio",
     "click",
+    "diceware",
+    "fabric >= 3.1",
     "humanize",
-    'tabulate',
-    'pyyaml',
-    'termcolor',
-    'ansi',
-    'requests',
-    'packaging',
-    'tomlkit', #  ; python_version < "3.11"
-    'diceware',
-    'yarl',
-    'python-dateutil',
-    'rapidfuzz',
-    'uv',
-    'plumbum',
+    "importlib_metadata >=3.6 ; python_version < '3.10'",
+    "invoke >= 2.1",
+    "packaging",
+    "plumbum",
+    "python-dateutil",
+    "pyyaml",
+    "rapidfuzz",
+    "requests",
+    "tabulate",
+    "termcolor",
+    "tomlkit",  #  ; python_version < '3.11'
+    "tqdm",
+    "uv",
+    "yarl",
 ]
+
 [project.optional-dependencies]
 dev = [
     "hatch",
