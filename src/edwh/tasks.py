@@ -1401,7 +1401,7 @@ def find_container_ids(ctx: Context, *containers: str) -> dict[str, Optional[str
 
 
 def stop_remove_container(ctx: Context, container_name: str):
-    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}")
+    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}", warn=True)
 
 
 def stop_remove_containers(ctx: Context, *container_names: str):
@@ -1441,7 +1441,7 @@ def clean_postgres(ctx):
     pg_data_volumes = []
     for container_name, container_id in find_container_ids(ctx, "pg-0", "pg-1", "pg-stats").items():
         if not container_id:
-            # probably missing (such as pg-1, pgstats in some environments)
+            # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
@@ -1494,11 +1494,9 @@ def clean(
 
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
-def wipe_db(ctx, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
-    # 1. up so the volume exists for sure
-    up(ctx, show_settings=False)
-    # 2. stop, not down so the container still exists (for inspection)
-    stop(ctx)
+def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
+    # 1 + 2. just 'create' without starting anything:
+    ctx.run(f"{DOCKER_COMPOSE} create")
 
     # 3. start cleaning up
     for p in Path(flag_path).glob("migrate-*.complete"):
