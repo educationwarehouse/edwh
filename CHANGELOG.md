@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v0.42.0 (2024-06-20)
+
+### Feature
+
+* More robust wipe-db functionality ([`3222344`](https://github.com/educationwarehouse/edwh/commit/322234467a3bead2e428e0176b25ff5df48b4e5f))
+* Copied omgeving wipe-db ([#1971](https://github.com/educationwarehouse/edwh/issues/1971)) ([`d261d3f`](https://github.com/educationwarehouse/edwh/commit/d261d3fc3136b152ae21f439645c5a4be8a3422a))
+
+### Fix
+
+* Improved `ew build` by setting it to pty -> nice docker build in colors ([`70b9123`](https://github.com/educationwarehouse/edwh/commit/70b912309b0cdac6bfb5ba74861361770124fe03))
+* **up:** Service is a list[str], not a single one ([`e5e9cee`](https://github.com/educationwarehouse/edwh/commit/e5e9ceee4e9d3cfc347392f3dbf3423134aac0fe))
+* Better type hints, split string into args ([`e96b94c`](https://github.com/educationwarehouse/edwh/commit/e96b94c9952d660d569025c436824407ed82a2be))
+
 ## v0.41.4 (2024-05-31)
 
 ### Fix
