@@ -49,6 +49,25 @@ class DataDict(TypedDict):
     projects: list[ProjectDict]
 
 
+def get_hosts_for_service(docker_service: dict) -> set[str]:
+    domains = set()
+
+    for label, value in docker_service.get("labels", {}).items():
+        if "Host" not in value:
+            # irrelevant
+            continue
+
+        if "||" in value:
+            # OR
+            for host in value.split("||"):
+                domains.add(strip_host(host))
+        else:
+            # only one
+            domains.add(strip_host(value))
+
+    return domains
+
+
 class Discover:
     i: str
     data: DataDict
@@ -98,24 +117,6 @@ class Discover:
     def get_hostingdomain_from_env(self) -> str:
         hosting_domain = self.ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
         return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
-
-    def get_hosts_for_service(self, docker_service: dict) -> set[str]:
-        domains = set()
-
-        for label, value in docker_service.get("labels", {}).items():
-            if "Host" not in value:
-                # irrelevant
-                continue
-
-            if "||" in value:
-                # OR
-                for host in value.split("||"):
-                    domains.add(strip_host(host))
-            else:
-                # only one
-                domains.add(strip_host(value))
-
-        return domains
 
     def find_compose_files(self) -> list[str]:
         return (
@@ -176,7 +177,7 @@ class Discover:
                 def darken_domain(s: str) -> str:
                     return s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
 
-                service["domains"] = self.get_hosts_for_service(docker_service)
+                service["domains"] = get_hosts_for_service(docker_service)
                 for domain in service["domains"]:
                     self.print(darken_domain(domain))
 
