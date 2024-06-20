@@ -1178,9 +1178,9 @@ def build(ctx, yes=False, skip_compile=False):
         cprint("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.", "red")
         cprint("💡 Install with `edwh plugin.add pipcompile`", "blue")
         print()
-        print("possible files to compile:")
+        print("Possible files to compile:")
         for req in reqs:
-            print("  ", req)
+            print(" * ", req)
 
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
@@ -1209,8 +1209,9 @@ def build(ctx, yes=False, skip_compile=False):
     else:
         print("Compilation of requirements.in files skipped.")
 
+    print()
     if yes or confirm("Build docker images? [yN]", default=False):
-        ctx.run(f"{DOCKER_COMPOSE} build")
+        ctx.run(f"{DOCKER_COMPOSE} build", pty=True)
 
 
 @task(
