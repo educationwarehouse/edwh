@@ -94,6 +94,9 @@ def service_names(
     """
 
     config = TomlConfig.load()
+    if not config:
+        return []
+
     selected = set()
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
 
@@ -963,7 +966,7 @@ def volumes(ctx):
     ),
     iterable=["service"],
     flags={
-        "tail": ["l", "tail", "logs"],  # instead of -a
+        "tail": ["tail", "l", "logs"],  # instead of -a
     },
 )
 def up(
@@ -974,6 +977,7 @@ def up(
     stop_timeout=2,
     tail=False,
     clean=False,
+    show_settings=True,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
@@ -992,7 +996,8 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
 
     exec_up_in_other_task(ctx, services)
-    show_related_settings(ctx, services)
+    if show_settings:
+        show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
@@ -1141,7 +1146,7 @@ def down(ctx, service=None):
     else:
         service = []
 
-    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}")
+    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", hide="err")
 
 
 @task()
@@ -1424,8 +1429,8 @@ def clean_redis(_, db_count: int = 3):
 def clean_postgres(ctx):
     # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
     confirm(
-        "Weet je zeker dat je de database wilt overschrijven? [ja,NEE]",
-        allowed={"ja"},
+        "Are you sure you want to wipe the database? This can not be undone [yes,NO]",
+        allowed={"yes"},  # strict yes, not just y !!!
         strict=True,  # raises RuntimeError
     )
 
@@ -1455,11 +1460,11 @@ def clean_postgres(ctx):
     stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
 
     # remove images after containers have been stopped and removed
-    print("removing", pg_data_volumes)
     if pg_data_volumes:
+        print("removing", pg_data_volumes)
         ctx.run("docker volume rm " + " ".join(pg_data_volumes), warn=True)
     else:
-        print("No data volumes to remove!")
+        cprint("No data volumes to remove!", color="yellow")
 
 
 @task(flags={"clean_all": ["all", "a"]})
@@ -1494,14 +1499,24 @@ def clean(
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
 def wipe_db(ctx, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
-    down(ctx)
+    # 1. up so the volume exists for sure
+    up(ctx, show_settings=False)
+    # 2. stop, not down so the container still exists (for inspection)
+    stop(ctx)
 
+    # 3. start cleaning up
     for p in Path(flag_path).glob("migrate-*.complete"):
         p.unlink()
 
     clean(ctx, db=True, clean_all=clean_all)
-    up(ctx, service=[database])
-    up(ctx, service=["migrate"], tail=True)
+    down(ctx)  # remove old containers too
+
+    # 4. start the database
+    up(ctx, service=[database], show_settings=False)
+    # 5. start migrations (incl. backup recovery)
+    up(ctx, service=["migrate"], tail=True, show_settings=False)
+    # 6. fully start normal services:
+    up(ctx)
 
 
 @task

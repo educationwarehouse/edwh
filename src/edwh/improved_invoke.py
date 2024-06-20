@@ -4,6 +4,7 @@
 >>> @task(flags={})
 >>> def something(): ...
 """
+
 import functools
 import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
