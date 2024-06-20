@@ -28,8 +28,6 @@ from .constants import (
     DEFAULT_TOML_NAME,
     DOCKER_COMPOSE,
     FALLBACK_TOML_NAME,
-    FILE_END,
-    FILE_RELATIVE,
     FILE_START,
     LEGACY_TOML_NAME,
 )
@@ -971,7 +969,7 @@ def volumes(ctx):
 )
 def up(
     ctx: Context,
-    service: list[str] = None,
+    service: Optional[list[str]] = None,
     build=False,
     quickest=False,
     stop_timeout=2,
@@ -1141,10 +1139,7 @@ def down(ctx, service=None):
     """
     Stops services using docker-compose down.
     """
-    if service:
-        service = service_names(service or [])
-    else:
-        service = []
+    service = service_names(service or []) if service else []
 
     ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", hide="err")
 
@@ -1420,8 +1415,8 @@ def clean_redis(_, db_count: int = 3):
     for db in range(db_count):
         redis_client = r.Redis("localhost", int(env["REDIS_PORT"]), db)
         print(f"Removing {len(redis_client.keys())} keys")
-        for k in redis_client.keys():
-            del redis_client[k]
+        for key in redis_client:
+            del redis_client[key]
         redis_client.close()
 
 

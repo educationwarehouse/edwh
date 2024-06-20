@@ -17,7 +17,7 @@ from invoke import Context
 from .constants import DOCKER_COMPOSE
 
 
-def confirm(prompt: str, default: bool = False, allowed: set[str] = None, strict=False) -> bool:
+def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = None, strict=False) -> bool:
     """
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.

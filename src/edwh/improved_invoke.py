@@ -6,10 +6,8 @@
 """
 
 import functools
-import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
-from invoke import Context
 from invoke import Task as InvokeTask
 from invoke import task as invoke_task
 
@@ -31,7 +29,7 @@ class ImprovedTask(InvokeTask):
         optional: Iterable[str] = (),
         default: bool = False,
         auto_shortflags: bool = True,
-        help: Optional[Dict[str, Any]] = None,
+        help: Optional[Dict[str, Any]] = None,  # noqa
         pre: Optional[Union[List[str], str]] = None,
         post: Optional[Union[List[str], str]] = None,
         autoprint: bool = False,
