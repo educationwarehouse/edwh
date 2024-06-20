@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.42.3 (2024-06-20)
+
+### Fix
+
+* Improved wipe-db (don't crash on missing pg-stats, faster start with `dc create` instead of `start + stop`) ([`b03043c`](https://github.com/educationwarehouse/edwh/commit/b03043cd54af4108069d9fe2e0135593439b5c88))
+
 ## v0.42.2 (2024-06-20)
 
 ### Fix
