@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.42.2 (2024-06-20)
+
+### Fix
+
+* Expose 'get_hosts_for_service' via edwh.tasks again ([`1733a08`](https://github.com/educationwarehouse/edwh/commit/1733a08fe6f4648ed9132ce34364d0286e112469))
+
 ## v0.42.1 (2024-06-20)
 
 ### Fix
