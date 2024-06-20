@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.42.1 (2024-06-20)
+
+### Fix
+
+* `ew ew` subcommand that does nothing, for improved command chaining #2352 ([`d8e163d`](https://github.com/educationwarehouse/edwh/commit/d8e163d05b9f29fa6d0f2d5f289ba5f0b286815f))
+
 ## v0.42.0 (2024-06-20)
 
 ### Feature
