@@ -35,7 +35,7 @@ from .constants import (
     FILE_START,
     LEGACY_TOML_NAME,
 )
-from .discover import discover
+from .discover import discover, get_hosts_for_service  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
@@ -97,6 +97,9 @@ def service_names(
     """
 
     config = TomlConfig.load()
+    if not config:
+        return []
+
     selected = set()
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
 
@@ -971,12 +974,13 @@ def volumes(ctx):
 )
 def up(
     ctx: Context,
-    service: list[str] = None,
+    service: Optional[list[str]] = None,
     build=False,
     quickest=False,
     stop_timeout=2,
     tail=False,
     clean=False,
+    show_settings=True,
 ):
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
@@ -995,7 +999,8 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
 
     exec_up_in_other_task(ctx, services)
-    show_related_settings(ctx, services)
+    if show_settings:
+        show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
@@ -1229,12 +1234,9 @@ def down(ctx, service=None):
     """
     Stops services using docker-compose down.
     """
-    if service:
-        service = service_names(service or [])
-    else:
-        service = []
+    service = service_names(service or []) if service else []
 
-    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}")
+    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", hide="err")
 
 
 @task()
@@ -1271,9 +1273,9 @@ def build(ctx, yes=False, skip_compile=False):
         cprint("`edwh-pipcompile-plugin` not found, unable to compile requirements.in files.", "red")
         cprint("💡 Install with `edwh plugin.add pipcompile`", "blue")
         print()
-        print("possible files to compile:")
+        print("Possible files to compile:")
         for req in reqs:
-            print("  ", req)
+            print(" * ", req)
 
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
@@ -1302,8 +1304,9 @@ def build(ctx, yes=False, skip_compile=False):
     else:
         print("Compilation of requirements.in files skipped.")
 
+    print()
     if yes or confirm("Build docker images? [yN]", default=False):
-        ctx.run(f"{DOCKER_COMPOSE} build")
+        ctx.run(f"{DOCKER_COMPOSE} build", pty=True)
 
 
 @task(
@@ -1493,7 +1496,7 @@ def find_container_ids(ctx: Context, *containers: str) -> dict[str, Optional[str
 
 
 def stop_remove_container(ctx: Context, container_name: str):
-    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}")
+    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}", warn=True)
 
 
 def stop_remove_containers(ctx: Context, *container_names: str):
@@ -1508,8 +1511,8 @@ def clean_redis(_, db_count: int = 3):
     for db in range(db_count):
         redis_client = r.Redis("localhost", int(env["REDIS_PORT"]), db)
         print(f"Removing {len(redis_client.keys())} keys")
-        for k in redis_client.keys():
-            del redis_client[k]
+        for key in redis_client:
+            del redis_client[key]
         redis_client.close()
 
 
@@ -1517,8 +1520,8 @@ def clean_redis(_, db_count: int = 3):
 def clean_postgres(ctx):
     # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
     confirm(
-        "Weet je zeker dat je de database wilt overschrijven? [ja,NEE]",
-        allowed={"ja"},
+        "Are you sure you want to wipe the database? This can not be undone [yes,NO]",
+        allowed={"yes"},  # strict yes, not just y !!!
         strict=True,  # raises RuntimeError
     )
 
@@ -1533,7 +1536,7 @@ def clean_postgres(ctx):
     pg_data_volumes = []
     for container_name, container_id in find_container_ids(ctx, "pg-0", "pg-1", "pg-stats").items():
         if not container_id:
-            # probably missing (such as pg-1, pgstats in some environments)
+            # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
         ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
@@ -1548,11 +1551,11 @@ def clean_postgres(ctx):
     stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
 
     # remove images after containers have been stopped and removed
-    print("removing", pg_data_volumes)
     if pg_data_volumes:
+        print("removing", pg_data_volumes)
         ctx.run("docker volume rm " + " ".join(pg_data_volumes), warn=True)
     else:
-        print("No data volumes to remove!")
+        cprint("No data volumes to remove!", color="yellow")
 
 
 @task(flags={"clean_all": ["all", "a"]})
@@ -1586,15 +1589,23 @@ def clean(
 
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
-def wipe_db(ctx, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
-    down(ctx)
+def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
+    # 1 + 2. just 'create' without starting anything:
+    ctx.run(f"{DOCKER_COMPOSE} create")
 
+    # 3. start cleaning up
     for p in Path(flag_path).glob("migrate-*.complete"):
         p.unlink()
 
     clean(ctx, db=True, clean_all=clean_all)
-    up(ctx, service=[database])
-    up(ctx, service=["migrate"], tail=True)
+    down(ctx)  # remove old containers too
+
+    # 4. start the database
+    up(ctx, service=[database], show_settings=False)
+    # 5. start migrations (incl. backup recovery)
+    up(ctx, service=["migrate"], tail=True, show_settings=False)
+    # 6. fully start normal services:
+    up(ctx)
 
 
 @task
@@ -1619,10 +1630,11 @@ def debug(_):
     print(get_env_value("IS_DEBUG", "0"))
 
 
-@task
-def ew(_):
+@task(aliases=("ew",))
+def edwh(_):
     """
     Do absolutely nothing.
 
     For oopsies like `ew ew up logs`
     """
+    print("Hehe you silly goose", file=sys.stderr)

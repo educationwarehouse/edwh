@@ -2,6 +2,37 @@
 
 <!--next-version-placeholder-->
 
+## v0.42.3 (2024-06-20)
+
+### Fix
+
+* Improved wipe-db (don't crash on missing pg-stats, faster start with `dc create` instead of `start + stop`) ([`b03043c`](https://github.com/educationwarehouse/edwh/commit/b03043cd54af4108069d9fe2e0135593439b5c88))
+
+## v0.42.2 (2024-06-20)
+
+### Fix
+
+* Expose 'get_hosts_for_service' via edwh.tasks again ([`1733a08`](https://github.com/educationwarehouse/edwh/commit/1733a08fe6f4648ed9132ce34364d0286e112469))
+
+## v0.42.1 (2024-06-20)
+
+### Fix
+
+* `ew ew` subcommand that does nothing, for improved command chaining #2352 ([`d8e163d`](https://github.com/educationwarehouse/edwh/commit/d8e163d05b9f29fa6d0f2d5f289ba5f0b286815f))
+
+## v0.42.0 (2024-06-20)
+
+### Feature
+
+* More robust wipe-db functionality ([`3222344`](https://github.com/educationwarehouse/edwh/commit/322234467a3bead2e428e0176b25ff5df48b4e5f))
+* Copied omgeving wipe-db ([#1971](https://github.com/educationwarehouse/edwh/issues/1971)) ([`d261d3f`](https://github.com/educationwarehouse/edwh/commit/d261d3fc3136b152ae21f439645c5a4be8a3422a))
+
+### Fix
+
+* Improved `ew build` by setting it to pty -> nice docker build in colors ([`70b9123`](https://github.com/educationwarehouse/edwh/commit/70b912309b0cdac6bfb5ba74861361770124fe03))
+* **up:** Service is a list[str], not a single one ([`e5e9cee`](https://github.com/educationwarehouse/edwh/commit/e5e9ceee4e9d3cfc347392f3dbf3423134aac0fe))
+* Better type hints, split string into args ([`e96b94c`](https://github.com/educationwarehouse/edwh/commit/e96b94c9952d660d569025c436824407ed82a2be))
+
 ## v0.41.4 (2024-05-31)
 
 ### Fix

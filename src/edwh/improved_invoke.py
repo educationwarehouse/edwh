@@ -29,7 +29,7 @@ class ImprovedTask(InvokeTask):
         optional: Iterable[str] = (),
         default: bool = False,
         auto_shortflags: bool = True,
-        help: Optional[Dict[str, Any]] = None,
+        help: Optional[Dict[str, Any]] = None,  # noqa
         pre: Optional[Union[List[str], str]] = None,
         post: Optional[Union[List[str], str]] = None,
         autoprint: bool = False,
