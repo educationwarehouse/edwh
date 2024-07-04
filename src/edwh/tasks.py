@@ -502,6 +502,8 @@ def set_env_value(path: Path, target: str, value: str) -> None:
         target: key to write, probably best to use UPPERCASE
         value: string value to write, or anything that converts to a string using str()
     """
+    path.touch(exist_ok=True)
+
     with path.open(mode="r") as env_file:
         # open the .env file and read every line in the inlines
         inlines = env_file.read().split("\n")
@@ -1091,8 +1093,12 @@ async def logs_improved_async(
 ):
     if new:
         since = "now"
-    since = parse_timedelta(since)
-    re_filter = parse_regex(re_filter)
+
+    if since:
+        since = parse_timedelta(since)
+
+    if re_filter:
+        re_filter = parse_regex(re_filter)
 
     services = service_names(service, default="logs")
 
@@ -1125,7 +1131,9 @@ async def logs_improved_async(
         "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now)",
         "new": "Don't show old entries (conflicts with since, same as --since now)",
         "stream": "Filter by stdout/stderr (defaults to both)",
-        "filter": "Search ",
+        "filter": "Search by term or regex",
+        # todo: limit most recent n (-> don't follow)
+        #        sort by time (-> don't follow)
     },
 )
 def logs_improved(
@@ -1182,6 +1190,7 @@ def logs(
     verbose: bool = False,
 ):
     """Smart docker logging"""
+
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
     if sort or debug:
         # add timestamps

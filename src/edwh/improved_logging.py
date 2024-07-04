@@ -62,7 +62,7 @@ async def parse_docker_log_line(
     print(in_color(human_name, container_id), "|", log, end="")
 
 
-TD_RE = re.compile(r"(\d+)\s*(hour|minute|second|day)s?\s*\(ago\)")
+TD_RE = re.compile(r"(\d+)\s*(hour|minute|second|day)s?\s*(ago)?")
 
 
 def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
@@ -90,13 +90,36 @@ def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
             return None
 
 
+def utcnow():
+    """
+    Replacement of datetime.utcnow.
+    """
+    return datetime.now(dt.UTC)
+
+
 def parse_timedelta(since: str, utc: bool = True) -> str:
     # turns human-readable 'since' into a iso datetime string.
+
     if delta := _parse_timedelta(since):
-        now = datetime.utcnow() if utc else datetime.now()
+        now = utcnow() if utc else datetime.now()
+        print("since", (now - delta).isoformat())
         return (now - delta).isoformat()
 
     return since
+
+
+POSSIBLE_FLAGS = {
+    # https://docs.python.org/3/library/re.html
+    "a": re.ASCII,
+    "d": re.DEBUG,
+    "i": re.IGNORECASE,
+    "l": re.LOCALE,
+    "m": None,  # re.MULTILINE but the logger works line-by-line so this isn't really possible
+    "s": re.DOTALL,
+    "u": re.UNICODE,
+    "x": re.VERBOSE,
+    # custom: 'v' to invert
+}
 
 
 def parse_regex(raw: str) -> FilterFn:
@@ -105,26 +128,28 @@ def parse_regex(raw: str) -> FilterFn:
 
     Uses the grep style flags (i for case insensitive, v for invert)
     """
-    parts = raw.split("/")  # todo: allow slashes within the outer /.../
 
-    match parts:
-        case [single]:
-            pat = single
-            flags = set()
-        case [pat, _flags]:
-            flags = set(_flags)
-        case [_, pat, _flags]:
-            flags = set(_flags)
-        case _:
-            raise ValueError("Invalid pattern. Only two slashes are allowed.")
+    # zero slashes: just a pattern, no flags.
+    # one slash: search term with / in it
+    # two slashes (+ starts with /): regex with flags
+    # more slashes: flags AND / in filter itself
 
-    flags_bin = 0
+    if raw.startswith("/") and raw.count("/") > 1:
+        # flag-mode
+        _, *rest, flags = raw.split("/")
+        flags = set(flags.lower())
+        pattern = "/".join(rest)
+    else:
+        # normal search mode, no flags
+        flags = set()
+        pattern = raw
 
-    if "i" in flags:
-        # case insensitive
-        flags_bin |= re.IGNORECASE
+    flags_bin = re.NOFLAG
 
-    re_compiled = re.compile(pat, flags_bin)
+    for flag in flags:
+        flags_bin |= POSSIBLE_FLAGS.get(flag) or re.NOFLAG
+
+    re_compiled = re.compile(pattern, flags_bin)
 
     if "v" in flags:
         return lambda text: not re_compiled.search(text)
