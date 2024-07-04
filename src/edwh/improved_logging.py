@@ -1,5 +1,6 @@
 import datetime as dt
 import hashlib
+import itertools
 import json
 import re
 import sys
@@ -9,28 +10,80 @@ from typing import Optional
 
 import anyio
 
-
-def string_to_ansi_color_code(input_string):
-    # Generate a SHA1 hash of the input string
-    hash_object = hashlib.sha1(input_string.encode())
-    hex_dig = hash_object.hexdigest()
-
-    # Take the first 6 characters of the hash as the color code
-    color_code = hex_dig[:6]
-
-    # Convert the color code to an ANSI escape sequence
-    ansi_color_code = f"\033[38;2;{int(color_code[:2], 16)};{int(color_code[2:4], 16)};{int(color_code[4:], 16)}m"
-
-    return ansi_color_code
+""" --- translated from colors.go in docker compose """
 
 
-def in_color(input_string: str, hash_string: Optional[str] = None):
-    # Get the ANSI color code for the input string
-    color_code = string_to_ansi_color_code(hash_string or input_string)
+def ansi_color_code(code, format_opts=[]):
+    res = "\033["
+    for c in format_opts:
+        res += f"{c};"
+    return f"{res}{code}m"
 
-    # the input string in color and then reset the color
-    return f"{color_code}{input_string}\033[0m"
 
+ColorFn = typing.Callable[[str], str]
+
+
+def make_color_func(code) -> ColorFn:
+    def color_func(s):
+        return f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
+
+    return color_func
+
+
+def build_rainbow():
+    names = [
+        "grey",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+    ]
+
+    colors = {}
+    for i, name in enumerate(names):
+        colors[name] = make_color_func(str(30 + i))
+        colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
+
+    rainbow = [
+        colors["cyan"],
+        colors["yellow"],
+        colors["green"],
+        colors["magenta"],
+        colors["blue"],
+        colors["intense_cyan"],
+        colors["intense_yellow"],
+        colors["intense_green"],
+        colors["intense_magenta"],
+        colors["intense_blue"],
+    ]
+
+    return rainbow
+
+
+def rainbow() -> typing.Generator[str, None, None]:
+    """
+    rainbow = []colorFunc{
+                colors["cyan"],
+                colors["yellow"],
+                colors["green"],
+                colors["magenta"],
+                colors["blue"],
+                colors["intense_cyan"],
+                colors["intense_yellow"],
+                colors["intense_green"],
+                colors["intense_magenta"],
+                colors["intense_blue"],
+        }
+
+    Yield colors from the docker compose rainbow map in a cyclic way.
+    """
+    yield from itertools.cycle(build_rainbow())
+
+
+""" -- end of colors.go """
 
 FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
 
@@ -39,9 +92,12 @@ async def parse_docker_log_line(
     line: str,
     human_name: str,
     container_id: str,
+    color: ColorFn,
     stream: Optional[str] = None,
     since: Optional[str] = None,
     re_filter: FilterFn = None,
+    show_ts: bool = True,  # full, default, no
+    verbose: bool = False,
 ):
     # py4web-1  | [X] loaded _dashboard
     data = json.loads(line)
@@ -59,7 +115,28 @@ async def parse_docker_log_line(
     if re_filter and not re_filter(log):
         return
 
-    print(in_color(human_name, container_id), "|", log, end="")
+    if show_ts:
+        if verbose:
+            # full:
+            timestamp = data["time"].ljust(30, " ")  # iso is up to 30 chars wide
+        else:
+            # default:
+            timestamp = data["time"].split(".")[0]
+
+        prefix = color(f"{human_name} |") + f" {timestamp} |"
+    else:
+        prefix = color(f"{human_name} |")
+
+    print(prefix, log, end="")
+
+
+def dc_log_name(short: str, long: str) -> str:
+    """
+    Combines the short dc container name (e.g. logger) with the long docker one (/dummy-docker-compose-logger-1)
+        to create a name similar to what `docker compose logs` shows: 'logger-1' (-> getContainerNameWithoutProject)
+    """
+    container_idx = long.split("-")[-1]
+    return f"{short}-{container_idx}".strip()
 
 
 TD_RE = re.compile(r"(\d+)\s*(hour|minute|second|day)s?\s*(ago)?")
@@ -152,6 +229,7 @@ def parse_regex(raw: str) -> FilterFn:
     re_compiled = re.compile(pattern, flags_bin)
 
     if "v" in flags:
+        # v for inverse like `grep -v`
         return lambda text: not re_compiled.search(text)
     else:
         return lambda text: bool(re_compiled.search(text))
@@ -164,6 +242,9 @@ class TailConfig(typing.TypedDict):
     stream: Optional[str]
     since: Optional[str]
     re_filter: Optional[FilterFn]
+    color: ColorFn
+    timestamps: bool
+    verbose: bool
 
 
 async def tail(config: TailConfig):
@@ -177,4 +258,7 @@ async def tail(config: TailConfig):
                     stream=config.get("stream"),
                     since=config.get("since"),
                     re_filter=config.get("re_filter"),
+                    color=config["color"],
+                    show_ts=config["timestamps"],
+                    verbose=config["verbose"],
                 )

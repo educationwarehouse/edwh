@@ -2,6 +2,7 @@ import contextlib
 import datetime as dt
 import fnmatch
 import io
+import itertools
 import json
 import os
 import pathlib
@@ -55,7 +56,7 @@ from .helpers import (  # noqa
 )
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
-from .improved_logging import parse_regex, parse_timedelta, tail
+from .improved_logging import dc_log_name, parse_regex, parse_timedelta, rainbow, tail
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -944,16 +945,16 @@ def volumes(ctx):
     """
     lines = []
     for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
-        ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
-        if ran.ok:
-            info = json.loads(ran.stdout)
-            container = info[0]["Name"]
+
+        try:
+            info = inspect(ctx, container_id)
+            container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
-                for volume in [_["Name"] for _ in info[0]["Mounts"] if _["Type"] == "volume"]
+                for volume in [_["Name"] for _ in info["Mounts"] if _["Type"] == "volume"]
             )
-        else:
-            print(ran.stderr)
+        except EnvironmentError:
+            ...
 
     print(tabulate.tabulate(lines, headers="keys"))
 
@@ -1090,7 +1091,9 @@ async def logs_improved_async(
     new: bool = False,
     stream: Optional[str] = None,
     re_filter: Optional[str] = None,
-):
+    timestamps: bool = True,
+    verbose: bool = False,
+) -> None:
     if new:
         since = "now"
 
@@ -1106,8 +1109,16 @@ async def logs_improved_async(
 
     containers = dict(zip(ids.stdout.split("\n"), services))
 
+    # for adjusting the | location
+    longest_name = max([len(_) for _ in containers.values()]) + 3
+
+    colors = rainbow()
     async with anyio.create_task_group() as task_group:
+
         for container, container_name in containers.items():
+            info = inspect(c, container)
+            container_name = dc_log_name(container_name, info["Name"]).ljust(longest_name, " ")
+
             file = f"/var/lib/docker/containers/{container}/{container}-json.log"
             task_group.start_soon(
                 tail,
@@ -1118,48 +1129,58 @@ async def logs_improved_async(
                     "stream": stream,
                     "since": since,
                     "re_filter": re_filter,
+                    "color": next(colors),
+                    "timestamps": timestamps,
+                    "verbose": verbose,
                 },
             )
 
 
-@task(
-    pre=[require_sudo],
-    iterable=["service"],
-    help={
-        "service": "What services to follow. "
-        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
-        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now)",
-        "new": "Don't show old entries (conflicts with since, same as --since now)",
-        "stream": "Filter by stdout/stderr (defaults to both)",
-        "filter": "Search by term or regex",
-        # todo: limit most recent n (-> don't follow)
-        #        sort by time (-> don't follow)
-    },
-)
+def inspect(ctx: Context, container_id: str) -> dict:
+    """
+    Docker inspect a container by ID and get the first result.
+
+    :raise EnvironmentError if docker inspect failed.
+    """
+    ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
+    if ran.ok:
+        return json.loads(ran.stdout)[0]
+    else:
+        print(ran.stderr)
+        raise EnvironmentError(f"docker inspect {container_id} failed")
+
+
+def elevate(target_command: str):
+    if os.geteuid() == 0:
+        return
+
+    # not root, try again with sudo:
+    split_idx = sys.argv.index(target_command)
+    relevant_args = sys.argv[split_idx:]
+    subprocess.call(["sudo", sys.argv[0], *relevant_args])
+    exit(0)
+
+
 def logs_improved(
     c: Context,
     service: Optional[list[str]] = None,
     since: Optional[str] = None,
-    new: bool = False,
     stream: Optional[str] = None,
     filter: Optional[str] = None,
+    timestamps: bool = True,
+    verbose: bool = False,
 ):
-    if os.geteuid() != 0:
-        # not root, try again with sudo:
-        split_idx = sys.argv.index("logs-improved")
-        relevant_args = sys.argv[split_idx:]
-        subprocess.call(["sudo", sys.argv[0], *relevant_args])
-    else:
-        anyio.run(
-            lambda: logs_improved_async(
-                c,
-                service=service,
-                since=since,
-                new=new,
-                stream=stream,
-                re_filter=filter,
-            )
-        )  # type: ignore
+    anyio.run(
+        lambda *_: logs_improved_async(
+            c,
+            service=service,
+            since=since,
+            stream=stream,
+            re_filter=filter,
+            timestamps=timestamps,
+            verbose=verbose,
+        )
+    )
 
 
 @task(
@@ -1169,32 +1190,42 @@ def logs_improved(
         "service": "What services to follow. "
         "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
         "all": "Ignore --service and show all service logs (same as `-s '*'`).",
-        "follow": "Keep scrolling with the output.",
-        "debug": "Add timestamps",
-        "tail": "Start with how many lines of history.",
+        "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
+        "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
+        "limit": "Start with how many lines of history, don't follow.",
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
-        "ycecream": "Filter on entries with y|",
-        "errors": "Filter on entries with e|",
+        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now)",
+        "new": "Don't show old entries (conflicts with since, same as --since now)",
+        "stream": "Filter by stdout/stderr (defaults to both), only used when following",
+        "filter": "Search by term or regex, only used when following",
     },
 )
 def logs(
     ctx,
     service: Optional[list[str]] = None,
     follow: bool = True,
-    debug: bool = False,
-    tail: int = 500,
+    limit: Optional[int] = None,
     sort: bool = False,
     all: bool = False,  # noqa A002
-    ycecream: bool = False,
-    errors: bool = False,
     verbose: bool = False,
+    timestamps: bool = True,
+    since: Optional[str] = None,
+    new: bool = False,
+    stream: Optional[str] = None,
+    filter: Optional[str] = None,
 ):
     """Smart docker logging"""
 
-    cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={tail}"]
-    if sort or debug:
+    cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
+    if sort or timestamps:
         # add timestamps
         cmdline.append("-t")
+
+    if new:
+        since = "0s"
+
+    if since:
+        cmdline.extend(["--since", since])
 
     if all:
         # -s "*" is the same but `-s *` triggers bash expansion so that's annoying.
@@ -1204,21 +1235,22 @@ def logs(
 
     if sort:
         cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
+    elif limit:
+        # nothing special, just here to prevent follow
+        ...
     elif follow:
-        # only allow follow is not sorting
-        cmdline.insert(2, "-f")
-
-    if ycecream or errors:
-        target = []
-        if ycecream:
-            target.append("y")
-        if errors:
-            target.append("e")
-
-        target = "|".join(target)
-        cmdline.append(f"| grep -E ' ({target})\\|.+' --color=never")
-        # catch y| and/or e|
-        # -> grep -E ' (y|e)|\.+'
+        # rerun `ew logs` with sudo:
+        elevate("logs")
+        # only allow follow if not sorting and no limit (tail):
+        return logs_improved(
+            ctx,
+            service="*" if all else service,
+            since=since,
+            stream=stream,
+            filter=filter,
+            timestamps=timestamps,
+            verbose=verbose,
+        )
 
     ctx.run(" ".join(cmdline), echo=verbose, pty=True)
 
@@ -1548,13 +1580,8 @@ def clean_postgres(ctx):
             # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
-        ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
-        if ran.ok:
-            info = json.loads(ran.stdout)
-            pg_data_volumes.extend([_["Name"] for _ in info[0]["Mounts"]])
-        else:
-            print(ran.stderr)
-            raise EnvironmentError(f"docker inspect {container_id} failed")
+        info = inspect(ctx, container_id)
+        pg_data_volumes.extend([_["Name"] for _ in info["Mounts"]])
 
     # stop, remove the postgres instances and remove anonymous volumes
     stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
