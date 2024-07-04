@@ -139,7 +139,7 @@ def dc_log_name(short: str, long: str) -> str:
     return f"{short}-{container_idx}".strip()
 
 
-TD_RE = re.compile(r"(\d+)\s*(hour|minute|second|day)s?\s*(ago)?")
+TD_RE = re.compile(r"(\d+)\s*(h(our)?|m(inute)?|s(econd)?|d(ay)?)s?\s*(ago)?", re.IGNORECASE)
 
 
 def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
@@ -153,14 +153,14 @@ def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
     number = int(match.group(1))
     unit = match.group(2)
 
-    match unit:
-        case "day":
+    match unit.lower():
+        case "day" | "d":
             return dt.timedelta(days=number)
-        case "hour":
+        case "hour" | "h":
             return dt.timedelta(hours=number)
-        case "minute":
+        case "minute" | "m":
             return dt.timedelta(minutes=number)
-        case "second":
+        case "second" | "s":
             return dt.timedelta(seconds=number)
         case _:
             print(f"Warn: unrecognized unit {unit}.", file=sys.stderr)

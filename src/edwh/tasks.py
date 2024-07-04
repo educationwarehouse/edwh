@@ -1194,10 +1194,11 @@ def logs_improved(
         "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
         "limit": "Start with how many lines of history, don't follow.",
         "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
-        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now)",
+        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now); in UTC",
         "new": "Don't show old entries (conflicts with since, same as --since now)",
         "stream": "Filter by stdout/stderr (defaults to both), only used when following",
         "filter": "Search by term or regex, only used when following",
+        "verbose": "Show slightly more info, like full timestamps.",
     },
 )
 def logs(
