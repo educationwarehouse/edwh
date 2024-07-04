@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 import anyio
+from termcolor import cprint
 
 """ --- translated from colors.go in docker compose """
 
@@ -248,9 +249,11 @@ class TailConfig(typing.TypedDict):
 
 
 async def tail(config: TailConfig):
+    print_args = " ".join(sys.argv[1:])
     async with await anyio.open_file(config["filename"]) as f:
         while True:
             if contents := await f.readline():
+                print(" " * 20, end="\r")
                 await parse_docker_log_line(
                     contents,
                     config["human_name"],
@@ -262,3 +265,4 @@ async def tail(config: TailConfig):
                     show_ts=config["timestamps"],
                     verbose=config["verbose"],
                 )
+                cprint(f"$ edwh {print_args}", color="white", end="\r")
