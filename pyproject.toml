@@ -37,6 +37,7 @@ dependencies = [
     "humanize",
     "importlib_metadata >=3.6 ; python_version < '3.10'",
     "invoke >= 2.1",
+    "more_itertools",
     "packaging",
     "plumbum",
     "python-dateutil",

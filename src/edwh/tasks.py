@@ -1,8 +1,6 @@
 import contextlib
-import datetime as dt
 import fnmatch
 import io
-import itertools
 import json
 import os
 import pathlib
@@ -12,8 +10,8 @@ import subprocess
 import sys
 import typing
 import warnings
+from asyncio import CancelledError
 from dataclasses import dataclass
-from datetime import datetime
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
@@ -24,6 +22,7 @@ import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke import Context  # , Task, task
+from more_itertools import flatten
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 
@@ -56,7 +55,7 @@ from .helpers import (  # noqa
 )
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
-from .improved_logging import dc_log_name, parse_regex, parse_timedelta, rainbow, tail
+from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -102,6 +101,7 @@ def service_names(
         return []
 
     selected = set()
+    service_arg = flatten([_.split(",") for _ in service_arg])
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
 
     # NOT elif because you can pass -s "minimal" -s "celeries" for example
@@ -1084,6 +1084,28 @@ def ls(ctx, quiet=False):
     ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
 
 
+def get_docker_info(ctx: Context, services: list[str]) -> dict[str, dict[str, typing.Any]]:
+    """
+    Return a dict of {id: service}
+    """
+    # -aq doesn't keep the same order of services, so use json format to get ID with service name.
+    # use --no-trunc to get full ID instead of short one
+    rows = ctx.run(f"{DOCKER_COMPOSE} ps --format json --no-trunc {' '.join(services)}", hide=True).stdout
+
+    result = {}
+
+    for line in rows.split("\n"):
+        if not line:
+            continue
+
+        # each line contains one json object
+        info = json.loads(line)
+
+        result[info["ID"]] = info
+
+    return result
+
+
 async def logs_improved_async(
     c: Context,
     service: Optional[list[str]] = None,
@@ -1105,19 +1127,19 @@ async def logs_improved_async(
 
     services = service_names(service, default="logs")
 
-    ids = c.run(f"{DOCKER_COMPOSE} ps -aq {' '.join(services)}", hide=True)
-
-    containers = dict(zip(ids.stdout.split("\n"), services))
+    containers = get_docker_info(c, services)
 
     # for adjusting the | location
-    longest_name = max([len(_) for _ in containers.values()]) + 3
+    longest_name = max([len(_["Service"]) for _ in containers.values()])
 
     colors = rainbow()
     async with anyio.create_task_group() as task_group:
-
-        for container, container_name in containers.items():
-            info = inspect(c, container)
-            container_name = dc_log_name(container_name, info["Name"]).ljust(longest_name, " ")
+        for container, container_info in containers.items():
+            # ontwikkelstraat-py4web-1 -> py4web-1
+            # this is slightly different from the original 'service' which is just e.g. 'py4web'
+            container_name = (
+                container_info["Name"].removeprefix(container_info["Project"] + "-").ljust(longest_name + 3, " ")
+            )
 
             file = f"/var/lib/docker/containers/{container}/{container}-json.log"
             task_group.start_soon(
@@ -1170,17 +1192,18 @@ def logs_improved(
     timestamps: bool = True,
     verbose: bool = False,
 ):
-    anyio.run(
-        lambda *_: logs_improved_async(
-            c,
-            service=service,
-            since=since,
-            stream=stream,
-            re_filter=filter,
-            timestamps=timestamps,
-            verbose=verbose,
+    with contextlib.suppress(CancelledError, KeyboardInterrupt):
+        anyio.run(
+            lambda *_: logs_improved_async(
+                c,
+                service=service,
+                since=since,
+                stream=stream,
+                re_filter=filter,
+                timestamps=timestamps,
+                verbose=verbose,
+            )
         )
-    )
 
 
 @task(

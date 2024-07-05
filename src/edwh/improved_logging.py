@@ -131,15 +131,6 @@ async def parse_docker_log_line(
     print(prefix, log, end="")
 
 
-def dc_log_name(short: str, long: str) -> str:
-    """
-    Combines the short dc container name (e.g. logger) with the long docker one (/dummy-docker-compose-logger-1)
-        to create a name similar to what `docker compose logs` shows: 'logger-1' (-> getContainerNameWithoutProject)
-    """
-    container_idx = long.split("-")[-1]
-    return f"{short}-{container_idx}".strip()
-
-
 TD_RE = re.compile(r"(\d+)\s*(h(our)?|m(inute)?|s(econd)?|d(ay)?)s?\s*(ago)?", re.IGNORECASE)
 
 
@@ -171,8 +162,15 @@ def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
 def utcnow():
     """
     Replacement of datetime.utcnow.
+
+    When 3.13 is released, 3.10 can be dropped and this check can also be removed.
     """
-    return datetime.now(dt.UTC)
+    if sys.version_info.minor < 11:
+        # deprecated since 3.12
+        return datetime.utcnow()
+    else:
+        # dt.UTC doesn't exist yet in 3.10
+        return datetime.now(dt.UTC)
 
 
 def parse_timedelta(since: str, utc: bool = True) -> str:
@@ -222,7 +220,7 @@ def parse_regex(raw: str) -> FilterFn:
         flags = set()
         pattern = raw
 
-    flags_bin = re.NOFLAG
+    flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
 
     for flag in flags:
         flags_bin |= POSSIBLE_FLAGS.get(flag) or re.NOFLAG
