@@ -13,6 +13,7 @@ import click
 import diceware
 import yaml
 from invoke import Context
+from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE
 
@@ -381,3 +382,10 @@ def print_aligned(plugin_commands: list[str]) -> None:
 
     for before, after in splitted:
         print("\t", before.ljust(max_l, " "), "\t\t", after)
+
+
+def flatten(something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
+    """
+    Like itertools.flatten but eager
+    """
+    return list(_flatten(something))

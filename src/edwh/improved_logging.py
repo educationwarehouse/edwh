@@ -178,7 +178,6 @@ def parse_timedelta(since: str, utc: bool = True) -> str:
 
     if delta := _parse_timedelta(since):
         now = utcnow() if utc else datetime.now()
-        print("since", (now - delta).isoformat())
         return (now - delta).isoformat()
 
     return since

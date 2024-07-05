@@ -23,7 +23,6 @@ import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke import Context  # , Task, task
-from more_itertools import flatten
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 
@@ -46,6 +45,7 @@ from .helpers import (  # noqa
     dump_set_as_list,
     executes_correctly,
     execution_fails,
+    flatten,
 )
 from .helpers import generate_password as _generate_password
 from .helpers import (  # noqa
@@ -102,7 +102,7 @@ def service_names(
         return []
 
     selected = set()
-    service_arg = flatten([_.split(",") for _ in service_arg])
+    service_arg = list(flatten([_.split(",") for _ in service_arg]))
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
 
     # NOT elif because you can pass -s "minimal" -s "celeries" for example
@@ -1154,13 +1154,14 @@ async def logs_improved_async(
         re_filter = parse_regex(re_filter)
 
     services = service_names(service, default="logs")
-
     containers = get_docker_info(c, services)
 
     # for adjusting the | location
     longest_name = max([len(_["Service"]) for _ in containers.values()])
 
     colors = rainbow()
+
+    print("---", file=sys.stderr)
     async with anyio.create_task_group() as task_group:
         for container, container_info in containers.items():
             # ontwikkelstraat-py4web-1 -> py4web-1
@@ -1274,7 +1275,7 @@ def logs(
         cmdline.append("-t")
 
     if new:
-        since = "0s"
+        since = "1s"
 
     if since:
         cmdline.extend(["--since", since])
