@@ -1,6 +1,5 @@
 import contextlib
 import fnmatch
-import functools
 import io
 import json
 import os

@@ -1,5 +1,4 @@
 import datetime as dt
-import hashlib
 import itertools
 import json
 import re
@@ -117,12 +116,8 @@ async def parse_docker_log_line(
         return
 
     if show_ts:
-        if verbose:
-            # full:
-            timestamp = data["time"].ljust(30, " ")  # iso is up to 30 chars wide
-        else:
-            # default:
-            timestamp = data["time"].split(".")[0]
+        # iso is up to 30 chars wide
+        timestamp = data["time"].ljust(30, " ") if verbose else data["time"].split(".")[0]
 
         prefix = color(f"{human_name} |") + f" {timestamp} |"
     else:
@@ -165,7 +160,7 @@ def utcnow():
 
     When 3.13 is released, 3.10 can be dropped and this check can also be removed.
     """
-    if sys.version_info.minor < 11:
+    if sys.version_info < (3, 11):
         # deprecated since 3.12
         return datetime.utcnow()
     else:
