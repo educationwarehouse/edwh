@@ -1,5 +1,6 @@
 import contextlib
 import fnmatch
+import functools
 import io
 import json
 import os
@@ -278,6 +279,13 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path = DEF
 tomlconfig_singletons: dict[tuple[str, str], "TomlConfig"] = {}
 
 
+def throw(error: Exception):
+    """
+    Functional raise, useful for if ... else ... or callbacks.
+    """
+    raise error
+
+
 @dataclass
 class TomlConfig:
     config: dict
@@ -285,6 +293,7 @@ class TomlConfig:
     celeries: list[str]
     services_minimal: list[str]
     services_log: list[str]
+    services_db: list[str]
     dotenv_path: Path
 
     # __loaded was replaced with tomlconfig_singletons
@@ -303,6 +312,7 @@ class TomlConfig:
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
+        ctx = invoke.Context()
 
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
@@ -317,23 +327,24 @@ class TomlConfig:
             )
             return None
 
-        if not pathlib.Path.exists(config_path):
-            setup(invoke.Context())
+        if not config_path.exists():
+            setup(ctx)
 
         with config_path.open() as f:
             config = tomlkit.load(f)
 
         if "services" not in config:
-            setup(invoke.Context())
+            setup(ctx)
 
-        for service_name in [
+        for toml_key in [
             "minimal",
             "services",
             "include_celeries_in_minimal",
             "log",
+            "db",
         ]:
-            if service_name not in config["services"]:
-                setup(invoke.Context())
+            if toml_key not in config["services"]:
+                setup(ctx)
 
         if config["services"].get("services", "discover") == "discover":
             compose = load_dockercompose_with_includes(dc_path=dc_path)
@@ -354,6 +365,7 @@ class TomlConfig:
             celeries=celeries,
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
+            services_db=config["services"]["db"],
             dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
         )
         return instance
@@ -606,6 +618,8 @@ def get_content_from_toml_file(
     selected = set()
     if has_existing_value:
         selected.update(toml_contents["services"][content_key])
+    elif default:
+        selected.update(default)
 
     return interactive_selected_checkbox_values(services, content, selected=selected) or default
 
@@ -631,7 +645,6 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     :return:
     """
     filepath = Path(filename)
-
     services_no_celery = [service for service in all_services if "celery" not in service]
     services_celery = [service for service in all_services if "celery" in service]
 
@@ -683,6 +696,21 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
         overwrite=overwrite,
     )
     write_content_to_toml_file("log", content, filename)
+
+    # db
+
+    possibly_postgres = [_ for _ in minimal_services if "pg" in _]
+
+    content = get_content_from_toml_file(
+        minimal_services,
+        config_toml_file,
+        "db",
+        "select database containers: ",
+        possibly_postgres,
+        overwrite=overwrite,
+    )
+
+    write_content_to_toml_file("db", content, filename)
 
     return TomlConfig.load(filename, cache=False)
 
@@ -1582,9 +1610,9 @@ def clean_redis(_, db_count: int = 3):
 
 
 @task()
-def clean_postgres(ctx):
+def clean_postgres(ctx: Context, yes=False):
     # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
-    confirm(
+    yes or confirm(
         "Are you sure you want to wipe the database? This can not be undone [yes,NO]",
         allowed={"yes"},  # strict yes, not just y !!!
         strict=True,  # raises RuntimeError
@@ -1597,9 +1625,12 @@ def clean_postgres(ctx):
         print("removing", flag_file)
         flag_file.unlink()
 
+    config = TomlConfig.load()
+
     # find the images based on the instances
+    containers = find_container_ids(ctx, *config.services_db)
     pg_data_volumes = []
-    for container_name, container_id in find_container_ids(ctx, "pg-0", "pg-1", "pg-stats").items():
+    for container_name, container_id in containers.items():
         if not container_id:
             # probably missing (such as pg-1, pg-stats in some environments)
             continue
@@ -1625,6 +1656,7 @@ def clean(
     db=False,
     postgres=False,
     redis=False,
+    yes=False,
 ):
     """Rebuild the databases, possibly rebuild microservices.
 
@@ -1642,14 +1674,16 @@ def clean(
     """
     print("-------------------CLEAN -------------------------")
     if clean_all or db or postgres:
-        clean_postgres(ctx)
+        clean_postgres(ctx, yes=yes)
 
     if clean_all or redis:
         clean_redis(ctx)
 
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
-def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool"):
+def wipe_db(
+    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool", yes: bool = False
+):
     # 1 + 2. just 'create' without starting anything:
     ctx.run(f"{DOCKER_COMPOSE} create")
 
@@ -1657,7 +1691,7 @@ def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/fla
     for p in Path(flag_path).glob("migrate-*.complete"):
         p.unlink()
 
-    clean(ctx, db=True, clean_all=clean_all)
+    clean(ctx, db=True, clean_all=clean_all, yes=yes)
     down(ctx)  # remove old containers too
 
     # 4. start the database
