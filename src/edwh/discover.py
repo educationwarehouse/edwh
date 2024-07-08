@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import typing
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TypedDict
@@ -115,34 +116,46 @@ class Discover:
         self.print_fn(self.i, *args, **kwargs)
 
     def get_hostingdomain_from_env(self) -> str:
-        hosting_domain = self.ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True).stdout.strip()
+        if ran := self.ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True):
+            hosting_domain = ran.stdout.strip()
+        else:
+            hosting_domain = None
+
         return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
 
     def find_compose_files(self) -> list[str]:
-        return (
-            self.ctx.run(
-                "find */docker-compose.yaml */docker-compose.yml",
-                echo=False,
-                hide=True,
-                warn=True,
-            )
-            .stdout.strip()
-            .split("\n")
-        )
+        if ran := self.ctx.run(
+            "find */docker-compose.yaml */docker-compose.yml",
+            echo=False,
+            hide=True,
+            warn=True,
+        ):
+            return ran.stdout.strip().split("\n")
+        else:
+            return []
 
     def find_hostname(self) -> str:
-        return self.ctx.run("hostname", hide=True).stdout.strip()
+        if ran := self.ctx.run("hostname", hide=True):
+            return ran.stdout.strip()
+        else:
+            return ""
 
     def get_disk_usage(self) -> tuple[str, int]:
-        usage_raw = self.ctx.run("du -sh . --block-size=1", echo=False, hide=True).stdout.strip().split("\t")[0]
-        usage = humanize.naturalsize(usage_raw, binary=True)
-        self.print(f"{fg.boldred}Disk usage: {usage}{reset}")
+        if ran := self.ctx.run("du -sh . --block-size=1", echo=False, hide=True):
+            usage_raw = ran.stdout.strip().split("\t")[0]
+            usage = humanize.naturalsize(usage_raw, binary=True)
+            self.print(f"{fg.boldred}Disk usage: {usage}{reset}")
 
-        return usage, int(usage_raw)
+            return usage, int(usage_raw)
+        else:
+            raise EnvironmentError("Failed running `du`")
 
     def get_settings(self, folder: str):
         json_flag = "--json" if self.as_json else ""
-        settings_output = self.ctx.run(f"~/.local/bin/edwh settings {json_flag}", echo=False, hide=True).stdout.strip()
+        if ran := self.ctx.run(f"~/.local/bin/edwh settings {json_flag}", echo=False, hide=True):
+            settings_output = ran.stdout.strip()
+        else:
+            settings_output = ""
 
         if self.as_json:
             try:
@@ -156,7 +169,7 @@ class Discover:
                     self.print(line)
 
     def process_docker_service(self, name: str, docker_service: dict, hosting_domain: str):
-        service = {"name": name}
+        service: dict[str, typing.Any] = {"name": name}
 
         self.print(f"{fg.green}{name}{reset}")
         with self.indent():
@@ -188,7 +201,7 @@ class Discover:
         return service
 
     def process_omgeving(self, folder: str):
-        project = {}
+        project: dict[str, typing.Any] = {}
         hosting_domain = self.get_hostingdomain_from_env()
         self.print(
             f"{fg.brightblue}{folder}{reset}",

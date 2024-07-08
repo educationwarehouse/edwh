@@ -24,6 +24,7 @@ import yaml
 from invoke import Context  # , Task, task
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
+from termcolor._types import Color
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
@@ -85,7 +86,7 @@ def copy_fallback_toml(
 
 
 def service_names(
-    service_arg: list[str],
+    service_arg: typing.Collection[str],
     default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
@@ -214,7 +215,7 @@ def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
     return False
 
 
-_dotenv_settings = {}
+_dotenv_settings: dict[str, typing.Any] = {}
 
 
 def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
@@ -286,9 +287,34 @@ def throw(error: Exception):
     raise error
 
 
+class ServicesTomlConfig(typing.TypedDict, total=False):
+    """
+    [services] section of .toml
+    """
+
+    services: typing.Literal["discover"] | list[str]
+    minimal: list[str]
+    include_celeries_in_minimal: str  # 'true' or 'false'
+    log: list[str]
+    db: list[str]
+
+
+# todo: keyof<ServicesTomlConfig> or something?
+TomlKeys = typing.Literal["services", "minimal", "include_celeries_in_minimal", "log", "db"]
+
+
+class ConfigTomlDict(typing.TypedDict, total=True):
+    """
+    Data from .toml
+    """
+
+    services: ServicesTomlConfig
+    dotenv: dict
+
+
 @dataclass
 class TomlConfig:
-    config: dict
+    config: ConfigTomlDict
     all_services: list[str]
     celeries: list[str]
     services_minimal: list[str]
@@ -330,8 +356,7 @@ class TomlConfig:
         if not config_path.exists():
             setup(ctx)
 
-        with config_path.open() as f:
-            config = tomlkit.load(f)
+        config = read_toml_config(config_path)
 
         if "services" not in config:
             setup(ctx)
@@ -351,7 +376,7 @@ class TomlConfig:
 
             all_services = list(compose["services"].keys())
         else:
-            all_services = config["services"]["services"]
+            all_services = typing.cast(list[str], config["services"]["services"])
 
         celeries = [s for s in all_services if "celery" in s.lower()]
 
@@ -372,7 +397,7 @@ class TomlConfig:
 
 
 def process_env_file(env_path: Path) -> dict[str, str]:
-    items = {}
+    items: dict[str, str] = {}
     if not env_path.exists():
         return items
 
@@ -418,7 +443,9 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
 
 
 # noinspection PyDefaultArgument
-def warn_once(warning: str, previously_shown: list[str] = [], color: Optional[str] = None, **print_kwargs: typing.Any):
+def warn_once(
+    warning: str, previously_shown: list[str] = [], color: Optional[Color] = None, **print_kwargs: typing.Any
+):
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
     """
@@ -474,7 +501,7 @@ def check_env(
     suffix = suffix or postfix
 
     response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-    value = response.strip() or default
+    value = response.strip() or default or ""
     if prefix:
         value = prefix + value
     if suffix:
@@ -489,7 +516,7 @@ def check_env(
         return value
 
 
-def get_env_value(key: str, default: str = KeyError):
+def get_env_value(key: str, default: str | type[Exception] = KeyError):
     """
     Get a specific env value by name.
     If no default is given and the key is not found, a KeyError is raised.
@@ -497,9 +524,8 @@ def get_env_value(key: str, default: str = KeyError):
     env = read_dotenv()
     if key in env:
         return env[key]
-    elif default is KeyError:
-        # sourcery skip: compare-via-equals
-        raise KeyError(key)
+    elif isinstance(default, type) and issubclass(default, Exception):
+        raise default(key)
 
     return default
 
@@ -575,24 +601,28 @@ def set_env_value(path: Path, target: str, value: str) -> None:
 #         print(f"{index + 1}:", selected_services[index])
 
 
-def write_content_to_toml_file(content_key: str, content: str, filename=DEFAULT_TOML_NAME):
+def write_content_to_toml_file(
+    content_key: TomlKeys,
+    content: str,
+    filename=DEFAULT_TOML_NAME,
+):
     if not content:
         return
 
     filepath = Path(filename)
 
-    config_toml_file = tomlkit.loads(filepath.read_text())
+    config_toml_file = read_toml_config(filepath)
     config_toml_file["services"][content_key] = content
 
-    filepath.write_text(tomlkit.dumps(config_toml_file))
+    write_toml_config(filepath, config_toml_file)
 
 
 def get_content_from_toml_file(
     services: list[str],
-    toml_contents: dict[str, typing.Any],
-    content_key: str,
+    toml_contents: ConfigTomlDict,
+    content_key: TomlKeys,
     content: str,
-    default: typing.Container[str] | str,
+    default: typing.Collection[str] | str,
     overwrite: bool = False,
 ):
     """
@@ -615,7 +645,7 @@ def get_content_from_toml_file(
         print("skipping", content_key)
         return ""
 
-    selected = set()
+    selected: set[str] = set()
     if has_existing_value:
         selected.update(toml_contents["services"][content_key])
     elif default:
@@ -633,6 +663,19 @@ def setup_config_file(filename=DEFAULT_TOML_NAME):
     config_toml_file = tomlkit.loads(filepath.read_text())
     if "services" not in config_toml_file:
         filepath.write_text("\n[services]\n")
+
+
+def read_toml_config(fp: Path) -> ConfigTomlDict:
+    """
+    Read the config at filepath, and cast to the right typeddict.
+    """
+    config_toml_file = tomlkit.loads(fp.read_text())
+
+    return typing.cast(ConfigTomlDict, config_toml_file)
+
+
+def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
+    return fp.write_text(tomlkit.dumps(config))
 
 
 def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TOML_NAME, overwrite: bool = False):
@@ -653,13 +696,16 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     services_list = "discover"
     write_content_to_toml_file("services", services_list)
 
-    config_toml_file = tomlkit.loads(filepath.read_text())
+    config_toml_file = read_toml_config(filepath)
 
     # get chosen services for minimal and logs
-    minimal_services = (
-        services_no_celery
-        if config_toml_file["services"]["services"] == "discover"
-        else config_toml_file["services"]["services"]
+    minimal_services = typing.cast(
+        list[str],
+        (
+            services_no_celery
+            if config_toml_file["services"]["services"] == "discover"
+            else config_toml_file["services"]["services"]
+        ),
     )
 
     # services
@@ -715,7 +761,9 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     return TomlConfig.load(filename, cache=False)
 
 
-def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "docker-compose.yml") -> dict:
+def load_dockercompose_with_includes(
+    c: Optional[Context] = None, dc_path: str | Path = "docker-compose.yml"
+) -> dict[str, typing.Any]:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
 
@@ -729,9 +777,13 @@ def load_dockercompose_with_includes(c: Context = None, dc_path: str | Path = "d
     if not dc_path.exists():
         raise FileNotFoundError(dc_path)
 
-    processed_config = c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True).stdout.strip()
-    # mimic a file to load the yaml from
-    return yaml.safe_load(io.StringIO(processed_config))
+    if ran := c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
+        processed_config = ran.stdout.strip()
+        # mimic a file to load the yaml from
+        fake_file = io.StringIO(processed_config)
+        return yaml.safe_load(fake_file)
+    else:
+        return {}
 
 
 @task()
@@ -750,7 +802,8 @@ def require_sudo(c: Context) -> bool:
                 c.sudo('echo "I am the captain now."')
 
     """
-    if c.run("sudo --non-interactive echo ''", warn=True, hide=True).ok:
+    ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
+    if ran and ran.ok:
         # prima
         return True
 
@@ -827,12 +880,11 @@ def setup(c: Context, run_local_setup=True, new_config_toml=False, _retry=False)
 
 
 @task()
-def search_adjacent_setting(c, key, silent=False):
+def search_adjacent_setting(c: Context, key: str, silent=False):
     """
     Search for key in all ../*/.env files.
     """
-    c: Context
-    key: str = key.upper()
+    key = key.upper()
     if not silent:
         print("search for ", key)
     envs = (pathlib.Path(c.cwd) / "..").glob("*/.env")
@@ -853,7 +905,7 @@ def next_value(c: Context, key: list[str] | str, lowest: int, silent=True) -> in
     next_value(c, ['PGPOOL_PORT','POSTGRES_PORT','PGBOUNCER_PORT'], 5432) -> finds the next port searching for all keys.
     """
     keys = [key] if isinstance(key, str) else key
-    all_settings = {}
+    all_settings: dict[str, typing.Any] = {}
     for key in keys:
         settings = search_adjacent_setting(c, key, silent)
         all_settings |= {f"{k}/{key}": v for k, v in settings.items() if v}
@@ -866,14 +918,14 @@ def next_value(c: Context, key: list[str] | str, lowest: int, silent=True) -> in
 THREE_WEEKS = 60 * 24 * 7 * 3
 
 
-@task
+@task()
 def clean_old_sessions(c: Context, relative_glob="web2py/apps/*/sessions", minutes: int = THREE_WEEKS):
     for directory in Path.cwd().glob(relative_glob):
         c.sudo(f'find "{directory}" -type f -mmin +{minutes} -exec rm -f "{{}}" +;')
         remove_empty_dirs(c, directory)
 
 
-@task
+@task()
 def remove_empty_dirs(c: Context, path: str | Path):
     c.sudo(f'find "{path}" -type d -exec rmdir --ignore-fail-on-non-empty {{}} +')
 
@@ -953,7 +1005,7 @@ def settings(_, find=None, fuzz_threshold=75, as_json=False):
 def show_related_settings(ctx: Context, services: list[str]):
     config = dc_config(ctx)
 
-    rows = {}
+    rows: dict[str, typing.Any] = {}
     for service in services:
         if service_settings := _settings(service):
             rows |= service_settings
@@ -1005,7 +1057,7 @@ def volumes(ctx):
 )
 def up(
     ctx: Context,
-    service: Optional[list[str]] = None,
+    service: typing.Collection[str] = (),
     build=False,
     quickest=False,
     stop_timeout=2,
@@ -1110,7 +1162,10 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, dict[str, ty
     """
     # -aq doesn't keep the same order of services, so use json format to get ID with service name.
     # use --no-trunc to get full ID instead of short one
-    rows = ctx.run(f"{DOCKER_COMPOSE} ps --format json --no-trunc {' '.join(services)}", hide=True).stdout
+    if ran := ctx.run(f"{DOCKER_COMPOSE} ps --format json --no-trunc {' '.join(services)}", hide=True):
+        rows = ran.stdout
+    else:
+        rows = ""
 
     result = {}
 
@@ -1128,7 +1183,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, dict[str, ty
 
 async def logs_improved_async(
     c: Context,
-    service: Optional[list[str]] = None,
+    service: typing.Collection[str] = (),
     since: Optional[str] = None,
     new: bool = False,
     stream: Optional[str] = None,
@@ -1142,8 +1197,7 @@ async def logs_improved_async(
     if since:
         since = parse_timedelta(since)
 
-    if re_filter:
-        re_filter = parse_regex(re_filter)
+    re_filter_fn = parse_regex(re_filter) if re_filter else None
 
     services = service_names(service, default="logs")
     containers = get_docker_info(c, services)
@@ -1164,14 +1218,14 @@ async def logs_improved_async(
 
             file = f"/var/lib/docker/containers/{container}/{container}-json.log"
             task_group.start_soon(
-                tail,
+                tail,  # type: ignore
                 {
                     "filename": file,
                     "human_name": container_name,
                     "container_id": container,
                     "stream": stream,
                     "since": since,
-                    "re_filter": re_filter,
+                    "re_filter": re_filter_fn,
                     "color": next(colors),
                     "timestamps": timestamps,
                     "verbose": verbose,
@@ -1186,10 +1240,10 @@ def inspect(ctx: Context, container_id: str) -> dict:
     :raise EnvironmentError if docker inspect failed.
     """
     ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
-    if ran.ok:
+    if ran and ran.ok:
         return json.loads(ran.stdout)[0]
     else:
-        print(ran.stderr)
+        print(ran.stderr if ran else "-")
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
@@ -1206,7 +1260,7 @@ def elevate(target_command: str):
 
 def logs_improved(
     c: Context,
-    service: Optional[list[str]] = None,
+    service: typing.Collection[str] = (),
     since: Optional[str] = None,
     stream: Optional[str] = None,
     filter: Optional[str] = None,
@@ -1247,7 +1301,7 @@ def logs_improved(
 )
 def logs(
     ctx,
-    service: Optional[list[str]] = None,
+    service: typing.Collection[str] = (),
     follow: bool = True,
     limit: Optional[int] = None,
     sort: bool = False,
@@ -1300,21 +1354,21 @@ def logs(
     ctx.run(" ".join(cmdline), echo=verbose, pty=True)
 
 
-@task()
-def sul(ctx: Context):
+@task(iterable=["service"])
+def sul(ctx: Context, service: typing.Collection[str] = ()):
     """
     Shortcut for `edwh setup up logs`
     """
     setup(ctx)
-    up(ctx)
-    logs(ctx)
+    up(ctx, service=service)
+    logs(ctx, service=service)
 
 
 @task(
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def stop(ctx, service=None):
+def stop(ctx: Context, service: typing.Collection[str] = ()):
     """
     Stops services using docker-compose stop.
     """
@@ -1326,7 +1380,7 @@ def stop(ctx, service=None):
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def down(ctx, service=None):
+def down(ctx: Context, service: typing.Collection[str] = ()):
     """
     Stops services using docker-compose down.
     """
@@ -1336,7 +1390,7 @@ def down(ctx, service=None):
 
 
 @task()
-def upgrade(ctx, build=False):
+def upgrade(ctx: Context, build=False):
     if build:
         ctx.run(f"{DOCKER_COMPOSE} build")
     else:
@@ -1514,8 +1568,8 @@ def show_help(ctx: Context, about: str) -> None:
     # first check if 'about' is a plugin/namespace:
     from .cli import collection
 
-    if ns := collection.collections.get(about):
-        ns: invoke.Collection
+    ns: invoke.Collection
+    if ns := collection.collections.get(about):  # type: ignore
         info = ns.serialized()
 
         print("--- namespace", ns.name, "---")
@@ -1571,7 +1625,7 @@ def task_discover(
     )
 
 
-@task
+@task()
 def ew_self_update(ctx: Context):
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
@@ -1584,7 +1638,10 @@ def migrate(ctx: Context):
 
 
 def find_container_id(ctx: Context, container: str) -> Optional[str]:
-    return ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True).stdout.strip()
+    if result := ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True):
+        return result.stdout.strip()
+    else:
+        return None
 
 
 def find_container_ids(ctx: Context, *containers: str) -> dict[str, Optional[str]]:
@@ -1599,15 +1656,15 @@ def stop_remove_containers(ctx: Context, *container_names: str):
     return [stop_remove_container(ctx, _) for _ in container_names]
 
 
-@task
-def clean_redis(_, db_count: int = 3):
+@task()
+def clean_redis(_: Context, db_count: int = 3):
     import redis as r
 
     env = read_dotenv(Path(".env"))
     for db in range(db_count):
         redis_client = r.Redis("localhost", int(env["REDIS_PORT"]), db)
         print(f"Removing {len(redis_client.keys())} keys")
-        for key in redis_client:
+        for key in redis_client:  # type: ignore
             del redis_client[key]
         redis_client.close()
 
@@ -1705,7 +1762,7 @@ def wipe_db(
     up(ctx)
 
 
-@task
+@task()
 def show_config(_: Context):
     """
     Show the current values from .toml after loading.
@@ -1714,7 +1771,7 @@ def show_config(_: Context):
     cprint(f"TomlConfig: {json.dumps(config.__dict__, default=str, indent=2) if config else 'None'}")
 
 
-@task
+@task()
 def change_config(c: Context):
     """
     Change the settings in .toml
@@ -1722,7 +1779,7 @@ def change_config(c: Context):
     build_toml(c, overwrite=True)
 
 
-@task
+@task()
 def debug(_):
     print(get_env_value("IS_DEBUG", "0"))
 

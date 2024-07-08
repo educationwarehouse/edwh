@@ -40,7 +40,8 @@ def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = No
 
 def executes_correctly(c: Context, argument: str) -> bool:
     """returns True if the execution was without error level"""
-    return c.run(argument, warn=True, hide=True).ok
+    ran = c.run(argument, warn=True, hide=True)
+    return bool(ran and ran.ok)
 
 
 def execution_fails(c: Context, argument: str) -> bool:
@@ -150,7 +151,7 @@ T = typing.TypeVar("T")
 
 
 @typing.overload
-def dump_set_as_list(data: set[T]) -> list[T]:
+def dump_set_as_list(data: set[T]) -> list[T]:  # type: ignore
     """
     Sets are converted to lists.
     """
@@ -163,7 +164,7 @@ def dump_set_as_list(data: T) -> T:
     """
 
 
-def dump_set_as_list(data: set[T] | T) -> list[T] | T:
+def dump_set_as_list(data: set[T] | T) -> list[T] | T:  # type: ignore
     if isinstance(data, set):
         return list(data)
     else:
@@ -186,7 +187,7 @@ def print_box(label: str, selected: bool, current: bool, number: int, fmt: str =
 def interactive_selected_checkbox_values(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: set[T_Key] = (),
+    selected: typing.Collection[T_Key] = (),
 ) -> list[str]:
     """
     This function provides an interactive checkbox selection in the console.
@@ -224,14 +225,14 @@ def interactive_selected_checkbox_values(
         labels = options
     else:
         labels = list(options.values())
-        options = list(options.keys())
+        options = list(options.keys())  # type: ignore
 
     for item in selected:
         if item not in options:
             # invalid
             continue
 
-        idx = options.index(item)
+        idx = options.index(item)  # type: ignore
         checked_indices[idx] = options[idx]
 
     print_checkbox = functools.partial(print_box, fmt="[%s]", filler="x")
@@ -269,7 +270,7 @@ def interactive_selected_checkbox_values(
 def interactive_selected_radio_value(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: T_Key = None,
+    selected: Optional[T_Key] = None,
 ) -> str:
     """
     This function provides an interactive radio box selection in the console.
@@ -299,17 +300,17 @@ def interactive_selected_radio_value(
 
         interactive_selected_radio_value({1: "first", 2: "second", 3: "third"}, selected=3)
     """
-    selected_index = None
+    selected_index: Optional[int] = None
     current_index = 0
 
     if isinstance(options, list):
         labels = options
     else:
         labels = list(options.values())
-        options = list(options.keys())
+        options = list(options.keys())  # type: ignore
 
     if selected in options:
-        selected_index = current_index = options.index(selected)
+        selected_index = current_index = options.index(selected)  # type: ignore
 
     print_radio_box = functools.partial(print_box, fmt="(%s)", filler="o")
 
@@ -350,12 +351,15 @@ def yaml_loads(text: str) -> dict[str, typing.Any]:
 
 
 def dc_config(ctx: Context) -> dict[str, typing.Any]:
-    return (
-        yaml_loads(
-            ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True).stdout.strip(),
+    if ran := ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True):
+        return (
+            yaml_loads(
+                ran.stdout.strip(),
+            )
+            or {}
         )
-        or {}
-    )
+    else:
+        return {}
 
 
 def print_aligned(plugin_commands: list[str]) -> None:

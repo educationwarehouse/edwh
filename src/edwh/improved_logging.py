@@ -206,8 +206,8 @@ def parse_regex(raw: str) -> FilterFn:
 
     if raw.startswith("/") and raw.count("/") > 1:
         # flag-mode
-        _, *rest, flags = raw.split("/")
-        flags = set(flags.lower())
+        _, *rest, flags_str = raw.split("/")
+        flags = set(flags_str.lower())
         pattern = "/".join(rest)
     else:
         # normal search mode, no flags

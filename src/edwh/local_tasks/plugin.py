@@ -17,6 +17,7 @@ import yarl
 from invoke import Context, task
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
+from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
 from ..meta import (
@@ -36,7 +37,10 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
     if not pip_command:
         pip_command = _pip()
 
-    packages = c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True).stdout.strip().split("\n")
+    if result := c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True):
+        packages = result.stdout.strip().split("\n")
+    else:
+        packages = []
 
     # filter out comments and editable (local) installs:
     return [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
@@ -239,7 +243,7 @@ def remove_all(c):
 
 
 @task(aliases=("install",))
-def add(c, plugin_names: str):
+def add(c: Context, plugin_names: str):
     """
     Install a new plugin.
 
@@ -254,9 +258,9 @@ def add(c, plugin_names: str):
 
     pip = _pip()
 
-    plugin_names = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
+    plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} install " + " ".join(plugin_names))
+    c.run(f"{pip} install " + " ".join(plugin_names_splitted))
 
 
 @task(aliases=("upgrade",))
@@ -300,11 +304,12 @@ def remove(c, plugin_names: str):
     """
     if plugin_names == "all":
         return remove_all(c)
+
     pip = _pip()
     # ensure the prefix and suffix exist, but not twice:
-    plugin_names = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
+    plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} uninstall " + " ".join(plugin_names))
+    c.run(f"{pip} uninstall " + " ".join(plugin_names_splitted))
 
 
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
@@ -386,9 +391,9 @@ def parse_changelog(markdown: str):
     where type is e.g. Fix
     """
     # thanks ChatGPT
-    changelog = {}
-    current_version = None
-    current_category = None
+    changelog: dict[str, dict[str, list[str]]] = {}
+    current_version: Optional[str] = None
+    current_category: Optional[str] = None
 
     lines = markdown.split("\n")
     for line in lines:
@@ -403,14 +408,14 @@ def parse_changelog(markdown: str):
             continue
 
         category_match = re.match(r"^### (.+)", line)
-        if category_match:
+        if category_match and current_version:
             category = category_match.group(1)
             changelog[current_version][category] = []
             current_category = category
             continue
 
         feature_match = re.match(r"^\* (.+)", line)
-        if feature_match:
+        if feature_match and current_version and current_category:
             feature = feature_match.group(1)
             changelog[current_version][current_category].append(feature)
 
@@ -456,7 +461,7 @@ def sort_and_filter_changelog(changelog: dict, since: Optional[str] = None):
         date = to_date(k)
 
         # checks to stop:
-        if (
+        if since and (
             (since == "major" and version.major < prev_major)
             or (since == "minor" and (version.minor < prev_minor or version.major < prev_major))
             or (
@@ -468,7 +473,7 @@ def sort_and_filter_changelog(changelog: dict, since: Optional[str] = None):
             break
 
         # checks to skip:
-        elif _filter_away(version, date, since):
+        elif since and _filter_away(version, date, since):
             # skip!
             continue
 
@@ -481,7 +486,7 @@ def sort_and_filter_changelog(changelog: dict, since: Optional[str] = None):
     return OrderedDict(sorted(filtered.items(), reverse=True, key=sort_versions))
 
 
-COLORS = {
+COLORS: dict[str, Color] = {
     "fix": "yellow",
     "feature": "green",
     "documentation": "blue",

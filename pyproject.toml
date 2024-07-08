@@ -46,7 +46,7 @@ dependencies = [
     "requests",
     "tabulate",
     "termcolor",
-    "tomlkit",  #  ; python_version < '3.11'
+    "tomlkit", #  ; python_version < '3.11'
     "tqdm",
     "uv",
     "yarl",
@@ -57,6 +57,10 @@ dev = [
     "hatch",
     # "python-semantic-release >= 8.0.0a5",
     "black",
+    "types-requests",
+    "types-python-dateutil",
+    "types-redis",
+    "types-tabulate"
 ]
 
 omgeving = [
@@ -257,7 +261,7 @@ select = [
     # "PTH", # use pathlib
     "RUF", # ruff rules
     "C90", # mccabe (complexity)
-#    "I", # isort
+    #    "I", # isort
     "N", # pep-8 naming
     # "D", # pydocstyle
     # "UP", # pyupgrade
@@ -318,6 +322,30 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tasks"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fabric"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fabric.main"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "ansi.color.fx"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "diceware"
+ignore_missing_imports = true
 
 [tool.su6]
 directory = "src"

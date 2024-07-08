@@ -3,7 +3,7 @@ from invoke import Argument
 from typing_extensions import deprecated
 
 
-@deprecated
+@deprecated("Just use Fab!")
 class ExtendableFab(Fab):
     _core_args: list[Argument] = []  # noqa RUF012: class variable, can be filled without instance
 

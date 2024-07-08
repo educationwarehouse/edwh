@@ -186,7 +186,7 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False):
 
         result = c.run(command, warn=True)
 
-        if result.return_code == 0:
+        if result and result.return_code == 0:
             success.append(plugin)
         else:
             failure.append(plugin)

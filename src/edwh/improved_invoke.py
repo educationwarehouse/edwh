@@ -6,6 +6,7 @@
 """
 
 import functools
+import typing
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
 from invoke import Task as InvokeTask
@@ -43,7 +44,7 @@ class ImprovedTask(InvokeTask):
         super().__init__(
             body=body,
             name=name,
-            aliases=aliases,
+            aliases=tuple(aliases),
             positional=positional,
             optional=optional,
             default=default,
@@ -56,8 +57,8 @@ class ImprovedTask(InvokeTask):
             incrementable=incrementable,
         )
 
-    def arg_opts(self, name: str, default: str, taken_names: Set[str]):
-        opts = super().arg_opts(name=name, default=default, taken_names=taken_names)
+    def arg_opts(self, name: str, default: str, taken_names: typing.Iterable[str]):
+        opts = super().arg_opts(name=name, default=default, taken_names=set(taken_names))
 
         if flags := self._flags.get(name):
             # todo: check taken?
