@@ -52,6 +52,7 @@ from .helpers import (  # noqa
     interactive_selected_radio_value,
     noop,
     print_aligned,
+    shorten,
 )
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
@@ -1035,14 +1036,6 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
-def shorten(text: str, max_chars: int) -> str:
-    # textwrap looks at words and stuff, not relevant for commands!
-    if len(text) <= max_chars:
-        return text
-    else:
-        return f"{text[:max_chars]}..."
-
-
 @task(
     iterable=["service", "columns"],
     help=dict(
@@ -1305,6 +1298,16 @@ def logs(
         )
 
     ctx.run(" ".join(cmdline), echo=verbose, pty=True)
+
+
+@task()
+def sul(ctx: Context):
+    """
+    Shortcut for `edwh setup up logs`
+    """
+    setup(ctx)
+    up(ctx)
+    logs(ctx)
 
 
 @task(

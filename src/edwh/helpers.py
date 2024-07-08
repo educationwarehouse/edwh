@@ -389,3 +389,13 @@ def flatten(something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
     Like itertools.flatten but eager
     """
     return list(_flatten(something))
+
+
+def shorten(text: str, max_chars: int) -> str:
+    """
+    textwrap looks at words and stuff, not relevant for commands!
+    """
+    if len(text) <= max_chars:
+        return text
+    else:
+        return f"{text[:max_chars]}..."
