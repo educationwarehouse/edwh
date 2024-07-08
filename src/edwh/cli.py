@@ -9,18 +9,18 @@ from importlib.metadata import entry_points
 
 from fabric import Config, Executor
 from fabric.main import Fab
-from invoke import Collection
+from invoke import Collection  # type: ignore
 
 from . import tasks
 from .__about__ import __version__
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
-collection: Collection = Collection.from_module(tasks)
+collection = Collection.from_module(tasks)
 
 
 ### extra's tasks ###
-def include_plugins():
+def include_plugins() -> None:
     try:
         discovered_plugins = entry_points(group="edwh.tasks")
     except Exception as e:
@@ -42,7 +42,7 @@ def include_plugins():
 
 
 ### included 'plugins' in edwh/local_tasks ###
-def include_packaged_plugins():
+def include_packaged_plugins() -> None:
     from . import local_tasks
 
     tasks_dir = os.path.dirname(local_tasks.__file__)
@@ -55,11 +55,11 @@ def include_packaged_plugins():
 
 
 ### tasks in user cwd ###
-def include_cwd_tasks():
+def include_cwd_tasks() -> None:
     old_path = sys.path[:]
 
-    for path in [".", "..", "../.."]:
-        path = pathlib.Path(path)
+    for _path in [".", "..", "../.."]:
+        path = pathlib.Path(_path)
         sys.path = [str(path), *old_path]
         try:
             import tasks as local_tasks
@@ -79,7 +79,7 @@ def include_cwd_tasks():
     sys.path = old_path
 
 
-def include_other_project_tasks():
+def include_other_project_tasks() -> None:
     for file in glob.glob("*.tasks.py"):
         namespace = file.split(".")[0]
 
@@ -87,6 +87,10 @@ def include_other_project_tasks():
             name=namespace,  # note that ".test" is not a valid module name
             location=file,
         )
+
+        if not (spec and spec.loader):
+            continue
+
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 

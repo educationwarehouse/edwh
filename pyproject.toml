@@ -323,6 +323,9 @@ exclude_lines = [
     "if TYPE_CHECKING:",
 ]
 
+[tool.mypy]
+strict = true
+
 [[tool.mypy.overrides]]
 module = "yaml"
 ignore_missing_imports = true

@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
 from invoke import Task as InvokeTask
 from invoke import task as invoke_task
+from typing_extensions import Unpack
 
 
 class ImprovedTask(InvokeTask):
@@ -70,6 +71,33 @@ class ImprovedTask(InvokeTask):
         return opts
 
 
-improved_task = functools.partial(invoke_task, klass=ImprovedTask)
+P = typing.ParamSpec("P")
+R = typing.TypeVar("R")
+
+
+class TaskOptions(typing.TypedDict, total=False):
+    name: Optional[str]
+    aliases: Iterable[str]
+    positional: Optional[Iterable[str]]
+    optional: Iterable[str]
+    default: bool
+    auto_shortflags: bool
+    help: Optional[Dict[str, Any]]
+    pre: Optional[Union[List[str], str]]
+    post: Optional[Union[List[str], str]]
+    autoprint: bool
+    iterable: Optional[Iterable[str]]
+    incrementable: Optional[Iterable[str]]
+    flags: dict[str, list[str]] | None
+
+
+class TaskCallable(typing.Protocol):
+    def __call__(self, **_: Unpack[TaskOptions]) -> Callable[
+        [Callable[P, R]],
+        Callable[P, R],
+    ]: ...
+
+
+improved_task: TaskCallable = functools.partial(invoke_task, klass=ImprovedTask)
 
 __all__ = ["ImprovedTask", "improved_task"]

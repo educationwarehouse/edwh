@@ -8,10 +8,12 @@ import typing
 from typing import Optional
 
 import requests
-from invoke import Context, task
+from invoke import Context
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
+
+from .improved_invoke import improved_task as task
 
 PYPI_URL_PATTERN = "https://pypi.python.org/pypi/{package}/json"
 
@@ -145,7 +147,7 @@ def _parse_versions(installed: list[str]) -> dict[str, Version | None]:
 
 
 @task()
-def plugins(c, verbose=False, changelog=False):
+def plugins(c: Context, verbose=False, changelog=False) -> None:
     """
     alias for plugin.list or plugin.changelog --new
     """
@@ -157,7 +159,7 @@ def plugins(c, verbose=False, changelog=False):
         return plugin.list_plugins(c, verbose=verbose)
 
 
-def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False):
+def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -> None:
     """
     Wrapper for self-update that can handle type hint Context
     """
@@ -199,7 +201,7 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False):
 
 
 @task()
-def self_update(c, prerelease: bool = False, no_cache: bool = False):
+def self_update(c, prerelease: bool = False, no_cache: bool = False) -> None:
     """
     Updates `edwh` and all installed plugins.
 

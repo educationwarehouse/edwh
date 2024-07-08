@@ -1657,7 +1657,7 @@ def stop_remove_containers(ctx: Context, *container_names: str):
 
 
 @task()
-def clean_redis(_: Context, db_count: int = 3):
+def clean_redis(_: Context, db_count: int = 3) -> None:
     import redis as r
 
     env = read_dotenv(Path(".env"))
@@ -1670,7 +1670,7 @@ def clean_redis(_: Context, db_count: int = 3):
 
 
 @task()
-def clean_postgres(ctx: Context, yes=False):
+def clean_postgres(ctx: Context, yes: bool = False) -> None:
     # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
     yes or confirm(
         "Are you sure you want to wipe the database? This can not be undone [yes,NO]",
@@ -1712,12 +1712,12 @@ def clean_postgres(ctx: Context, yes=False):
 @task(flags={"clean_all": ["all", "a"]})
 def clean(
     ctx: Context,
-    clean_all=False,
-    db=False,
-    postgres=False,
-    redis=False,
-    yes=False,
-):
+    clean_all: bool = False,
+    db: bool = False,
+    postgres: bool = False,
+    redis: bool = False,
+    yes: bool = False,
+) -> None:
     """Rebuild the databases, possibly rebuild microservices.
 
     Execution:
@@ -1742,8 +1742,8 @@ def clean(
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
 def wipe_db(
-    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database="pgpool", yes: bool = False
-):
+    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database: str = "pgpool", yes: bool = False
+) -> None:
     # 1 + 2. just 'create' without starting anything:
     ctx.run(f"{DOCKER_COMPOSE} create")
 
@@ -1763,7 +1763,7 @@ def wipe_db(
 
 
 @task()
-def show_config(_: Context):
+def show_config(_: Context) -> None:
     """
     Show the current values from .toml after loading.
     """
@@ -1772,7 +1772,7 @@ def show_config(_: Context):
 
 
 @task()
-def change_config(c: Context):
+def change_config(c: Context) -> None:
     """
     Change the settings in .toml
     """
@@ -1780,12 +1780,12 @@ def change_config(c: Context):
 
 
 @task()
-def debug(_):
+def debug(_: Context) -> None:
     print(get_env_value("IS_DEBUG", "0"))
 
 
 @task(aliases=("ew",))
-def edwh(_):
+def edwh(_: Context) -> None:
     """
     Do absolutely nothing.
 

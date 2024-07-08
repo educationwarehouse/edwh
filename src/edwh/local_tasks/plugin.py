@@ -14,13 +14,14 @@ from typing import Optional
 import dateutil.parser
 import requests
 import yarl
-from invoke import Context, task
+from invoke import Context  # type: ignore
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
-from ..meta import (
+from ..improved_invoke import improved_task as task
+from ..meta import (  # type: ignore
     Version,
     _gather_package_metadata_threaded,
     _get_available_plugins_from_pypi,
@@ -51,13 +52,13 @@ class Plugin:
     raw_name: str
     installed_version: typing.Optional[Version]
     latest_version: typing.Optional[Version]
-    metadata: dict
+    metadata: dict[str, typing.Any]
 
     is_installed: bool
     clean_name: str = ""
     is_outdated: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.latest_version and self.installed_version:
             self.is_outdated = self.latest_version > self.installed_version
 
@@ -65,14 +66,14 @@ class Plugin:
         self.github_url = self.metadata["info"]["project_urls"]["Documentation"]
         self.requires_python = self.metadata["info"]["requires_python"]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         version = (self.installed_version if self.is_installed else self.latest_version) or "?"
         return f"<EW Plugin: {self.clean_name}-{version} {'installed' if self.is_installed else 'available'}>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return json.dumps(self.__dict__)
 
-    def print_details(self, verbose=False):
+    def print_details(self, verbose: bool = False) -> None:
         if self.is_outdated:
             if verbose:
                 plugin_details = (
@@ -160,7 +161,7 @@ def gather_plugin_info(c: Context) -> list[Plugin]:
 
 
 @task(name="list")
-def list_plugins(c, verbose=False):
+def list_plugins(c: Context, verbose: bool = False) -> None:
     """
     List installed plugins
 
@@ -178,7 +179,7 @@ def list_plugins(c, verbose=False):
         if plugin.is_outdated:
             old_plugins.append(plugin)
         if not plugin.is_installed:
-            not_all_installed = plugin.clean_name
+            not_all_installed = bool(plugin.clean_name)
 
     if old_plugins:
         print()
@@ -200,7 +201,7 @@ def list_plugins(c, verbose=False):
         )
 
 
-def _require_affixes(package: str, prefix="edwh-", suffix="-plugin"):
+def _require_affixes(package: str, prefix: str = "edwh-", suffix: str = "-plugin") -> str:
     """
     affix is 'an addition to the base form or stem of a word in order to modify its meaning or create a new word.'
     """
@@ -213,7 +214,7 @@ def _require_affixes(package: str, prefix="edwh-", suffix="-plugin"):
 
 
 @task()
-def add_all(c):
+def add_all(c: Context) -> None:
     """
     Install all available plugins
 
@@ -223,12 +224,12 @@ def add_all(c):
     pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins = " ".join(plugins)
-    c.run(f"{pip} install {plugins}")
+    plugins_joined = " ".join(plugins)
+    c.run(f"{pip} install {plugins_joined}")
 
 
 @task()
-def remove_all(c):
+def remove_all(c: Context) -> None:
     """
     Remove all available plugins
 
@@ -238,12 +239,12 @@ def remove_all(c):
     pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins = " ".join(plugins)
-    c.run(f"{pip} uninstall --yes {plugins}")
+    plugins_joined = " ".join(plugins)
+    c.run(f"{pip} uninstall --yes {plugins_joined}")
 
 
 @task(aliases=("install",))
-def add(c: Context, plugin_names: str):
+def add(c: Context, plugin_names: str) -> None:
     """
     Install a new plugin.
 
@@ -264,7 +265,7 @@ def add(c: Context, plugin_names: str):
 
 
 @task(aliases=("upgrade",))
-def update(c, plugin_names: str, version: Optional[str] = None, verbose: bool = False):
+def update(c: Context, plugin_names: str, version: Optional[str] = None, verbose: bool = False) -> None:
     """
     Update a plugin (or 'all') to the latest version
 
@@ -275,7 +276,7 @@ def update(c, plugin_names: str, version: Optional[str] = None, verbose: bool = 
         verbose: show which will would be installed for each plugin
     """
     if plugin_names == "all":
-        from ..tasks import self_update
+        from ..tasks import self_update  # type: ignore
 
         return self_update(c)
 
@@ -294,7 +295,7 @@ def update(c, plugin_names: str, version: Optional[str] = None, verbose: bool = 
 
 
 @task(aliases=("uninstall",))
-def remove(c, plugin_names: str):
+def remove(c: Context, plugin_names: str) -> None:
     """
     Remove a plugin (or 'all')
 
@@ -315,7 +316,7 @@ def remove(c, plugin_names: str):
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
 
 
-def get_changelog(github_repo: str | yarl.URL):
+def get_changelog(github_repo: str | yarl.URL) -> str:
     if isinstance(github_repo, str):
         github_repo = yarl.URL(github_repo)
 
@@ -325,7 +326,7 @@ def get_changelog(github_repo: str | yarl.URL):
     return requests.get(str(changelog_url), timeout=10).text
 
 
-def get_changelogs_threaded(github_repos: dict[str, str]):
+def get_changelogs_threaded(github_repos: dict[str, str]) -> dict[str, str]:
     """
     For any package in packages, gather its metadata from pypi
     """
@@ -384,7 +385,13 @@ def sort_versions(key_value: tuple[str, typing.Any]) -> Version:
         return Version("0.0.0")
 
 
-def parse_changelog(markdown: str):
+T_Changelog: typing.TypeAlias = dict[str, dict[str, list[str]]]
+T_OrderedChangelog: typing.TypeAlias = OrderedDict[str, dict[str, list[str]]]
+T_OrderedChangelogs: typing.TypeAlias = dict[str, T_OrderedChangelog]
+T_Changelogs: typing.TypeAlias = dict[str, T_Changelog]
+
+
+def parse_changelog(markdown: str) -> T_Changelog:
     """
     Parse our CHANGELOG.md to a dictionary of {version: {type: [list of changes]}}
     where version is e.g. v0.18.5 (2023-06-06)
@@ -422,7 +429,7 @@ def parse_changelog(markdown: str):
     return changelog
 
 
-def to_date(key: str):
+def to_date(key: str) -> dt.datetime:
     """
     Convert a changelog key `v0.0.0 (2000-01-01)` to a dt.datetime
     """
@@ -433,7 +440,7 @@ def to_date(key: str):
         return dateutil.parser.parse("2000-01-01")
 
 
-def to_version(key: str):
+def to_version(key: str) -> Version:
     """
     Convert a changelog key `v0.0.0 (2000-01-01)` to a Version(0.0.0)
     """
@@ -444,7 +451,7 @@ def to_version(key: str):
         return Version("0.0.0")
 
 
-def sort_and_filter_changelog(changelog: dict, since: Optional[str] = None):
+def sort_and_filter_changelog(changelog: dict[str, dict[str, list[str]]], since: Optional[str] = None) -> T_Changelog:
     """
     Since can be:
     - a number - amount of releases to show.
@@ -495,7 +502,7 @@ COLORS: dict[str, Color] = {
 BOLD_RE = re.compile(r"((\*\*|__).+?(\*\*|__))")
 
 
-def colored_markdown(text: str):
+def colored_markdown(text: str) -> str:
     """
     Prettify a changelog line (makes ** bold).
 
@@ -509,7 +516,7 @@ def colored_markdown(text: str):
     return final
 
 
-def display_changelogs(changelogs: dict[str, OrderedDict]):
+def display_changelogs(changelogs: T_Changelogs) -> None:
     """
     Final step of changelog(), uses the result of {package: sort_and_filter_changelog()}.
     """
@@ -523,12 +530,12 @@ def display_changelogs(changelogs: dict[str, OrderedDict]):
                     print("----", colored_markdown(change))
 
 
-def _gather_and_display_changelogs(info: list[Plugin], since: dict[str, str]):
-    changelogs = get_changelogs_threaded(
+def _gather_and_display_changelogs(info: list[Plugin], since: dict[str, str]) -> None:
+    changelogs_raw = get_changelogs_threaded(
         {plugin.clean_name: plugin.metadata["info"]["project_urls"]["Source"] for plugin in info}
     )
 
-    changelogs = {
+    changelogs_parsed: T_Changelogs = {
         name: (
             # sort and filter removes everything not matching 'since' and sorts by date (/version) desc.
             sort_and_filter_changelog(
@@ -538,13 +545,13 @@ def _gather_and_display_changelogs(info: list[Plugin], since: dict[str, str]):
                 since[name],
             )
         )
-        for name, data in changelogs.items()
+        for name, data in changelogs_raw.items()
     }
 
-    display_changelogs(changelogs)
+    display_changelogs(changelogs_parsed)
 
 
-def _changelog_new(ctx: Context, *_):
+def _changelog_new(ctx: Context, *_: typing.Any) -> None:
     """
     List changes since last installed version.
     """
@@ -555,7 +562,7 @@ def _changelog_new(ctx: Context, *_):
     return _gather_and_display_changelogs(info, since)
 
 
-def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_):
+def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_: typing.Any) -> None:
     """
     List changes for specific plugins.
     """
@@ -565,7 +572,7 @@ def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_):
     return _gather_and_display_changelogs(info, _since)
 
 
-def _changelog_all(ctx: Context, _: list[str], since: str, *__):
+def _changelog_all(ctx: Context, _: list[str], since: str, *__: typing.Any) -> None:
     """
     List changes for all plugins.
     """
@@ -576,7 +583,7 @@ def _changelog_all(ctx: Context, _: list[str], since: str, *__):
 
 
 @task(iterable=["plugin"])
-def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
+def changelog(ctx: Context, plugin: list[str], since: str = "5", new: bool = False) -> None:
     """
     Show changelogs for edwh plugins.
     by default, changelogs from all plugins are shown.
@@ -594,10 +601,11 @@ def changelog(ctx, plugin: list[str], since: str = "5", new: bool = False):
         return _changelog_all(ctx, plugin, since, new)
 
 
-def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) -> typing.Optional[str]:
+def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw: typing.Any) -> typing.Optional[str]:
     semver = c.run(f"semantic-release publish {kwargs_to_options(flags)}", **kw)
 
-    if new_version := re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr if semver else ""):
+    matches: list[str] = re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr if semver else "")
+    if new_version := matches:
         return new_version[0]
 
     cprint("No new version found!", "yellow")
@@ -606,14 +614,14 @@ def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw) ->
 
 @task(aliases=("publish",))
 def release(
-    c,
+    c: Context,
     noop: bool = False,
     major: bool = False,
     minor: bool = False,
     patch: bool = False,
     prerelease: bool = False,
     yes: bool = False,
-):
+) -> None:
     """
     Release a new version of a plugin.
 
@@ -664,7 +672,7 @@ def release(
     cprint("Starting build", "blue")
     hatch_build = c.run("hatch build -c")
 
-    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+.+tar\.gz", hatch_build.stderr)
+    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+.+tar\.gz", hatch_build.stderr if hatch_build else "")
 
     if not noop:
         cprint("Starting release", "blue")
