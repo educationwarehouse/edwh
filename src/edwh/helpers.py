@@ -416,19 +416,7 @@ def _fabric_resolve_home(path: str, user: str) -> str:
     return path.replace("~", f"/home/{user}", 1)
 
 
-def fabric_write(c: Connection | Context, path: str, contents: str | bytes, parents: bool = False) -> None:
-    """
-    Write some contents to a remote file.
-    ~ will be resolved to the remote user's home
-    """
-    path = _fabric_resolve_home(path, c.user)
-    contents = contents if isinstance(contents, bytes) else contents.encode()
-
-    if not isinstance(c, Connection):
-        # local
-        Path(path).write_bytes(contents)
-        return
-
+def _write_bytes_remote(c: Connection, path: str, contents: str | bytes, parents: bool = False):
     f = io.BytesIO(contents)
 
     if parents:
@@ -439,6 +427,39 @@ def fabric_write(c: Connection | Context, path: str, contents: str | bytes, pare
     c.put(f, path)
 
 
+def _write_bytes_local(_: Context, path: str, contents: str | bytes, parents: bool = False):
+    p = Path(path)
+    if parents:
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+    p.write_bytes(contents)
+
+
+def fabric_write(c: Connection | Context, path: str, contents: str | bytes, parents: bool = False) -> None:
+    """
+    Write some contents to a remote file.
+    ~ will be resolved to the remote user's home
+    """
+    path = _fabric_resolve_home(path, c.user)
+    contents = contents if isinstance(contents, bytes) else contents.encode()
+
+    fn = _write_bytes_remote if isinstance(c, Connection) else _write_bytes_local
+
+    return fn(c, path, contents, parents=parents)
+
+
+def _read_bytes_remote(c: Connection, path: str):
+    buf = io.BytesIO()
+    c.get(path, buf)
+
+    buf.seek(0)
+    return buf.read()
+
+
+def _read_bytes_local(_: Context, path: str):
+    return Path(path).read_bytes()
+
+
 def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
     """
     Write some bytes from a remote file.
@@ -446,21 +467,15 @@ def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) ->
     """
     path = _fabric_resolve_home(path, c.user)
 
-    if not isinstance(c, Connection):
-        # local
-        return Path(path).read_bytes()
+    fn = _read_bytes_remote if isinstance(c, Connection) else _read_bytes_local
 
-    buf = io.BytesIO()
     try:
-        c.get(path, buf)
+        return fn(c, path)
     except FileNotFoundError:
         if throw:
             raise
         else:
             return b""
-
-    buf.seek(0)
-    return buf.read()
 
 
 def fabric_read(c: Connection | Context, path: str, throw: bool = True) -> str:
