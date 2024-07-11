@@ -17,7 +17,7 @@
 
 ```console
 pipx install edwh
-# or: uvx install edwh
+# or: uvenv install edwh
 
 # or with all plugins:
 pipx install[plugins]
