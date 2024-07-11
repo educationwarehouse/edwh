@@ -9,6 +9,7 @@ import io
 import os
 import sys
 import typing
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -415,13 +416,20 @@ def _fabric_resolve_home(path: str, user: str) -> str:
     return path.replace("~", f"/home/{user}", 1)
 
 
-def fabric_write(c: Connection, path: str, contents: str | bytes, parents: bool = False) -> None:
+def fabric_write(c: Connection | Context, path: str, contents: str | bytes, parents: bool = False) -> None:
     """
     Write some contents to a remote file.
     ~ will be resolved to the remote user's home
     """
-    f = io.BytesIO(contents if isinstance(contents, bytes) else contents.encode())
     path = _fabric_resolve_home(path, c.user)
+    contents = contents if isinstance(contents, bytes) else contents.encode()
+
+    if not isinstance(c, Connection):
+        # local
+        Path(path).write_bytes(contents)
+        return
+
+    f = io.BytesIO(contents)
 
     if parents:
         # ensure path to file exists
@@ -431,12 +439,16 @@ def fabric_write(c: Connection, path: str, contents: str | bytes, parents: bool 
     c.put(f, path)
 
 
-def fabric_read_bytes(c: Connection, path: str, throw: bool = True) -> bytes:
+def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
     """
     Write some bytes from a remote file.
     ~ will be resolved to the remote user's home
     """
     path = _fabric_resolve_home(path, c.user)
+
+    if not isinstance(c, Connection):
+        # local
+        return Path(path).read_bytes()
 
     buf = io.BytesIO()
     try:
@@ -451,7 +463,7 @@ def fabric_read_bytes(c: Connection, path: str, throw: bool = True) -> bytes:
     return buf.read()
 
 
-def fabric_read(c: Connection, path: str, throw: bool = True) -> str:
+def fabric_read(c: Connection | Context, path: str, throw: bool = True) -> str:
     """
     Write some text from a remote file.
     ~ will be resolved to the remote user's home
