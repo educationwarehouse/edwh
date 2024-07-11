@@ -1794,4 +1794,3 @@ def edwh(_: Context) -> None:
     For oopsies like `ew ew up logs`
     """
     print("Hehe you silly goose", file=sys.stderr)
-

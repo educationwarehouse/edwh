@@ -6,6 +6,7 @@ import abc
 import datetime
 import functools
 import io
+import os
 import sys
 import typing
 from typing import Optional
@@ -414,7 +415,7 @@ def _fabric_resolve_home(path: str, user: str) -> str:
     return path.replace("~", f"/home/{user}", 1)
 
 
-def fabric_write(c: Connection, path: str, contents: str | bytes):
+def fabric_write(c: Connection, path: str, contents: str | bytes, parents: bool = False) -> None:
     """
     Write some contents to a remote file.
     ~ will be resolved to the remote user's home
@@ -422,10 +423,15 @@ def fabric_write(c: Connection, path: str, contents: str | bytes):
     f = io.BytesIO(contents if isinstance(contents, bytes) else contents.encode())
     path = _fabric_resolve_home(path, c.user)
 
+    if parents:
+        # ensure path to file exists
+        parent_path = os.path.dirname(path)
+        c.run(f"mkdir -p {parent_path}")
+
     c.put(f, path)
 
 
-def fabric_read_bytes(c: Connection, path: str) -> bytes:
+def fabric_read_bytes(c: Connection, path: str, throw: bool = True) -> bytes:
     """
     Write some bytes from a remote file.
     ~ will be resolved to the remote user's home
@@ -433,15 +439,22 @@ def fabric_read_bytes(c: Connection, path: str) -> bytes:
     path = _fabric_resolve_home(path, c.user)
 
     buf = io.BytesIO()
-    c.get(path, buf)
+    try:
+        c.get(path, buf)
+    except FileNotFoundError:
+        if throw:
+            raise
+        else:
+            return b""
+
     buf.seek(0)
     return buf.read()
 
 
-def fabric_read(c: Connection, path: str) -> str:
+def fabric_read(c: Connection, path: str, throw: bool = True) -> str:
     """
     Write some text from a remote file.
     ~ will be resolved to the remote user's home
     """
-    b = fabric_read_bytes(c, path)
+    b = fabric_read_bytes(c, path, throw=throw)
     return b.decode()
