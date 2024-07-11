@@ -5,6 +5,7 @@ This file contains re-usable helpers.
 import abc
 import datetime
 import functools
+import io
 import sys
 import typing
 from typing import Optional
@@ -12,6 +13,7 @@ from typing import Optional
 import click
 import diceware
 import yaml
+from fabric import Connection
 from invoke import Context
 from more_itertools import flatten as _flatten
 
@@ -403,3 +405,43 @@ def shorten(text: str, max_chars: int) -> str:
         return text
     else:
         return f"{text[:max_chars]}..."
+
+
+def _fabric_resolve_home(path: str, user: str) -> str:
+    if not path.startswith("~"):
+        return path
+
+    return path.replace("~", f"/home/{user}", 1)
+
+
+def fabric_write(c: Connection, path: str, contents: str | bytes):
+    """
+    Write some contents to a remote file.
+    ~ will be resolved to the remote user's home
+    """
+    f = io.BytesIO(contents if isinstance(contents, bytes) else contents.encode())
+    path = _fabric_resolve_home(path, c.user)
+
+    c.put(f, path)
+
+
+def fabric_read_bytes(c: Connection, path: str) -> bytes:
+    """
+    Write some bytes from a remote file.
+    ~ will be resolved to the remote user's home
+    """
+    path = _fabric_resolve_home(path, c.user)
+
+    buf = io.BytesIO()
+    c.get(path, buf)
+    buf.seek(0)
+    return buf.read()
+
+
+def fabric_read(c: Connection, path: str) -> str:
+    """
+    Write some text from a remote file.
+    ~ will be resolved to the remote user's home
+    """
+    b = fabric_read_bytes(c, path)
+    return b.decode()

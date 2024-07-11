@@ -45,6 +45,8 @@ from .helpers import (  # noqa
     dump_set_as_list,
     executes_correctly,
     execution_fails,
+    fabric_read,
+    fabric_write,
     flatten,
 )
 from .helpers import generate_password as _generate_password
@@ -1792,3 +1794,4 @@ def edwh(_: Context) -> None:
     For oopsies like `ew ew up logs`
     """
     print("Hehe you silly goose", file=sys.stderr)
+

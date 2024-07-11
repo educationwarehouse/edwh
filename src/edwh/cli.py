@@ -104,9 +104,17 @@ include_packaged_plugins()  # from src.edwh.local_tasks
 include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
 include_other_project_tasks()  # *.tasks.py in current project
 
+
+class CustomExecutor(Executor):
+    def expand_calls(self, calls, apply_hosts=True):
+        # always apply hosts (so pre and post are also executed remotely)
+        apply_hosts = True
+        return super().expand_calls(calls, apply_hosts)
+
+
 # ExtendableFab is not used right now
 program = Fab(
-    executor_class=Executor,
+    executor_class=CustomExecutor,
     config_class=Config,
     namespace=collection,
     version=__version__,
