@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.1 (2024-07-12)
+
+### Fix
+
+* Improved typing (mypy) ([`41a2395`](https://github.com/educationwarehouse/edwh/commit/41a239547b6a828f638681fe36f3081f68a39d1e))
+
 ## v0.43.0 (2024-07-12)
 
 ### Feature
