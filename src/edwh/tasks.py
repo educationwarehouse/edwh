@@ -370,9 +370,11 @@ class TomlConfig:
             setup(ctx)
 
         config = read_toml_config(config_path)
+        # todo: if setup runs, reload config
 
         if "services" not in config:
             setup(ctx)
+            config = read_toml_config(config_path)
 
         for toml_key in [
             "minimal",
@@ -383,6 +385,7 @@ class TomlConfig:
         ]:
             if toml_key not in config["services"]:
                 setup(ctx)
+            config = read_toml_config(config_path)
 
         if config["services"].get("services", "discover") == "discover":
             compose = load_dockercompose_with_includes(dc_path=dc_path)
