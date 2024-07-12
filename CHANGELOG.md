@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.2 (2024-07-12)
+
+### Fix
+
+* A single `-s` should NOT  be splitted into characters!!! ([`281bfc5`](https://github.com/educationwarehouse/edwh/commit/281bfc509a3e97f2ae7f3e4f0c8ab9528ef669d3))
+
 ## v0.43.1 (2024-07-12)
 
 ### Fix
