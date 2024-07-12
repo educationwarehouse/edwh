@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.6 (2024-07-12)
+
+### Fix
+
+* `edwh plugin.add True` -> not_all_installed should be optional str instead of bool ([`ae85912`](https://github.com/educationwarehouse/edwh/commit/ae85912d46f642cfb3477c622c99c9aed4e3facb))
+
 ## v0.43.5 (2024-07-12)
 
 ### Fix
