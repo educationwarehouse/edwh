@@ -93,7 +93,7 @@ def copy_fallback_toml(
 
 
 def service_names(
-    service_arg: typing.Collection[str],
+    service_arg: typing.Collection[str] | None,
     default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
@@ -110,7 +110,9 @@ def service_names(
         return []
 
     selected = set()
-    if isinstance(service_arg, str):
+    if service_arg is None:
+        service_arg = []
+    elif isinstance(service_arg, str):
         service_arg = service_arg.split(",")
     else:
         service_arg = list(flatten([_.split(",") for _ in service_arg]))
@@ -1068,7 +1070,7 @@ def volumes(ctx: Context) -> None:
 )
 def up(
     ctx: Context,
-    service: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
     build: bool = False,
     quickest: bool = False,
     stop_timeout: int = 2,
@@ -1114,8 +1116,8 @@ def up(
 def ps(
     ctx: Context,
     quiet: bool = False,
-    service: typing.Collection[str] = (),
-    columns: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
+    columns: typing.Collection[str] | None = None,
     full_command: bool = False,
     show_all: bool = False,
 ) -> None:
@@ -1145,7 +1147,7 @@ def ps(
     services = []
 
     # list because it's ordered
-    selected_columns = list(columns) or ["Name", "Command", "State", "Ports"]
+    selected_columns = list(columns or []) or ["Name", "Command", "State", "Ports"]
 
     for service_json in ps_output.split("\n"):
         if not service_json:
@@ -1202,7 +1204,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
 
 async def logs_improved_async(
     c: Context,
-    service: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
     since: Optional[str] = None,
     new: bool = False,
     stream: Optional[str] = None,
@@ -1279,7 +1281,7 @@ def elevate(target_command: str) -> None:
 
 def logs_improved(
     c: Context,
-    service: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
     since: Optional[str] = None,
     stream: Optional[str] = None,
     filter: Optional[str] = None,
@@ -1320,7 +1322,7 @@ def logs_improved(
 )
 def logs(
     ctx: Context,
-    service: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
     follow: bool = True,
     limit: Optional[int] = None,
     sort: bool = False,
@@ -1374,7 +1376,7 @@ def logs(
 
 
 @task(iterable=["service"])
-def sul(ctx: Context, service: typing.Collection[str] = ()) -> None:
+def sul(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
     Shortcut for `edwh setup up logs`
     """
@@ -1387,7 +1389,7 @@ def sul(ctx: Context, service: typing.Collection[str] = ()) -> None:
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def stop(ctx: Context, service: typing.Collection[str] = ()) -> None:
+def stop(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
     Stops services using docker-compose stop.
     """
@@ -1399,7 +1401,7 @@ def stop(ctx: Context, service: typing.Collection[str] = ()) -> None:
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def down(ctx: Context, service: typing.Collection[str] = ()) -> None:
+def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
     Stops services using docker-compose down.
     """
@@ -1487,7 +1489,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
 )
 def rebuild(
     ctx: Context,
-    service: typing.Collection[str] = (),
+    service: typing.Collection[str] | None = None,
     force_rebuild: bool = False,
 ) -> None:
     """
