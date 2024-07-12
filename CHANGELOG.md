@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.4 (2024-07-12)
+
+### Fix
+
+* **sul:** Construct command for c.sudo instead of elevate which runs everything as root ([`c57c87a`](https://github.com/educationwarehouse/edwh/commit/c57c87a93ab762fd0724840c6976b0d0c2cdca35))
+
 ## v0.43.3 (2024-07-12)
 
 ### Fix
