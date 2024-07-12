@@ -173,13 +173,13 @@ def list_plugins(c: Context, verbose: bool = False) -> None:
     plugins = gather_plugin_info(c)
 
     old_plugins = []
-    not_all_installed = False
+    not_all_installed: Optional[str] = None
     for plugin in plugins:
         plugin.print_details(verbose=verbose)
         if plugin.is_outdated:
             old_plugins.append(plugin)
         if not plugin.is_installed:
-            not_all_installed = bool(plugin.clean_name)
+            not_all_installed = plugin.clean_name
 
     if old_plugins:
         print()
