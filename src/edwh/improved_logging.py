@@ -9,11 +9,12 @@ from typing import Optional
 
 import anyio
 from termcolor import cprint
+from typing_extensions import Never
 
 """ --- translated from colors.go in docker compose """
 
 
-def ansi_color_code(code, format_opts=[]):
+def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
     res = "\033["
     for c in format_opts:
         res += f"{c};"
@@ -23,14 +24,11 @@ def ansi_color_code(code, format_opts=[]):
 ColorFn = typing.Callable[[str], str]
 
 
-def make_color_func(code) -> ColorFn:
-    def color_func(s):
-        return f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
-
-    return color_func
+def make_color_func(code: str) -> ColorFn:
+    return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
 
 
-def build_rainbow():
+def build_rainbow() -> list[ColorFn]:
     names = [
         "grey",
         "red",
@@ -47,7 +45,7 @@ def build_rainbow():
         colors[name] = make_color_func(str(30 + i))
         colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
 
-    rainbow = [
+    return [
         colors["cyan"],
         colors["yellow"],
         colors["green"],
@@ -59,8 +57,6 @@ def build_rainbow():
         colors["intense_magenta"],
         colors["intense_blue"],
     ]
-
-    return rainbow
 
 
 def rainbow() -> typing.Generator[str, None, None]:
@@ -98,7 +94,7 @@ async def parse_docker_log_line(
     re_filter: FilterFn = None,
     show_ts: bool = True,  # full, default, no
     verbose: bool = False,
-):
+) -> None:
     # py4web-1  | [X] loaded _dashboard
     data = json.loads(line)
     # data containers log, stream (stdout/stderr) and time.
@@ -154,7 +150,7 @@ def _parse_timedelta(since: str) -> Optional[dt.timedelta]:
             return None
 
 
-def utcnow():
+def utcnow() -> dt.datetime:
     """
     Replacement of datetime.utcnow.
 
@@ -217,7 +213,7 @@ def parse_regex(raw: str) -> FilterFn:
     flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
 
     for flag in flags:
-        flags_bin |= POSSIBLE_FLAGS.get(flag) or re.NOFLAG
+        flags_bin |= POSSIBLE_FLAGS.get(flag) or 0  # re.NOFLAG
 
     re_compiled = re.compile(pattern, flags_bin)
 
@@ -240,7 +236,7 @@ class TailConfig(typing.TypedDict):
     verbose: bool
 
 
-async def tail(config: TailConfig):
+async def tail(config: TailConfig) -> Never:
     print_args = " ".join(sys.argv[1:])
     async with await anyio.open_file(config["filename"]) as f:
         while True:

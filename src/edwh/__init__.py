@@ -12,6 +12,7 @@ from .helpers import (
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
+    AnyDict,
     Logger,
     NoopLogger,
     VerboseLogger,
@@ -47,7 +48,9 @@ from .tasks import (
 )
 
 __all__ = [
+    "DOCKER_COMPOSE",
     "tasks",
+    "AnyDict",
     "ImprovedTask",
     "improved_task",
     "TomlConfig",

@@ -3,7 +3,7 @@ This file contains re-usable helpers.
 """
 
 import abc
-import datetime
+import datetime as dt
 import functools
 import io
 import os
@@ -15,14 +15,16 @@ from typing import Optional
 import click
 import diceware
 import yaml
-from fabric import Connection
-from invoke import Context
+from fabric.connection import Connection
+from invoke.context import Context
 from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE
 
+AnyDict: typing.TypeAlias = dict[str, typing.Any]
 
-def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = None, strict=False) -> bool:
+
+def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = None, strict: bool = False) -> bool:
     """
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
@@ -53,9 +55,9 @@ def execution_fails(c: Context, argument: str) -> bool:
     return not executes_correctly(c, argument)
 
 
-def generate_password(silent=True):
+def generate_password(silent: bool = True) -> str:
     """Generate a diceware password using --dice 6."""
-    password = diceware.get_passphrase()
+    password: str = diceware.get_passphrase()
     if not silent:
         print("Password:", password)
     return password
@@ -86,7 +88,7 @@ def arg_was_passed(flag: str | tuple[str, ...]) -> Optional[int]:
     return next((i for i, item in enumerate(sys.argv) if item in flag), None)
 
 
-def kwargs_to_options(data: Optional[dict] = None, **kw) -> str:
+def kwargs_to_options(data: Optional[AnyDict] = None, **kw: typing.Any) -> str:
     """
     Convert a dictionary of options to the cli variant
     e.g. {'a': 1, 'key': 2} -> -a 1 --key 2
@@ -114,20 +116,20 @@ def kwargs_to_options(data: Optional[dict] = None, **kw) -> str:
 
 
 class Logger(abc.ABC):
-    def log(self, *a):
+    def log(self, *a: typing.Any) -> None:
         raise NotImplementedError("This is an abstract method")
 
 
 class VerboseLogger(Logger):
-    def __init__(self):
+    def __init__(self) -> None:
         self._then = self._now()
         self._previous = self._now()
 
     @staticmethod
-    def _now():
-        return datetime.datetime.now(datetime.timezone.utc)
+    def _now() -> dt.datetime:
+        return dt.datetime.now(dt.timezone.utc)
 
-    def log(self, *a):
+    def log(self, *a: typing.Any) -> None:
         now = self._now()
         delta_start = now - self._then
         delta_prev = now - self._previous
@@ -143,11 +145,11 @@ class VerboseLogger(Logger):
 
 
 class NoopLogger(Logger):
-    def log(self, *a) -> None:
-        pass
+    def log(self, *_: typing.Any) -> None:
+        return None
 
 
-def noop(*_, **__) -> None:
+def noop(*_: typing.Any, **__: typing.Any) -> None:
     return None
 
 
@@ -347,14 +349,15 @@ def interactive_selected_radio_value(
     return options[selected_index]
 
 
-def yaml_loads(text: str) -> dict[str, typing.Any]:
-    return yaml.load(
+def yaml_loads(text: str) -> AnyDict:
+    dct = yaml.load(
         text,
         Loader=yaml.SafeLoader,
     )
+    return typing.cast(AnyDict, dct)
 
 
-def dc_config(ctx: Context) -> dict[str, typing.Any]:
+def dc_config(ctx: Context) -> AnyDict:
     if ran := ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True):
         return (
             yaml_loads(
@@ -416,7 +419,7 @@ def _fabric_resolve_home(path: str, user: str) -> str:
     return path.replace("~", f"/home/{user}", 1)
 
 
-def _write_bytes_remote(c: Connection, path: str, contents: str | bytes, parents: bool = False):
+def _write_bytes_remote(c: Connection, path: str, contents: bytes, parents: bool = False) -> None:
     f = io.BytesIO(contents)
 
     if parents:
@@ -427,12 +430,16 @@ def _write_bytes_remote(c: Connection, path: str, contents: str | bytes, parents
     c.put(f, path)
 
 
-def _write_bytes_local(_: Context, path: str, contents: str | bytes, parents: bool = False):
+def _write_bytes_local(_: Context, path: str, contents: bytes, parents: bool = False) -> None:
     p = Path(path)
     if parents:
         p.parent.mkdir(parents=True, exist_ok=True)
 
     p.write_bytes(contents)
+
+
+class WriteBytesFn(typing.Protocol):
+    def __call__(self, c: Connection | Context, path: str, contents: bytes, parents: bool = False) -> None: ...
 
 
 def fabric_write(c: Connection | Context, path: str, contents: str | bytes, parents: bool = False) -> None:
@@ -441,14 +448,13 @@ def fabric_write(c: Connection | Context, path: str, contents: str | bytes, pare
     ~ will be resolved to the remote user's home
     """
     path = _fabric_resolve_home(path, c.user)
-    contents = contents if isinstance(contents, bytes) else contents.encode()
 
-    fn = _write_bytes_remote if isinstance(c, Connection) else _write_bytes_local
+    fn = typing.cast(WriteBytesFn, _write_bytes_remote if isinstance(c, Connection) else _write_bytes_local)
 
-    return fn(c, path, contents, parents=parents)
+    return fn(c, path, contents if isinstance(contents, bytes) else contents.encode(), parents=parents)
 
 
-def _read_bytes_remote(c: Connection, path: str):
+def _read_bytes_remote(c: Connection, path: str) -> bytes:
     buf = io.BytesIO()
     c.get(path, buf)
 
@@ -456,8 +462,11 @@ def _read_bytes_remote(c: Connection, path: str):
     return buf.read()
 
 
-def _read_bytes_local(_: Context, path: str):
+def _read_bytes_local(_: Context, path: str) -> bytes:
     return Path(path).read_bytes()
+
+
+ReadBytesFn: typing.TypeAlias = typing.Callable[[Connection | Context, str], bytes]
 
 
 def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
@@ -467,7 +476,7 @@ def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) ->
     """
     path = _fabric_resolve_home(path, c.user)
 
-    fn = _read_bytes_remote if isinstance(c, Connection) else _read_bytes_local
+    fn: ReadBytesFn = _read_bytes_remote if isinstance(c, Connection) else _read_bytes_local
 
     try:
         return fn(c, path)

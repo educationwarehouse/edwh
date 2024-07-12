@@ -8,11 +8,12 @@ import typing
 from typing import Optional
 
 import requests
-from invoke import Context
+from invoke.context import Context
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
 
+from .helpers import AnyDict
 from .improved_invoke import improved_task as task
 
 PYPI_URL_PATTERN = "https://pypi.python.org/pypi/{package}/json"
@@ -25,7 +26,7 @@ def _python() -> str:
     return sys.executable
 
 
-def _pip(python=_python()) -> str:
+def _pip(python: str = _python()) -> str:
     """
     used to detect current pip environment, even in pipx
     """
@@ -33,11 +34,12 @@ def _pip(python=_python()) -> str:
     return f"{python} -m uv pip"
 
 
-def _get_pypi_info(package: str) -> dict:
+def _get_pypi_info(package: str) -> AnyDict:
     """
     Load metadata from pypi for a package
     """
-    return requests.get(PYPI_URL_PATTERN.format(package=package), timeout=10).json()
+    resp = requests.get(PYPI_URL_PATTERN.format(package=package), timeout=10)
+    return typing.cast(AnyDict, resp.json())
 
 
 def _get_latest_version_from_pypi(package: str) -> Version:
@@ -76,11 +78,11 @@ def _get_available_plugins_from_pypi(package: str, extra: Optional[str] = None) 
     return list(extras)
 
 
-def _gather_package_metadata_threaded(packages: typing.Iterable[str]):
+def _gather_package_metadata_threaded(packages: typing.Iterable[str]) -> dict[str, AnyDict | None]:
     """
     For any package in packages, gather its metadata from pypi
     """
-    all_data: dict[str, dict | None] = {}
+    all_data: dict[str, AnyDict | None] = {}
     with concurrent.futures.ThreadPoolExecutor() as executor:
         pkg_names = [_.split("==")[0] for _ in packages]
         for result, package in zip(executor.map(_get_pypi_info, pkg_names), packages):
@@ -89,18 +91,13 @@ def _gather_package_metadata_threaded(packages: typing.Iterable[str]):
     return all_data
 
 
-def _determine_newest_version(releases: typing.Iterable[str]) -> str:
-    sorted_releases = sorted(releases, key=lambda _: Version(_))
+def _determine_newest_version(releases: typing.Collection[str]) -> str:
+    sorted_releases = sorted(releases, key=Version)
     return sorted_releases[-1]
 
 
-def test_me():
-    metadata = _gather_package_metadata_threaded(["edwh"])["edwh"]
-    print(parse_package_version(_determine_newest_version(metadata["releases"].keys())))
-
-
 def _determine_outdated_threaded(
-    installed_plugins: typing.Iterable[str], prerelease: bool = False
+    installed_plugins: typing.Collection[str], prerelease: bool = False
 ) -> dict[str, Version]:
     """
     Like _determine_outdated but parallelized with Threading
@@ -111,9 +108,12 @@ def _determine_outdated_threaded(
 
     outdated = {}
     for plugin, metadata in plugins_metadata.items():
+        if not metadata:
+            continue
+
         try:
-            name, current_version = plugin.split("==")
-            current_version = parse_package_version(current_version)
+            name, current_version_str = plugin.split("==")
+            current_version = parse_package_version(current_version_str)
 
             latest_stable = metadata["info"]["version"]
             latest_prerelease = _determine_newest_version(metadata["releases"].keys()) if prerelease else None
@@ -147,7 +147,7 @@ def _parse_versions(installed: list[str]) -> dict[str, Version | None]:
 
 
 @task()
-def plugins(c: Context, verbose=False, changelog=False) -> None:
+def plugins(c: Context, verbose: bool = False, changelog: bool = False) -> None:
     """
     alias for plugin.list or plugin.changelog --new
     """
@@ -201,7 +201,7 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
 
 
 @task()
-def self_update(c, prerelease: bool = False, no_cache: bool = False) -> None:
+def self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -> None:
     """
     Updates `edwh` and all installed plugins.
 

@@ -1,5 +1,6 @@
 import contextlib
 import fnmatch
+import hashlib
 import io
 import json
 import os
@@ -21,10 +22,11 @@ import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
-from invoke import Context  # , Task, task
+from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
+from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
@@ -40,6 +42,7 @@ from .discover import discover, get_hosts_for_service  # noqa
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa
+    AnyDict,
     confirm,
     dc_config,
     dump_set_as_list,
@@ -67,8 +70,10 @@ from .meta import plugins, self_update  # noqa
 
 
 def copy_fallback_toml(
-    tomlfile=DEFAULT_TOML_NAME, fallbacks=(LEGACY_TOML_NAME, FALLBACK_TOML_NAME), force: bool = False
-):
+    tomlfile: str | Path = DEFAULT_TOML_NAME,
+    fallbacks: typing.Collection[str | Path] = (LEGACY_TOML_NAME, FALLBACK_TOML_NAME),
+    force: bool = False,
+) -> bool:
     tomlfile_path = Path(tomlfile)
 
     if tomlfile_path.exists() and not force:
@@ -135,21 +140,21 @@ def service_names(
     return list(selected)
 
 
-def calculate_schema_hash():
+def calculate_schema_hash(quiet: bool = False) -> str:
     """
     Calculates the sha1 digest of the files in the shared_code folder.
 
     When anything is changed, it will have a different hash, so migrate will be triggered.
     """
-    import hashlib
-
     filenames = sorted(Path("./shared_code").glob("**/*"))
     # ignore those pesky __pycache__ folders
     filenames = [_ for _ in filenames if "__pycache__" not in str(_) and _.is_file()]
     hasher = hashlib.sha256(b"")
     for filename in filenames:
         hasher.update(filename.read_bytes())
-    print("schema hash: ", hasher.hexdigest())
+
+    if not quiet:
+        print("schema hash: ", hasher.hexdigest())
     return hasher.hexdigest()
 
 
@@ -163,7 +168,7 @@ def task_for_namespace(namespace: str, task_name: str) -> Task | None:
     from .cli import collection
 
     if ns := collection.collections.get(namespace):
-        return ns.tasks.get(task_name)
+        return typing.cast(Task, ns.tasks.get(task_name))
 
     return None
 
@@ -188,7 +193,7 @@ def get_task(identifier: str) -> Task | None:
         return task_for_identifier(identifier)
 
 
-def exec_setup_in_other_task(c: Context, run_setup: bool, **kw) -> bool:
+def exec_setup_in_other_task(c: Context, run_setup: bool, **kw: typing.Any) -> bool:
     """
     Run a setup function in another task.py.
     """
@@ -217,10 +222,10 @@ def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
     return False
 
 
-_dotenv_settings: dict[str, typing.Any] = {}
+_dotenv_settings: dict[str, dict[str, str]] = {}
 
 
-def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]:
+def _apply_env_vars_to_template(source_lines: list[str], env: dict[str, str]) -> list[str]:
     needle = re.compile(r"# *template:")
 
     new_lines = []
@@ -245,7 +250,7 @@ def _apply_env_vars_to_template(source_lines: list[str], env: dict) -> list[str]
 
 
 # used for treafik config
-def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path = DEFAULT_DOTENV_PATH):
+def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path = DEFAULT_DOTENV_PATH) -> None:
     """Indention preserving templating of yaml files, uses dotenv_path for variables.
 
     Pythong formatting is used with a dictionary of environment variables used from os environment variables
@@ -282,7 +287,7 @@ def apply_dotenv_vars_to_yaml_templates(yaml_path: Path, dotenv_path: Path = DEF
 tomlconfig_singletons: dict[tuple[str, str], "TomlConfig"] = {}
 
 
-def throw(error: Exception):
+def throw(error: Exception) -> Never:
     """
     Functional raise, useful for if ... else ... or callbacks.
     """
@@ -311,7 +316,7 @@ class ConfigTomlDict(typing.TypedDict, total=True):
     """
 
     services: ServicesTomlConfig
-    dotenv: dict
+    dotenv: AnyDict
 
 
 @dataclass
@@ -332,7 +337,7 @@ class TomlConfig:
         fname: str | Path = DEFAULT_TOML_NAME,
         dotenv_path: Optional[Path] = None,
         cache: bool = True,
-    ):
+    ) -> "TomlConfig | None":
         """
         Load config toml file, raising an error if it does not exist.
 
@@ -340,7 +345,7 @@ class TomlConfig:
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
-        ctx = invoke.Context()
+        ctx = Context()
 
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
@@ -420,7 +425,7 @@ def process_env_file(env_path: Path) -> dict[str, str]:
     return items
 
 
-def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
+def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
     Read .env file from env_path and return a dict of key/value pairs.
 
@@ -447,7 +452,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, typing.Any]:
 # noinspection PyDefaultArgument
 def warn_once(
     warning: str, previously_shown: list[str] = [], color: Optional[Color] = None, **print_kwargs: typing.Any
-):
+) -> None:
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
     """
@@ -476,7 +481,7 @@ def check_env(
     # different config paths:
     env_path: Optional[str | Path] = None,
     toml_path: None = None,
-):
+) -> str:
     """
     Test if key is in .env file path, appends prompted or default value if missing.
     """
@@ -518,7 +523,7 @@ def check_env(
         return value
 
 
-def get_env_value(key: str, default: str | type[Exception] = KeyError):
+def get_env_value(key: str, default: str | type[Exception] = KeyError) -> str:
     """
     Get a specific env value by name.
     If no default is given and the key is not found, a KeyError is raised.
@@ -605,9 +610,9 @@ def set_env_value(path: Path, target: str, value: str) -> None:
 
 def write_content_to_toml_file(
     content_key: TomlKeys,
-    content: str,
-    filename=DEFAULT_TOML_NAME,
-):
+    content: str | list[str],
+    filename: str | Path = DEFAULT_TOML_NAME,
+) -> None:
     if not content:
         return
 
@@ -624,9 +629,9 @@ def get_content_from_toml_file(
     toml_contents: ConfigTomlDict,
     content_key: TomlKeys,
     content: str,
-    default: typing.Collection[str] | str,
+    default: list[str] | str,
     overwrite: bool = False,
-):
+) -> list[str] | str:
     """
     Gets content from a TOML file.
 
@@ -656,7 +661,7 @@ def get_content_from_toml_file(
     return interactive_selected_checkbox_values(services, content, selected=selected) or default
 
 
-def setup_config_file(filename=DEFAULT_TOML_NAME):
+def setup_config_file(filename: str | Path = DEFAULT_TOML_NAME) -> None:
     """
     sets up config.toml for use
     """
@@ -680,7 +685,9 @@ def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
     return fp.write_text(tomlkit.dumps(config))
 
 
-def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TOML_NAME, overwrite: bool = False):
+def write_user_input_to_config_toml(
+    all_services: list[str], filename: str | Path = DEFAULT_TOML_NAME, overwrite: bool = False
+) -> TomlConfig | None:
     """
     write chosen user dockers to config.toml
 
@@ -701,7 +708,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
     config_toml_file = read_toml_config(filepath)
 
     # get chosen services for minimal and logs
-    minimal_services = typing.cast(
+    minimal_services = typing.cast(  # type: ignore
         list[str],
         (
             services_no_celery
@@ -765,7 +772,7 @@ def write_user_input_to_config_toml(all_services: list[str], filename=DEFAULT_TO
 
 def load_dockercompose_with_includes(
     c: Optional[Context] = None, dc_path: str | Path = "docker-compose.yml"
-) -> dict[str, typing.Any]:
+) -> AnyDict:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
 
@@ -783,7 +790,7 @@ def load_dockercompose_with_includes(
         processed_config = ran.stdout.strip()
         # mimic a file to load the yaml from
         fake_file = io.StringIO(processed_config)
-        return yaml.safe_load(fake_file)
+        return typing.cast(AnyDict, yaml.safe_load(fake_file))
     else:
         return {}
 
@@ -828,7 +835,7 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
         cprint("docker-compose.yml file is missing, setup could not be completed!", color="red")
         return None
 
-    services: dict[str, typing.Any] = docker_compose["services"]
+    services: AnyDict = docker_compose["services"]
     return write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
 
 
@@ -839,7 +846,7 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
         "new_config_toml": "will REMOVE and create a new config.toml file",
     },
 )
-def setup(c: Context, run_local_setup=True, new_config_toml=False, _retry=False):
+def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = False, _retry: bool = False) -> bool:
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -882,7 +889,7 @@ def setup(c: Context, run_local_setup=True, new_config_toml=False, _retry=False)
 
 
 @task()
-def search_adjacent_setting(c: Context, key: str, silent=False):
+def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
     """
     Search for key in all ../*/.env files.
     """
@@ -900,14 +907,14 @@ def search_adjacent_setting(c: Context, key: str, silent=False):
     return adjacent_settings
 
 
-def next_value(c: Context, key: list[str] | str, lowest: int, silent=True) -> int:
+def next_value(c: Context, key: list[str] | str, lowest: int, silent: bool = True) -> int:
     """Find all other project settings using key, adding 1 to max of all values, or defaults to lowest.
 
     next_value(c, 'REDIS_PORT', 6379) -> might result 6379, or 6381 if this is the third project to be initialised
     next_value(c, ['PGPOOL_PORT','POSTGRES_PORT','PGBOUNCER_PORT'], 5432) -> finds the next port searching for all keys.
     """
     keys = [key] if isinstance(key, str) else key
-    all_settings: dict[str, typing.Any] = {}
+    all_settings: AnyDict = {}
     for key in keys:
         settings = search_adjacent_setting(c, key, silent)
         all_settings |= {f"{k}/{key}": v for k, v in settings.items() if v}
@@ -921,14 +928,14 @@ THREE_WEEKS = 60 * 24 * 7 * 3
 
 
 @task()
-def clean_old_sessions(c: Context, relative_glob="web2py/apps/*/sessions", minutes: int = THREE_WEEKS):
+def clean_old_sessions(c: Context, relative_glob: str = "web2py/apps/*/sessions", minutes: int = THREE_WEEKS) -> None:
     for directory in Path.cwd().glob(relative_glob):
         c.sudo(f'find "{directory}" -type f -mmin +{minutes} -exec rm -f "{{}}" +;')
         remove_empty_dirs(c, directory)
 
 
 @task()
-def remove_empty_dirs(c: Context, path: str | Path):
+def remove_empty_dirs(c: Context, path: str | Path) -> None:
     c.sudo(f'find "{path}" -type d -exec rmdir --ignore-fail-on-non-empty {{}} +')
 
 
@@ -955,12 +962,12 @@ def set_permissions(
 
 
 @task(help=dict(silent="do not echo the password"))
-def generate_password(_, silent=False):
+def generate_password(_: Context, silent: bool = False) -> str:
     """Generate a diceware password using --dice 6."""
     return _generate_password(silent=silent)
 
 
-def fuzzy_match(val1: str, val2: str, verbose=False) -> float:
+def fuzzy_match(val1: str, val2: str, verbose: bool = False) -> float:
     """
     Get the similarity score between two values.
 
@@ -972,7 +979,7 @@ def fuzzy_match(val1: str, val2: str, verbose=False) -> float:
     return similarity
 
 
-def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
+def _settings(find: typing.Optional[str], fuzz_threshold: int = 75) -> typing.Iterable[tuple[str, typing.Any]]:
     all_settings = read_dotenv().items()
     if find is None:
         # don't loop
@@ -980,9 +987,8 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
     else:
         find = find.upper()
         # if nothing found exactly, try again but fuzzy (could be slower)
-        return [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()] or [
-            (k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold
-        ]
+        exact_match = [(k, v) for k, v in all_settings if find in k.upper() or find in v.upper()]
+        return exact_match or [(k, v) for k, v in all_settings if fuzzy_match(k.upper(), find) > fuzz_threshold]
 
 
 # noinspection PyUnusedLocal
@@ -993,7 +999,7 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75):
         "fuzz_threshold": ["t", "fuzz-threshold"],
     },
 )
-def settings(_, find=None, fuzz_threshold=75, as_json=False):
+def settings(_: Context, find: Optional[str] = None, fuzz_threshold: int = 75, as_json: bool = False) -> None:
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -1004,10 +1010,10 @@ def settings(_, find=None, fuzz_threshold=75, as_json=False):
         print(tabulate.tabulate(rows, headers=["Setting", "Value"]))
 
 
-def show_related_settings(ctx: Context, services: list[str]):
+def show_related_settings(ctx: Context, services: list[str]) -> None:
     config = dc_config(ctx)
 
-    rows: dict[str, typing.Any] = {}
+    rows: AnyDict = {}
     for service in services:
         if service_settings := _settings(service):
             rows |= service_settings
@@ -1019,24 +1025,23 @@ def show_related_settings(ctx: Context, services: list[str]):
 
 
 @task(aliases=("volume",))
-def volumes(ctx):
+def volumes(ctx: Context) -> None:
     """
     Show container and volume names.
 
     Based on `docker-compose ps -q` ids and `docker inspect` output.
     """
-    lines = []
-    for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True).stdout.strip().split("\n"):
-
-        try:
+    lines: list[AnyDict] = []
+    ran = ctx.run(f"{DOCKER_COMPOSE} ps -q", hide=True, warn=True)
+    stdout = ran.stdout if ran else ""
+    for container_id in stdout.strip().split("\n"):
+        with contextlib.suppress(EnvironmentError):
             info = inspect(ctx, container_id)
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
                 for volume in [_["Name"] for _ in info["Mounts"] if _["Type"] == "volume"]
             )
-        except EnvironmentError:
-            ...
 
     print(tabulate.tabulate(lines, headers="keys"))
 
@@ -1060,13 +1065,13 @@ def volumes(ctx):
 def up(
     ctx: Context,
     service: typing.Collection[str] = (),
-    build=False,
-    quickest=False,
-    stop_timeout=2,
-    tail=False,
-    clean=False,
-    show_settings=True,
-):
+    build: bool = False,
+    quickest: bool = False,
+    stop_timeout: int = 2,
+    tail: bool = False,
+    clean: bool = False,
+    show_settings: bool = True,
+) -> None:
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
     # recalculate the hash and save it, so with the next up, migrate will see differences and start migration
@@ -1102,7 +1107,14 @@ def up(
         "show_all": ["all", "a"],
     },
 )
-def ps(ctx, quiet=False, service=None, columns=None, full_command=False, show_all=False):
+def ps(
+    ctx: Context,
+    quiet: bool = False,
+    service: typing.Collection[str] = (),
+    columns: typing.Collection[str] = (),
+    full_command: bool = False,
+    show_all: bool = False,
+) -> None:
     """
     Show process status of services.
     """
@@ -1119,29 +1131,30 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False, show_al
 
     args_str = " ".join(flags)
 
-    ps_output = ctx.run(
+    ran = ctx.run(
         f"{DOCKER_COMPOSE} ps --format json {args_str}",
         warn=True,
         hide=True,
-    ).stdout.strip()
+    )
+    ps_output = ran.stdout.strip() if ran else ""
 
     services = []
 
     # list because it's ordered
-    selected_columns = columns or ["Name", "Command", "State", "Ports"]
+    selected_columns = list(columns) or ["Name", "Command", "State", "Ports"]
 
     for service_json in ps_output.split("\n"):
         if not service_json:
             # empty line
             continue
 
-        service = json.loads(service_json)
-        service = {k: v for k, v in service.items() if k in selected_columns}
+        service_dict = json.loads(service_json)
+        service_dict = {k: v for k, v in service_dict.items() if k in selected_columns}
         if not full_command:
-            service["Command"] = shorten(service["Command"], 50)
+            service_dict["Command"] = shorten(service_dict["Command"], 50)
 
-        service = dict(sorted(service.items(), key=lambda x: selected_columns.index(x[0])))
-        services.append(service)
+        service_dict = dict(sorted(service_dict.items(), key=lambda x: selected_columns.index(x[0])))
+        services.append(service_dict)
 
     print(tabulate.tabulate(services, headers="keys"))
 
@@ -1151,14 +1164,14 @@ def ps(ctx, quiet=False, service=None, columns=None, full_command=False, show_al
         quiet="Only show ids (mostly directories). Useful for scripting.",
     ),
 )
-def ls(ctx, quiet=False):
+def ls(ctx: Context, quiet: bool = False) -> None:
     """
     List running compose projects.
     """
     ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
 
 
-def get_docker_info(ctx: Context, services: list[str]) -> dict[str, dict[str, typing.Any]]:
+def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     """
     Return a dict of {id: service}
     """
@@ -1235,7 +1248,7 @@ async def logs_improved_async(
             )
 
 
-def inspect(ctx: Context, container_id: str) -> dict:
+def inspect(ctx: Context, container_id: str) -> AnyDict:
     """
     Docker inspect a container by ID and get the first result.
 
@@ -1243,13 +1256,13 @@ def inspect(ctx: Context, container_id: str) -> dict:
     """
     ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
     if ran and ran.ok:
-        return json.loads(ran.stdout)[0]
+        return typing.cast(AnyDict, json.loads(ran.stdout)[0])
     else:
         print(ran.stderr if ran else "-")
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
-def elevate(target_command: str):
+def elevate(target_command: str) -> None:
     if os.geteuid() == 0:
         return
 
@@ -1268,7 +1281,7 @@ def logs_improved(
     filter: Optional[str] = None,
     timestamps: bool = True,
     verbose: bool = False,
-):
+) -> None:
     with contextlib.suppress(CancelledError, KeyboardInterrupt):
         anyio.run(
             lambda *_: logs_improved_async(
@@ -1302,7 +1315,7 @@ def logs_improved(
     },
 )
 def logs(
-    ctx,
+    ctx: Context,
     service: typing.Collection[str] = (),
     follow: bool = True,
     limit: Optional[int] = None,
@@ -1314,7 +1327,7 @@ def logs(
     new: bool = False,
     stream: Optional[str] = None,
     filter: Optional[str] = None,
-):
+) -> None:
     """Smart docker logging"""
 
     cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
@@ -1357,7 +1370,7 @@ def logs(
 
 
 @task(iterable=["service"])
-def sul(ctx: Context, service: typing.Collection[str] = ()):
+def sul(ctx: Context, service: typing.Collection[str] = ()) -> None:
     """
     Shortcut for `edwh setup up logs`
     """
@@ -1370,7 +1383,7 @@ def sul(ctx: Context, service: typing.Collection[str] = ()):
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def stop(ctx: Context, service: typing.Collection[str] = ()):
+def stop(ctx: Context, service: typing.Collection[str] = ()) -> None:
     """
     Stops services using docker-compose stop.
     """
@@ -1382,7 +1395,7 @@ def stop(ctx: Context, service: typing.Collection[str] = ()):
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
 )
-def down(ctx: Context, service: typing.Collection[str] = ()):
+def down(ctx: Context, service: typing.Collection[str] = ()) -> None:
     """
     Stops services using docker-compose down.
     """
@@ -1392,7 +1405,7 @@ def down(ctx: Context, service: typing.Collection[str] = ()):
 
 
 @task()
-def upgrade(ctx: Context, build=False):
+def upgrade(ctx: Context, build: bool = False) -> None:
     if build:
         ctx.run(f"{DOCKER_COMPOSE} build")
     else:
@@ -1408,7 +1421,7 @@ def upgrade(ctx: Context, build=False):
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
     )
 )
-def build(ctx, yes=False, skip_compile=False):
+def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     """
     Build all services.
 
@@ -1431,7 +1444,7 @@ def build(ctx, yes=False, skip_compile=False):
 
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
-    elif with_compile:
+    elif with_compile and pip_compile is not None:
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"
             cprint(
@@ -1469,16 +1482,13 @@ def build(ctx, yes=False, skip_compile=False):
     iterable=["service"],
 )
 def rebuild(
-    ctx,
-    service=None,
-    force_rebuild=False,
-):
+    ctx: Context,
+    service: typing.Collection[str] = (),
+    force_rebuild: bool = False,
+) -> None:
     """
     Downs ALL services, then rebuilds services using docker-compose build.
     """
-    if service is None:
-        service = []
-
     ctx.run(f"{DOCKER_COMPOSE} down")
     services = service_names(service)
 
@@ -1488,7 +1498,7 @@ def rebuild(
 
 
 @task()
-def docs(ctx, reinstall=False):
+def docs(ctx: Context, reinstall: bool = False) -> bool:
     """
     Local hosted mkdocs documentation.
 
@@ -1498,39 +1508,49 @@ def docs(ctx, reinstall=False):
         print("Installing mkdocs and dependencies...")
         ok = True
         ctx.run("pipx uninstall mkdocs", hide=True, warn=True)
-        ok &= ctx.run("pipx install mkdocs", hide=True, warn=True).ok
-        ok &= ctx.run(
+
+        ran = ctx.run("pipx install mkdocs", hide=True, warn=True)
+        ok &= bool(ran and ran.ok)
+        ran = ctx.run(
             "pipx inject mkdocs mkdocs-material plantuml-markdown",
             hide=True,
             warn=True,
-        ).ok
+        )
+        ok &= bool(ran and ran.ok)
         print("result:", ok)
         return ok
     else:
-        if not ctx.run("mkdocs serve", warn=True).ok and docs(ctx, reinstall=True):
-            docs(ctx)
+        ran = ctx.run("mkdocs serve", warn=True)
+        if not (ran and ran.ok) and docs(ctx, reinstall=True):
+            return docs(ctx)
+
+    return False
 
 
 # noinspection PyUnusedLocal
 @task()
-def zen(_):
+def zen(_: Context) -> None:
     """Prints the Zen of Python"""
     # noinspection PyUnresolvedReferences
     import this  # noqa
 
 
 @task()
-def whoami(ctx):
+def whoami(ctx: Context) -> None:
     """
     Debug method to determine user and host name.
     """
-    i_am = ctx.run("whoami", hide=True).stdout.strip()
-    my_location = ctx.run("hostname", hide=True).stdout.strip()
+    ran = ctx.run("whoami", hide=True)
+    i_am = ran.stdout.strip() if ran else ""
+
+    ran = ctx.run("hostname", hide=True)
+    my_location = ran.stdout.strip() if ran else ""
+
     print(f"{i_am} @ {my_location}")
 
 
 @task()
-def completions(_):
+def completions(_: Context) -> None:
     """
     Prints the script to enable shell completions.
     """
@@ -1541,7 +1561,7 @@ def completions(_):
 
 
 @task()
-def version(ctx):
+def version(ctx: Context) -> None:
     """
     Show edwh app version and docker + compose version.
     """
@@ -1570,7 +1590,7 @@ def show_help(ctx: Context, about: str) -> None:
     # first check if 'about' is a plugin/namespace:
     from .cli import collection
 
-    ns: invoke.Collection
+    ns: invoke.collection.Collection
     if ns := collection.collections.get(about):  # type: ignore
         info = ns.serialized()
 
@@ -1609,8 +1629,15 @@ def show_help(ctx: Context, about: str) -> None:
     flags={"show_settings": ["settings", "show-settings"], "as_json": ["j", "json", "as-json"]},  # -s is for short
 )
 def task_discover(
-    ctx, du=False, exposes=False, ports=False, host_labels=True, short=False, show_settings=False, as_json=False
-):
+    ctx: Context,
+    du: bool = False,
+    exposes: bool = False,
+    ports: bool = False,
+    host_labels: bool = True,
+    short: bool = False,
+    show_settings: bool = False,
+    as_json: bool = False,
+) -> None:
     """Discover docker environments per host.
 
     Use ansi2txt to save readable output to a file.
@@ -1628,14 +1655,14 @@ def task_discover(
 
 
 @task()
-def ew_self_update(ctx: Context):
+def ew_self_update(ctx: Context) -> None:
     """Update edwh to the latest version."""
     ctx.run("~/.local/bin/edwh self-update")
     ctx.run("~/.local/bin/edwh self-update")
 
 
 @task()
-def migrate(ctx: Context):
+def migrate(ctx: Context) -> None:
     up(ctx, service=["migrate"], tail=True)
 
 
@@ -1650,11 +1677,12 @@ def find_container_ids(ctx: Context, *containers: str) -> dict[str, Optional[str
     return {container: find_container_id(ctx, container) for container in containers}
 
 
-def stop_remove_container(ctx: Context, container_name: str):
-    return ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}", warn=True)
+def stop_remove_container(ctx: Context, container_name: str) -> bool:
+    ran = ctx.run(f"{DOCKER_COMPOSE} rm -vf --stop {container_name}", warn=True)
+    return bool(ran and ran.ok)
 
 
-def stop_remove_containers(ctx: Context, *container_names: str):
+def stop_remove_containers(ctx: Context, *container_names: str) -> list[bool]:
     return [stop_remove_container(ctx, _) for _ in container_names]
 
 
@@ -1688,6 +1716,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
         flag_file.unlink()
 
     config = TomlConfig.load()
+    assert config, "Couldn't set up toml config -> can't continue clean!"
 
     # find the images based on the instances
     containers = find_container_ids(ctx, *config.services_db)

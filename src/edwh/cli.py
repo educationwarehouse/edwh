@@ -4,12 +4,13 @@ import importlib.util
 import os
 import pathlib
 import sys
+import typing
 import warnings
 from importlib.metadata import entry_points
 
 from fabric import Config, Executor
 from fabric.main import Fab
-from invoke import Collection  # type: ignore
+from invoke import Call, Collection  # type: ignore
 
 from . import tasks
 from .__about__ import __version__
@@ -105,11 +106,11 @@ include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
 include_other_project_tasks()  # *.tasks.py in current project
 
 
-class CustomExecutor(Executor):
-    def expand_calls(self, calls, apply_hosts=True):
+class CustomExecutor(Executor):  # type: ignore
+    def expand_calls(self, calls: list[Call], apply_hosts: bool = True) -> list[Call]:
         # always apply hosts (so pre and post are also executed remotely)
         apply_hosts = True
-        return super().expand_calls(calls, apply_hosts)
+        return typing.cast(list[Call], super().expand_calls(calls, apply_hosts))
 
 
 # ExtendableFab is not used right now

@@ -339,6 +339,10 @@ module = "fabric"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = "fabric.connection"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "fabric.main"
 ignore_missing_imports = true
 
