@@ -1382,7 +1382,12 @@ def sul(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
     setup(ctx)
     up(ctx, service=service)
-    logs(ctx, service=service)
+    # run as c.sudo to prevent elevate(), which would also run 'setup' and 'up' with sudo!
+    cmd = f"{sys.argv[0]} logs"
+    if service:
+        cmd += " -s " + " -s ".join(service)
+    ctx.sudo(cmd, pty=True)
+    # logs(ctx, service=service)
 
 
 @task(
