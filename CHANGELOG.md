@@ -2,6 +2,37 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.0 (2024-07-12)
+
+### Feature
+
+* Fabric_read and fabric_write helpers to work with remote files ([`9b9893d`](https://github.com/educationwarehouse/edwh/commit/9b9893dc1f235378081faf5c69f54aee724ff4d3))
+* Added `edwh sul` shortcut command ([`bf29e86`](https://github.com/educationwarehouse/edwh/commit/bf29e86efb9ea97f17c1cc98f2cc08e987fe84fd))
+* Allow choosing services as 'db', so wipe-db knows which volumes to purge ([`f92d285`](https://github.com/educationwarehouse/edwh/commit/f92d28506d5bbba71b98d4b0052aa027c3e03b8c))
+* **log:** Show current command ([`1e5308c`](https://github.com/educationwarehouse/edwh/commit/1e5308c30d6aad986b1e8f655bd5234c6744c8e9))
+* Included 'improved logging' functionality in the regular 'logs' subcommand, changed naming of options ([`528edab`](https://github.com/educationwarehouse/edwh/commit/528edab307061974ce2f41f15a195c48bcc1f7b8))
+* Added filtering to improved log ([`101032b`](https://github.com/educationwarehouse/edwh/commit/101032be40d06b105318bcc2c75466405c807492))
+* In progress on improved logging ([`3f85f27`](https://github.com/educationwarehouse/edwh/commit/3f85f276d331277156f2b324c556f2fb2f54d29a))
+* Copied omgeving wipe-db ([#1971](https://github.com/educationwarehouse/edwh/issues/1971)) ([`506bad9`](https://github.com/educationwarehouse/edwh/commit/506bad92e0cfd3fabde932a34463d51d2bbb4f08))
+
+### Fix
+
+* Remove deprecated extendable_fab which broke named args ([`3c337c0`](https://github.com/educationwarehouse/edwh/commit/3c337c0fed143a46506bfd1b5168ed65c23f2338))
+* **files:** Make fabric_ file functions also work locally (incl throw and parents options) ([`5d0e655`](https://github.com/educationwarehouse/edwh/commit/5d0e65529611e0359915a3715c1cd21cb5411374))
+* **files:** Make fabric_ file functions also work locally ([`372693a`](https://github.com/educationwarehouse/edwh/commit/372693acda0ae2aa6e922abed9f3cd19a8ebe9f8))
+* **fab.file:** Improved remote file handing ([`807ca1f`](https://github.com/educationwarehouse/edwh/commit/807ca1fd204297311869d7277e148693391d3628))
+* **log:** Since and default services (-> from 'log' section in toml) ([`54c064e`](https://github.com/educationwarehouse/edwh/commit/54c064e8186e64c0cff524dfc19d9683aa0646ba))
+* **log:** Id and service mapping was incorrect ([`d2d9a9d`](https://github.com/educationwarehouse/edwh/commit/d2d9a9dc2344f6715e1ad04b2f559fb8e715dd09))
+* Improved --since ([`76a1ab6`](https://github.com/educationwarehouse/edwh/commit/76a1ab649c740f0c82ccc7ff50567dbcad502537))
+* Since+filter improvements for logging ([`3a33bf7`](https://github.com/educationwarehouse/edwh/commit/3a33bf74c0839ec32cae241b9ee75e1c4c86b201))
+* **ps:** Actually show full command when using -f + add -a/---all like `dc ps -a` ([`68b5459`](https://github.com/educationwarehouse/edwh/commit/68b5459f8ef654972e47fc0c087b17fd71c938cd))
+* **up:** Service is a list[str], not a single one ([`88abd66`](https://github.com/educationwarehouse/edwh/commit/88abd66945c107e7ae1f69dc096181e325cd329e))
+* Better type hints, split string into args ([`ebfaddc`](https://github.com/educationwarehouse/edwh/commit/ebfaddce24d1cd30851a5350c8b4fb95d377112c))
+
+### Documentation
+
+* Replace uvx with uvenv ([`b36fc96`](https://github.com/educationwarehouse/edwh/commit/b36fc96ceb7671154b08fbd83965d4e19a7df4a6))
+
 ## v0.42.3 (2024-06-20)
 
 ### Fix
