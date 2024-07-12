@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.3 (2024-07-12)
+
+### Fix
+
+* `service` as tuple broke single -s!!! ([`39c766d`](https://github.com/educationwarehouse/edwh/commit/39c766dcdb26f4a5d1d144bb79ddfcefaaad5c8e))
+
 ## v0.43.2 (2024-07-12)
 
 ### Fix
