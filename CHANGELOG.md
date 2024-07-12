@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.5 (2024-07-12)
+
+### Fix
+
+* **setup:** Reload config after setup to prevent 'missing key' error immediately after asking for that exact key ([`8cdc16e`](https://github.com/educationwarehouse/edwh/commit/8cdc16e3f42883b979cf66370b222e3c90ff6e3b))
+
 ## v0.43.4 (2024-07-12)
 
 ### Fix
