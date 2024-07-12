@@ -110,7 +110,11 @@ def service_names(
         return []
 
     selected = set()
-    service_arg = list(flatten([_.split(",") for _ in service_arg]))
+    if isinstance(service_arg, str):
+        service_arg = service_arg.split(",")
+    else:
+        service_arg = list(flatten([_.split(",") for _ in service_arg]))
+
     service_arg = [_.strip("/") for _ in service_arg] if service_arg else ([str(default)] if default else [])
 
     # NOT elif because you can pass -s "minimal" -s "celeries" for example

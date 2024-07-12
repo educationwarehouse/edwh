@@ -229,9 +229,8 @@ class Discover:
                 project["disk_usage_human"] = usage
                 project["disk_usage_raw"] = usage_raw
 
-            if self.settings:
-                if settings := self.get_settings(folder):
-                    project["settings"] = settings
+            if self.settings and (settings := self.get_settings(folder)):
+                project["settings"] = settings
 
             project["services"] = []
             for name, docker_service in config.get("services", {}).items():
