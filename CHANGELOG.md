@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.7 (2024-07-15)
+
+### Fix
+
+* Show more readable error if trying to log shut down services ([`c02ef97`](https://github.com/educationwarehouse/edwh/commit/c02ef97fdc3689f7740c86c2543ba62fbe8227e1))
+
 ## v0.43.6 (2024-07-12)
 
 ### Fix
