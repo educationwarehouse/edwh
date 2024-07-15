@@ -1226,6 +1226,12 @@ async def logs_improved_async(
     services = service_names(service, default="logs")
     containers = get_docker_info(c, services)
 
+    if not containers:
+        cprint(f"No running containers found for services {services}", color="red")
+        exit(1)
+    elif len(containers) != len(services):
+        cprint(f"Amount of requested services does not match the amount of running containers!", color="yellow")
+
     # for adjusting the | location
     longest_name = max([len(_["Service"]) for _ in containers.values()])
 
