@@ -27,8 +27,8 @@ def make_color_func(code: str) -> ColorFn:
     return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
 
 
-def build_rainbow() -> list[ColorFn]:
-    names = [
+def build_rainbow() -> tuple[ColorFn, ...]:
+    names = (
         "grey",
         "red",
         "green",
@@ -37,14 +37,14 @@ def build_rainbow() -> list[ColorFn]:
         "magenta",
         "cyan",
         "white",
-    ]
+    )
 
     colors = {}
     for i, name in enumerate(names):
         colors[name] = make_color_func(str(30 + i))
         colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
 
-    return [
+    return (
         colors["cyan"],
         colors["yellow"],
         colors["green"],
@@ -55,7 +55,7 @@ def build_rainbow() -> list[ColorFn]:
         colors["intense_green"],
         colors["intense_magenta"],
         colors["intense_blue"],
-    ]
+    )
 
 
 def rainbow() -> typing.Generator[str, None, None]:
