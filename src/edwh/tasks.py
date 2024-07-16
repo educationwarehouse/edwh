@@ -1794,8 +1794,14 @@ def clean(
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
 def wipe_db(
-    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", database: str = "pgpool", yes: bool = False
+    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", yes: bool = False
 ) -> None:
+    """
+    Wipes postgres volumes.
+    Does not start migrate automatically, use `edwh wipe-db migrate up` for a full recovery flow.
+
+    When using a whitelabel-based environment, you may also use `edwh local.recover-devdb` (from ./migrate/data/snapshot)
+    """
     # 1 + 2. just 'create' without starting anything:
     ctx.run(f"{DOCKER_COMPOSE} create")
 
@@ -1805,13 +1811,6 @@ def wipe_db(
 
     clean(ctx, db=True, clean_all=clean_all, yes=yes)
     down(ctx)  # remove old containers too
-
-    # 4. start the database
-    up(ctx, service=[database], show_settings=False)
-    # 5. start migrations (incl. backup recovery)
-    up(ctx, service=["migrate"], tail=True, show_settings=False)
-    # 6. fully start normal services:
-    up(ctx)
 
 
 @task()
