@@ -9,7 +9,6 @@ from typing import Optional
 
 import anyio
 from termcolor import cprint
-from typing_extensions import Never
 
 """ --- translated from colors.go in docker compose """
 
@@ -237,7 +236,7 @@ class TailConfig(typing.TypedDict):
     state: str
 
 
-async def tail(config: TailConfig) -> Never:
+async def tail(config: TailConfig) -> None:
     print_args = " ".join(sys.argv[1:])
     async with await anyio.open_file(config["filename"]) as f:
         while True:
