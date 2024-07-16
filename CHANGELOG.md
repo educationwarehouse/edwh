@@ -2,6 +2,20 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.9 (2024-07-16)
+
+### Fix
+
+* Don't auto-up after wipe-db, use `edwh wipe-db migrate up` instead ([`7adce33`](https://github.com/educationwarehouse/edwh/commit/7adce33fb00b3bee1b42e85fd63942ca559d2f42))
+
+### Documentation
+
+* Added comment explaining exit behavior for log ([`c0eb10e`](https://github.com/educationwarehouse/edwh/commit/c0eb10e2e0ef0a16b30a1c104e8eb0022dcd5021))
+
+### Performance
+
+* Use tuple instead of list for unmutable iterator ([`82feabb`](https://github.com/educationwarehouse/edwh/commit/82feabb5f70b6f8bb934d967353753af4b2b979f))
+
 ## v0.43.8 (2024-07-16)
 
 ### Fix
