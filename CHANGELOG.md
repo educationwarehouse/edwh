@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.8 (2024-07-16)
+
+### Fix
+
+* `ew logs` now also works for containers that are shut down (e.g. migrate) ([`794141e`](https://github.com/educationwarehouse/edwh/commit/794141e2f345d2a77cad9b75f27b57d1d91e64bb))
+
 ## v0.43.7 (2024-07-15)
 
 ### Fix
