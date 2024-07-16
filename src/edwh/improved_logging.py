@@ -234,12 +234,16 @@ class TailConfig(typing.TypedDict):
     color: ColorFn
     timestamps: bool
     verbose: bool
+    state: str
 
 
 async def tail(config: TailConfig) -> Never:
     print_args = " ".join(sys.argv[1:])
     async with await anyio.open_file(config["filename"]) as f:
         while True:
+
+            exited = config["state"] == "exited"
+
             if contents := await f.readline():
                 print(" " * 20, end="\r")
                 await parse_docker_log_line(
@@ -254,3 +258,6 @@ async def tail(config: TailConfig) -> Never:
                     verbose=config["verbose"],
                 )
                 cprint(f"$ edwh {print_args}", color="white", end="\r")
+            elif exited:
+                # if state = 'exited' and last line was reached -> stop
+                return

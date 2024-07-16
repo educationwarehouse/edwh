@@ -1186,7 +1186,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     """
     # -aq doesn't keep the same order of services, so use json format to get ID with service name.
     # use --no-trunc to get full ID instead of short one
-    if ran := ctx.run(f"{DOCKER_COMPOSE} ps --format json --no-trunc {' '.join(services)}", hide=True):
+    if ran := ctx.run(f"{DOCKER_COMPOSE} ps --format json --no-trunc -a {' '.join(services)}", hide=True):
         rows = ran.stdout
     else:
         rows = ""
@@ -1259,6 +1259,7 @@ async def logs_improved_async(
                     "color": next(colors),
                     "timestamps": timestamps,
                     "verbose": verbose,
+                    "state": container_info["State"],
                 },
             )
 
