@@ -260,4 +260,8 @@ async def tail(config: TailConfig) -> Never:
                 cprint(f"$ edwh {print_args}", color="white", end="\r")
             elif exited:
                 # if state = 'exited' and last line was reached -> stop
+                # note: this only happens when the container was already shut down when 'logs' started,
+                # exited is NOT updated live. This was done on purpose, so restarting containers keep being logged.
+                # but if the container was already shut down, it's probably something like migrate,
+                # which will not restart automatically, so you probably don't want to wait forever.
                 return
