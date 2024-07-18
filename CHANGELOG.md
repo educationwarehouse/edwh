@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.43.10 (2024-07-18)
+
+### Fix
+
+* Also include typing_extensions in 3.12 ([`4390446`](https://github.com/educationwarehouse/edwh/commit/4390446f37e8d5fabc2be72c26c4085b97984c84))
+
 ## v0.43.9 (2024-07-16)
 
 ### Fix
