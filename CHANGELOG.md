@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.44.0 (2024-07-23)
+
+### Feature
+
+* Add `ew sleep <n: int>` ([`40bffbf`](https://github.com/educationwarehouse/edwh/commit/40bffbfb8554f3100179ff8d82b52273c5e4554a))
+
 ## v0.43.10 (2024-07-18)
 
 ### Fix
