@@ -58,6 +58,7 @@ dev = [
     "hatch",
     # "python-semantic-release >= 8.0.0a5",
     "black",
+    "su6[all]",
     "types-requests",
     "types-python-dateutil",
     "types-redis",

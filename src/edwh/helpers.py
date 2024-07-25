@@ -157,7 +157,7 @@ T = typing.TypeVar("T")
 
 
 @typing.overload
-def dump_set_as_list(data: set[T]) -> list[T]:  # type: ignore
+def dump_set_as_list(data: set[T]) -> list[T]:
     """
     Sets are converted to lists.
     """

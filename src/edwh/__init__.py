@@ -6,6 +6,12 @@ This file exposes some functions so this tool can be used as a library.
 #
 # SPDX-License-Identifier: MIT
 
+import warnings
+
+from cryptography.utils import CryptographyDeprecationWarning
+
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)  # noqa
+
 from . import tasks
 from .constants import DOCKER_COMPOSE
 from .helpers import (

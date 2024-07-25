@@ -872,9 +872,9 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
         new_config_toml
         and config_toml.exists()
         and confirm(
-        colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
-        default=False,
-    )
+            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+            default=False,
+        )
     ):
         config_toml.unlink()
 
@@ -1060,7 +1060,7 @@ def volumes(ctx: Context) -> None:
 @task(
     help=dict(
         service="Service to up, defaults to .toml's [services].minimal. "
-                "Can be used multiple times, handles wildcards.",
+        "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -1318,7 +1318,7 @@ def logs_improved(
     iterable=["service"],
     help={
         "service": "What services to follow. "
-                   "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
+        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
         "all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
         "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
@@ -1439,7 +1439,7 @@ def upgrade(ctx: Context, build: bool = False) -> None:
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
     )
 )
@@ -1600,7 +1600,7 @@ def version(ctx: Context) -> None:
     name="help",
     help={
         "about": "Plugin/Namespace or Subcommand you would like to see help about. "
-                 "Use an empty string ('') to see help about everything."
+        "Use an empty string ('') to see help about everything."
     },
 )
 def show_help(ctx: Context, about: str) -> None:
@@ -1794,14 +1794,13 @@ def clean(
 
 
 @task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
-def wipe_db(
-    ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", yes: bool = False
-) -> None:
+def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", yes: bool = False) -> None:
     """
     Wipes postgres volumes.
     Does not start migrate automatically, use `edwh wipe-db migrate up` for a full recovery flow.
 
-    When using a whitelabel-based environment, you may also use `edwh local.recover-devdb` (from ./migrate/data/snapshot)
+    When using a whitelabel-based environment,
+        you may also use `edwh local.recover-devdb` (from ./migrate/data/snapshot)
     """
     # 1 + 2. just 'create' without starting anything:
     ctx.run(f"{DOCKER_COMPOSE} create")
