@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.44.1 (2024-07-25)
+
+### Fix
+
+* Shut up annoying cryptography deprecation warning (from paramiko) ([`1fa94db`](https://github.com/educationwarehouse/edwh/commit/1fa94dbe265e92a5a58cd6fb3e0ca076068f8a70))
+
 ## v0.44.0 (2024-07-23)
 
 ### Feature
