@@ -133,6 +133,10 @@ def service_names(
     if "celeries" in service_arg:
         service_arg.remove("celeries")
         service_arg.extend(config.celeries)
+    if "db" in service_arg and config.services_db:
+        service_arg.remove("db")
+        service_arg.extend(config.services_db)
+
     # service_arg is specified, filter through all available services:
 
     for service in service_arg:
