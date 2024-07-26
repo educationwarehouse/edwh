@@ -622,8 +622,9 @@ def write_content_to_toml_file(
     content_key: TomlKeys,
     content: str | list[str],
     filename: str | Path = DEFAULT_TOML_NAME,
+    allow_empty: bool = False,
 ) -> None:
-    if not content:
+    if not (content or allow_empty):
         return
 
     filepath = Path(filename)
@@ -641,7 +642,8 @@ def get_content_from_toml_file(
     content: str,
     default: list[str] | str,
     overwrite: bool = False,
-) -> list[str] | str:
+    allow_empty: bool = False,
+) -> list[str] | str | None:
     """
     Gets content from a TOML file.
 
@@ -651,6 +653,7 @@ def get_content_from_toml_file(
     :param content: The content to display to the user.
     :param default: The default value to return if the conditions are not met.
     :param overwrite: don't skip if key already exists
+    :param allow_empty: add an option to the dropdown to select no containers (e.g. for a service without database)
 
     :return: The content from the TOML file or the default value.
     :rtype: Any
@@ -668,7 +671,11 @@ def get_content_from_toml_file(
     elif default:
         selected.update(default)
 
-    return interactive_selected_checkbox_values(services, content, selected=selected) or default
+    selection = interactive_selected_checkbox_values(services, content, selected=selected, allow_empty=allow_empty)
+    if allow_empty and selection is None:
+        return None
+
+    return selection or default
 
 
 def setup_config_file(filename: str | Path = DEFAULT_TOML_NAME) -> None:
@@ -773,9 +780,10 @@ def write_user_input_to_config_toml(
         "select database containers: ",
         possibly_postgres,
         overwrite=overwrite,
+        allow_empty=True,
     )
 
-    write_content_to_toml_file("db", content, filename)
+    write_content_to_toml_file("db", content or [], filename, allow_empty=content is None)
 
     return TomlConfig.load(filename, cache=False)
 
