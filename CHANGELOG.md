@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.45.0 (2024-07-26)
+
+### Feature
+
+* Allow `-s db` to up/log/... all db services ([`0299010`](https://github.com/educationwarehouse/edwh/commit/029901080009271d57ca46f132594ae2cb247ee6))
+
 ## v0.44.3 (2024-07-26)
 
 ### Fix
