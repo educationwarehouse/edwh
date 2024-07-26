@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.44.3 (2024-07-26)
+
+### Fix
+
+* **setup:** Allow selecting no database containers ([`4f002ee`](https://github.com/educationwarehouse/edwh/commit/4f002eeb3789d2730c1d5be7a3e6fb5dd7f72fe9))
+
 ## v0.44.2 (2024-07-26)
 
 ### Fix
