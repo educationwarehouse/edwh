@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.44.2 (2024-07-26)
+
+### Fix
+
+* Make `ew discover` work again ([`122a8d1`](https://github.com/educationwarehouse/edwh/commit/122a8d19626c89c54e7855c369d2ba6fe12d2134))
+
 ## v0.44.1 (2024-07-25)
 
 ### Fix
