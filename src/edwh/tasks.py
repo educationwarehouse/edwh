@@ -1761,7 +1761,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             continue
 
         info = inspect(ctx, container_id)
-        pg_data_volumes.extend([_["Name"] for _ in info["Mounts"]])
+        pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
     stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
