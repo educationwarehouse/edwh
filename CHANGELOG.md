@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.45.1 (2024-07-30)
+
+### Fix
+
+* **wipe:** Don't crash on unnamed mounts, just skip those ([`3812245`](https://github.com/educationwarehouse/edwh/commit/381224547bb9717b259918a009d38ed046827766))
+
 ## v0.45.0 (2024-07-26)
 
 ### Feature
