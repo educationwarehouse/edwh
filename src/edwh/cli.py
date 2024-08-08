@@ -2,15 +2,16 @@ import glob
 import importlib
 import importlib.util
 import os
-import pathlib
 import sys
 import typing
 import warnings
 from importlib.metadata import entry_points
+from pathlib import Path
 
 from fabric import Config, Executor
 from fabric.main import Fab
 from invoke import Call, Collection  # type: ignore
+from termcolor import cprint
 
 from . import tasks
 from .__about__ import __version__
@@ -60,7 +61,7 @@ def include_cwd_tasks() -> None:
     old_path = sys.path[:]
 
     for _path in [".", "..", "../.."]:
-        path = pathlib.Path(_path)
+        path = Path(_path)
         sys.path = [str(path), *old_path]
         try:
             import tasks as local_tasks
@@ -78,6 +79,38 @@ def include_cwd_tasks() -> None:
                 print(file=sys.stderr)  # 1 newline padding before actual stdout content
 
     sys.path = old_path
+
+
+def collection_from_abs_path(path: str, name: str) -> typing.Optional[Collection]:
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        return Collection.from_module(module)
+    except Exception as e:
+        cprint(f"Failed to include personal plugin {name}: {e}", file=sys.stderr, color="yellow")
+        return None
+
+
+### custom ~/.config/edwh/tasks.py and ~/.config/edwh/namespace.tasks.py commands
+def include_personal_tasks():
+    config = Path.home() / ".config/edwh"
+    config.mkdir(exist_ok=True)
+
+    # tasks.py - special case, add to global namespace!
+
+    personal_tasks = config / "tasks.py"
+    if personal_tasks.exists():
+        if personal_collection := collection_from_abs_path(str(personal_tasks), "_personal_"):
+            collection.tasks |= personal_collection.tasks
+
+    # namespace.tasks.py:
+    for path in set(config.glob("*.tasks.py")):
+        prefix = path.stem.split(".")[0]
+
+        if plugin_collection := collection_from_abs_path(str(path), prefix):
+            collection.add_collection(plugin_collection, prefix)
 
 
 def include_other_project_tasks() -> None:
@@ -104,6 +137,7 @@ include_plugins()  # pip plugins
 include_packaged_plugins()  # from src.edwh.local_tasks
 include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
 include_other_project_tasks()  # *.tasks.py in current project
+include_personal_tasks()
 
 
 class CustomExecutor(Executor):  # type: ignore

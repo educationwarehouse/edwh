@@ -1386,21 +1386,6 @@ def logs(
     ctx.run(" ".join(cmdline), echo=verbose, pty=True)
 
 
-@task(iterable=["service"])
-def sul(ctx: Context, service: typing.Collection[str] | None = None) -> None:
-    """
-    Shortcut for `edwh setup up logs`
-    """
-    setup(ctx)
-    up(ctx, service=service)
-    # run as c.sudo to prevent elevate(), which would also run 'setup' and 'up' with sudo!
-    cmd = f"{sys.argv[0]} logs"
-    if service:
-        cmd += " -s " + " -s ".join(service)
-    ctx.sudo(cmd, pty=True)
-    # logs(ctx, service=service)
-
-
 @task(
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
@@ -1423,7 +1408,7 @@ def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
     service = service_names(service or []) if service else []
 
-    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", hide="err")
+    ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", pty=True)
 
 
 @task()
