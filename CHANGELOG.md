@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.45.0-beta.1 (2024-08-08)
+
+### Feature
+
+* Allow defining personal tasks in ~/.config/edwh. Removed `sul` because it was a personal task ([`4a65638`](https://github.com/educationwarehouse/edwh/commit/4a6563850ad952392c96fe76e8625f9c31f7d5db))
+
 ## v0.44.1 (2024-07-25)
 
 ### Fix
