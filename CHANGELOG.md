@@ -2,11 +2,29 @@
 
 <!--next-version-placeholder-->
 
-## v0.45.0-beta.1 (2024-08-08)
+## v0.45.1 (2024-07-30)
+
+### Fix
+
+* **wipe:** Don't crash on unnamed mounts, just skip those ([`3812245`](https://github.com/educationwarehouse/edwh/commit/381224547bb9717b259918a009d38ed046827766))
+
+## v0.45.0 (2024-07-26)
 
 ### Feature
 
-* Allow defining personal tasks in ~/.config/edwh. Removed `sul` because it was a personal task ([`4a65638`](https://github.com/educationwarehouse/edwh/commit/4a6563850ad952392c96fe76e8625f9c31f7d5db))
+* Allow `-s db` to up/log/... all db services ([`0299010`](https://github.com/educationwarehouse/edwh/commit/029901080009271d57ca46f132594ae2cb247ee6))
+
+## v0.44.3 (2024-07-26)
+
+### Fix
+
+* **setup:** Allow selecting no database containers ([`4f002ee`](https://github.com/educationwarehouse/edwh/commit/4f002eeb3789d2730c1d5be7a3e6fb5dd7f72fe9))
+
+## v0.44.2 (2024-07-26)
+
+### Fix
+
+* Make `ew discover` work again ([`122a8d1`](https://github.com/educationwarehouse/edwh/commit/122a8d19626c89c54e7855c369d2ba6fe12d2134))
 
 ## v0.44.1 (2024-07-25)
 

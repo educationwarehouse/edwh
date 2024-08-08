@@ -127,14 +127,15 @@ class Discover:
         return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
 
     def find_compose_files(self) -> list[str]:
-        if ran := self.ctx.run(
-            "find */docker-compose.yaml */docker-compose.yml",
-            echo=False,
-            hide=True,
-            warn=True,
-        ):
+        try:
+            ran = self.ctx.run(
+                "find */docker-compose.yaml */docker-compose.yml",
+                echo=False,
+                hide=True,
+                warn=True,
+            )
             return ran.stdout.strip().split("\n")
-        else:
+        except Exception:
             return []
 
     def find_hostname(self) -> str:

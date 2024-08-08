@@ -194,7 +194,8 @@ def interactive_selected_checkbox_values(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
     selected: typing.Collection[T_Key] = (),
-) -> list[str]:
+    allow_empty: bool = False,
+) -> list[str] | None:
     """
     This function provides an interactive checkbox selection in the console.
 
@@ -204,6 +205,7 @@ def interactive_selected_checkbox_values(
     Args:
         options: A list or dict (value: label) of options to be displayed as checkboxes.
         prompt (str, optional): A string that is displayed as a prompt for the user.
+        allow_empty (bool, optional): If True, adds an extra option "(none)" to deselect all other options.
         selected: a set (/other iterable) of pre-selected options (set is preferred).
 
             T_Key means the values have to be the same type as the keys of options.
@@ -241,6 +243,9 @@ def interactive_selected_checkbox_values(
         idx = options.index(item)  # type: ignore
         checked_indices[idx] = options[idx]
 
+    if allow_empty:
+        labels.append("(none)")
+
     print_checkbox = functools.partial(print_box, fmt="[%s]", filler="x")
 
     while True:
@@ -255,20 +260,26 @@ def interactive_selected_checkbox_values(
         if key == KEY_ENTER:
             break
         elif key == KEY_ARROWUP:  # Up arrow
-            current_index = (current_index - 1) % len(options)
+            current_index = (current_index - 1) % len(labels)
         elif key == KEY_ARROWDOWN:  # Down arrow
-            current_index = (current_index + 1) % len(options)
-        elif key.isdigit() and 1 <= int(key) <= len(options):
+            current_index = (current_index + 1) % len(labels)
+        elif key.isdigit() and 1 <= int(key) <= len(labels):
             current_index = int(key) - 1
-            if current_index in checked_indices:
-                del checked_indices[current_index]
-            else:
-                checked_indices[current_index] = options[current_index]
         elif key == " ":
-            if current_index in checked_indices:
-                del checked_indices[current_index]
+            if allow_empty and current_index == len(labels) - 1:
+                checked_indices.clear()
+                checked_indices[len(labels) - 1] = "(none)"
             else:
-                checked_indices[current_index] = options[current_index]
+                if len(checked_indices) == 1 and set(checked_indices.values()) == {"(none)"}:
+                    checked_indices.clear()
+                if current_index in checked_indices:
+                    del checked_indices[current_index]
+                else:
+                    checked_indices[current_index] = options[current_index]
+
+    if allow_empty and len(checked_indices) == 1 and set(checked_indices.values()) == {"(none)"}:
+        # None instead of empty list since otherwise it would just ask again
+        return None
 
     return list(checked_indices.values())
 
@@ -277,7 +288,8 @@ def interactive_selected_radio_value(
     options: list[str] | dict[T_Key, str],
     prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
     selected: Optional[T_Key] = None,
-) -> str:
+    allow_empty: bool = False,
+) -> str | None:
     """
     This function provides an interactive radio box selection in the console.
 
@@ -287,6 +299,7 @@ def interactive_selected_radio_value(
     Args:
         options: A list or dict (value: label) of options to be displayed as radio boxes.
         prompt (str, optional): A string that is displayed as a prompt for the user.
+        allow_empty (bool, optional): If True, adds an extra option "(none)" to allow deselecting all options.
         selected: a pre-selected option.
             T_Key means the value has to be the same type as the keys of options.
             Example:
@@ -295,7 +308,7 @@ def interactive_selected_radio_value(
                 selected = 1.5 # invalid type (none of the keys of options are a float)
 
     Returns:
-        str: The selected option value.
+        str: The selected option value, or an empty string if (none) is selected.
 
     Examples:
         interactive_selected_radio_value(["first", "second", "third"])
@@ -318,6 +331,9 @@ def interactive_selected_radio_value(
     if selected in options:
         selected_index = current_index = options.index(selected)  # type: ignore
 
+    if allow_empty:
+        labels.append("(none)")
+
     print_radio_box = functools.partial(print_box, fmt="(%s)", filler="o")
 
     while True:
@@ -338,13 +354,16 @@ def interactive_selected_radio_value(
                 break
 
         elif key == KEY_ARROWUP:  # Up arrow
-            current_index = (current_index - 1) % len(options)
+            current_index = (current_index - 1) % len(labels)
         elif key == KEY_ARROWDOWN:  # Down arrow
-            current_index = (current_index + 1) % len(options)
-        elif key.isdigit() and 1 <= int(key) <= len(options):
+            current_index = (current_index + 1) % len(labels)
+        elif key.isdigit() and 1 <= int(key) <= len(labels):
             selected_index = int(key) - 1
         elif key == " ":
             selected_index = current_index
+
+    if allow_empty and selected_index == len(labels) - 1:
+        return None
 
     return options[selected_index]
 
