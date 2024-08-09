@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.1 (2024-08-09)
+
+### Fix
+
+* If container goes down (ew down, not stop or restart) -> stop watching logs (because nothing new will appear) ([`e398498`](https://github.com/educationwarehouse/edwh/commit/e3984988e72fac399d53c8fa57c33d6f303703ba))
+
 ## v0.46.0 (2024-08-09)
 
 ### Feature
