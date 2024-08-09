@@ -624,7 +624,7 @@ def set_env_value(path: Path, target: str, value: str) -> None:
 
 def write_content_to_toml_file(
     content_key: TomlKeys,
-    content: str | list[str],
+    content: str | list[str] | None,
     filename: str | Path = DEFAULT_TOML_NAME,
     allow_empty: bool = False,
 ) -> None:

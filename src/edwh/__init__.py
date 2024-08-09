@@ -22,6 +22,7 @@ from .helpers import (
     Logger,
     NoopLogger,
     VerboseLogger,
+    add_alias,
     arg_was_passed,
     confirm,
     dc_config,
@@ -53,11 +54,17 @@ from .tasks import (
     task_for_namespace,
 )
 
+Task = ImprovedTask
+task = improved_task
+
 __all__ = [
     "DOCKER_COMPOSE",
     "tasks",
+    "add_alias",
     "AnyDict",
+    "Task",
     "ImprovedTask",
+    "task",
     "improved_task",
     "TomlConfig",
     "check_env",
