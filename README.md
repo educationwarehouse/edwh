@@ -33,8 +33,39 @@ edwh plugin.remove multipass
 ## Usage
 
 ```console
-ew --help
+# to see all available commands:
+ew # or `edwh`
+# to see help about a specific namespace:
+ew help <namespace> # e.g. `ew help plugin`
+# to see help about a specific command:
+ew help <command> # e.g. `ew help plugin.list` 
 ```
+
+## Task Load Order
+
+Commands are loaded in the following order:
+
+1. **EDWH Package**:
+    - Loaded into the global namespace and its own namespaces (like `ew plugins.`).
+
+2. **Plugins**:
+    - Loaded into their own namespaces (like `ew mp.`).
+
+3. **Current Directory**:
+    - Loaded into the `local.` namespace. If it doesn't exist, it traverses up the directory tree 
+    - (e.g., `../tasks.py`, `../../tasks.py`).
+
+4. **Other Local Tasks**:
+    - Other local tasks with their own namespace are loaded (e.g., `namespace.tasks.py`) and can be invoked
+      with `edwh namespace.command`.
+
+5. **Personal Global Tasks**:
+    - Personal global tasks (e.g., `~/.config/edwh/tasks.py`) are also loaded into the **global** namespace, useful for
+      shortcuts, custom aliases, etc. (+ `add_alias`).
+
+6. **Personal Namespaced Tasks**:
+    - Personal tasks with their own namespace (e.g., `~/.config/edwh/namespace.tasks.py`). Similar to a plugin, but for
+      personal use.
 
 ## Plugins
 
@@ -66,43 +97,50 @@ ew --help
 - plugin name: `edwh[bundler]`
 - subcommand namespace: `bundle`
 
-### Server Provisioning 
+### Server Provisioning
+
 - pip name: [`edwh-server-provisioning-plugin`](https://pypi.org/project/edwh-server-provisioning-plugin/)
 - github: [`educationwarehouse/server_provisioning`](https://github.com/educationwarehouse/server_provisioning)
 - plugin name: `edwh[server-provisioning]`
 - subcommand namespace: `remote`
 
-### b2 
+### b2
+
 - pip name: [`edwh-b2-plugin`](https://pypi.org/project/edwh-b2-plugin/)
 - github: [`educationwarehouse/edwh-b2-plugin`](https://github.com/educationwarehouse/edwh-b2-plugin)
 - plugin name: `edwh[b2]`
 - subcommand namespace: `b2`
 
 ### Locust
+
 - pip name: [`edwh-locust-plugin`](https://pypi.org/project/edwh-locust-plugin/)
 - github: [`educationwarehouse/edwh-locust-plugin`](https://github.com/educationwarehouse/edwh-locust-plugin)
 - plugin name: `edwh[locust]`
 - subcommand namespace: `locust`
 
 ### sshkey
+
 - pip name: [`edwh-sshkey-plugin`](https://pypi.org/project/edwh-sshkey-plugin)
 - github: [`educationwarehouse/edwh-sshkey-plugin`](https://github.com/educationwarehouse/edwh-sshkey-plugin)
 - plugin name `edwh[sshkey]`
 - subcommand namespace `sshkey`
 
 ### sshfs
+
 - pip name: [`edwh-sshfs-plugin`](https://pypi.org/project/edwh-sshfs-plugin)
 - github: [`educationwarehouse/edwh-sshfs-plugin`](https://github.com/educationwarehouse/edwh-sshfs-plugin)
 - plugin name `edwh[sshfs]`
 - subcommand namespace `sshfs`
 
 ### files
+
 - pip name: [`edwh-files-plugin`](https://pypi.org/project/edwh-files-plugin)
 - github: [`educationwarehouse/edwh-files-plugin`](https://github.com/educationwarehouse/edwh-files-plugin)
 - plugin name `edwh[files]`
 - subcommand namespace `file`
 
 ### whitelabel
+
 - pip name: [`edwh-whitelabel-plugin`](https://pypi.org/project/edwh-whitelabel-plugin)
 - github: [`educationwarehouse/edwh-whitelabel-plugin`](https://github.com/educationwarehouse/edwh-whitelabel-plugin)
 - plugin name `edwh[whitelabel]`
