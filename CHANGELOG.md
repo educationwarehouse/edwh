@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.2 (2024-08-23)
+
+### Fix
+
+* `ew discover` broke again ([`0451ed8`](https://github.com/educationwarehouse/edwh/commit/0451ed8e5056b8a6fc84bc788322fe2b44767c66))
+
 ## v0.46.1 (2024-08-09)
 
 ### Fix
