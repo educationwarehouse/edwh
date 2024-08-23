@@ -134,7 +134,7 @@ class Discover:
                 hide=True,
                 warn=True,
             )
-            return ran.stdout.strip().split("\n") if ran else []
+            return ran.stdout.strip().split("\n")
         except Exception:
             return []
 
