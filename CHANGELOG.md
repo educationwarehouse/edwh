@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.3 (2024-09-12)
+
+### Fix
+
+* If docker log isn't valid json for some reason, just continue instead of crashing ([`8ddfdca`](https://github.com/educationwarehouse/edwh/commit/8ddfdca2f3e064f49c2a63c28ba18d021e5ee43a))
+
 ## v0.46.2 (2024-08-23)
 
 ### Fix
