@@ -2,6 +2,28 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.2 (2024-08-23)
+
+### Fix
+
+* `ew discover` broke again ([`0451ed8`](https://github.com/educationwarehouse/edwh/commit/0451ed8e5056b8a6fc84bc788322fe2b44767c66))
+
+## v0.46.1 (2024-08-09)
+
+### Fix
+
+* If container goes down (ew down, not stop or restart) -> stop watching logs (because nothing new will appear) ([`e398498`](https://github.com/educationwarehouse/edwh/commit/e3984988e72fac399d53c8fa57c33d6f303703ba))
+
+## v0.46.0 (2024-08-09)
+
+### Feature
+
+* Improved personal task loading, add add_alias helper function ([`d61d6ba`](https://github.com/educationwarehouse/edwh/commit/d61d6ba8895ffc4d8adff1ac14100338dc64fcde))
+
+### Documentation
+
+* Explained all the ways commands can be added to edwh ([`57282ec`](https://github.com/educationwarehouse/edwh/commit/57282ec8d821014a335536a4629bc60dfe3c3823))
+
 ## v0.46.0-beta.1 (2024-08-08)
 
 ### Feature

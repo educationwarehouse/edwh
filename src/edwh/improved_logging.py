@@ -5,6 +5,7 @@ import re
 import sys
 import typing
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import anyio
@@ -242,10 +243,12 @@ class TailConfig(typing.TypedDict):
 
 async def tail(config: TailConfig) -> None:
     print_args = " ".join(sys.argv[1:])
-    async with await anyio.open_file(config["filename"]) as f:
+    fname = config["filename"]
+    fpath = Path(fname)
+    async with await anyio.open_file(fname) as f:
         while True:
-
-            exited = config["state"] == "exited"
+            # if the file doesn't exist, the container was removed (dc down)
+            exited = config["state"] == "exited" or not fpath.exists()
 
             if contents := await f.readline():
                 print(" " * 20, end="\r")

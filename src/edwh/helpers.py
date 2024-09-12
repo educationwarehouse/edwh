@@ -513,3 +513,24 @@ def fabric_read(c: Connection | Context, path: str, throw: bool = True) -> str:
     """
     b = fabric_read_bytes(c, path, throw=throw)
     return b.decode()
+
+
+def _add_alias(sometask: typing.Any, alias: str):
+    if alias not in sometask.aliases:
+        sometask.aliases = (*sometask.aliases, alias)
+
+
+def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
+    """
+    Add an extra alias to an existing task (usually in ~/.config/edwh/tasks.py).
+
+    Example:
+        >>> edwh.add_alias(edwh.tasks.migrate, "migarte")
+        >>> edwh.add_alias(edwh.tasks.migrate, ["migarte"])
+        >>> edwh.add_alias(edwh.tasks.migrate, ("migarte",))
+    """
+    if isinstance(aliases, str):
+        aliases = [aliases]
+
+    for alias in aliases:
+        _add_alias(sometask, alias)

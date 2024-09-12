@@ -83,20 +83,22 @@ def include_cwd_tasks() -> None:
 
 def collection_from_abs_path(path: str, name: str) -> typing.Optional[Collection]:
     try:
-        spec = importlib.util.spec_from_file_location(name, path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        if spec := importlib.util.spec_from_file_location(name, path):
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return Collection.from_module(module)
+        else:
+            return None
 
-        return Collection.from_module(module)
     except Exception as e:
         cprint(f"Failed to include personal plugin {name}: {e}", file=sys.stderr, color="yellow")
         return None
 
 
 ### custom ~/.config/edwh/tasks.py and ~/.config/edwh/namespace.tasks.py commands
-def include_personal_tasks():
+def include_personal_tasks() -> None:
     config = Path.home() / ".config/edwh"
-    config.mkdir(exist_ok=True)
+    config.mkdir(exist_ok=True, parents=True)
 
     # tasks.py - special case, add to global namespace!
 
