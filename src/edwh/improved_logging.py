@@ -94,8 +94,12 @@ async def parse_docker_log_line(
     show_ts: bool = True,  # full, default, no
     verbose: bool = False,
 ) -> None:
-    # py4web-1  | [X] loaded _dashboard
-    data = json.loads(line)
+    try:
+        data = json.loads(line)
+    except json.JSONDecodeError:
+        # don't crash, just ignore
+        return
+
     # data containers log, stream (stdout/stderr) and time.
 
     if stream and data["stream"] != stream:
