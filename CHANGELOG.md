@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.5 (2024-09-13)
+
+### Fix
+
+* Don't crash on tail if missing file ([`f07d62c`](https://github.com/educationwarehouse/edwh/commit/f07d62ce801b074c6a5f11e466647892a03788a2))
+
 ## v0.46.4 (2024-09-13)
 
 ### Fix
