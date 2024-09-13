@@ -847,7 +847,8 @@ def require_sudo(c: Context) -> bool:
         return True
     except invoke.exceptions.AuthFailure as e:
         cprint(str(e), color="red", file=sys.stderr)
-        return False
+        cprint("Stopping now.")
+        exit(1)
 
 
 def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
@@ -909,6 +910,12 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
     exec_setup_in_other_task(c, run_local_setup)
     return True
 
+
+@task(
+    pre=[require_sudo],
+)
+def test_sudo(c):
+    print(c.sudo('whoami'))
 
 @task()
 def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
