@@ -245,6 +245,13 @@ async def tail(config: TailConfig) -> None:
     print_args = " ".join(sys.argv[1:])
     fname = config["filename"]
     fpath = Path(fname)
+
+    if not fpath.exists():
+        cprint(
+            f"Expected log file but found nothing. Container {config['human_name']} state: {config['state']}"
+        )
+        return
+
     async with await anyio.open_file(fname) as f:
         while True:
             # if the file doesn't exist, the container was removed (dc down)
