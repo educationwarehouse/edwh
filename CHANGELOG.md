@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.4 (2024-09-13)
+
+### Fix
+
+* Exit on sudo failure because why bother continuing ([`b14c4ab`](https://github.com/educationwarehouse/edwh/commit/b14c4ab43b610cdca813ce6f49f90ff50c46c7a7))
+
 ## v0.46.3 (2024-09-12)
 
 ### Fix
