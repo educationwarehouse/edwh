@@ -284,7 +284,7 @@ def update(
     if plugin_names == "all":
         from ..tasks import self_update  # type: ignore
 
-        return self_update(c)
+        return self_update(c, no_cache=force)
 
     pip = _pip()
 
