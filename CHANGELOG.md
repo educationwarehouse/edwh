@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.6 (2024-09-17)
+
+### Fix
+
+* Ew sleep functie heeft nu een afteller in de terminal ([`70af754`](https://github.com/educationwarehouse/edwh/commit/70af754cd8a58cb6a5e73669b3f4e545a3751f1c))
+
 ## v0.46.5 (2024-09-13)
 
 ### Fix
