@@ -1852,6 +1852,13 @@ def edwh(_: Context) -> None:
 @task()
 def sleep(_: Context, n: str) -> None:
     try:
-        time.sleep(int(n))
+        totaltime = int(n)
     except ValueError as e:
         raise TypeError("`ew sleep <n: int>` requires an amount of seconds to sleep.") from e
+
+    for x in range(totaltime):
+        print('\r',"Sleeping for: ", totaltime, "seconds", end = ' ')
+        time.sleep(1)
+        totaltime = totaltime - 1
+
+    print("")
