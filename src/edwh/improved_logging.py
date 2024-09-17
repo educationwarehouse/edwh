@@ -247,9 +247,7 @@ async def tail(config: TailConfig) -> None:
     fpath = Path(fname)
 
     if not fpath.exists():
-        cprint(
-            f"Expected log file but found nothing. Container {config['human_name']} state: {config['state']}"
-        )
+        cprint(f"Expected log file but found nothing. Container {config['human_name']} state: {config['state']}")
         return
 
     async with await anyio.open_file(fname) as f:

@@ -915,7 +915,8 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
     pre=[require_sudo],
 )
 def test_sudo(c):
-    print(c.sudo('whoami'))
+    print(c.sudo("whoami"))
+
 
 @task()
 def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
@@ -1857,7 +1858,7 @@ def sleep(_: Context, n: str) -> None:
         raise TypeError("`ew sleep <n: int>` requires an amount of seconds to sleep.") from e
 
     for x in range(totaltime):
-        print('\r',"Sleeping for: ", totaltime, "seconds", end = ' ')
+        print("\r", "Sleeping for: ", totaltime, "seconds", end=" ")
         time.sleep(1)
         totaltime = totaltime - 1
 
