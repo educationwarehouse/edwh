@@ -265,7 +265,9 @@ def add(c: Context, plugin_names: str) -> None:
 
 
 @task(aliases=("upgrade",))
-def update(c: Context, plugin_names: str, version: Optional[str] = None, verbose: bool = False) -> None:
+def update(
+    c: Context, plugin_names: str, version: Optional[str] = None, verbose: bool = False, force: bool = False
+) -> None:
     """
     Update a plugin (or 'all') to the latest version
 
@@ -275,6 +277,10 @@ def update(c: Context, plugin_names: str, version: Optional[str] = None, verbose
         version: optional custom version string (e.g. 0.14.0b1 for a beta pre-release)
         verbose: show which will would be installed for each plugin
     """
+    if force:
+        # first clean cache to ensure latest version:
+        c.run("uv cache clean", hide=True)
+
     if plugin_names == "all":
         from ..tasks import self_update  # type: ignore
 
