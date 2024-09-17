@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.46.7 (2024-09-17)
+
+### Fix
+
+* Allow -f for plugin.update to run with cleaned cache (-> more chance for updating) ([`bc67a5d`](https://github.com/educationwarehouse/edwh/commit/bc67a5d00e020308427d3449cf5fc7d54639e197))
+
 ## v0.46.6 (2024-09-17)
 
 ### Fix
