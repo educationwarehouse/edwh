@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.47.0 (2024-09-20)
+
+### Feature
+
+* `ew fmt` to format code prettily ([`e15258d`](https://github.com/educationwarehouse/edwh/commit/e15258de4ee7b682d1603db49170c07ea1a8dddf))
+
+### Fix
+
+* **logs:** Wait 100ms if no new log data was found, to preserve cpu ([`064b409`](https://github.com/educationwarehouse/edwh/commit/064b409fdef0fc59f9954574609600c16d850fff))
+* Pass -f to self-update as --no-cache ([`7ba6b41`](https://github.com/educationwarehouse/edwh/commit/7ba6b4180f8ca6fba8de3e3dc1f17775c152c387))
+
 ## v0.46.7 (2024-09-17)
 
 ### Fix
