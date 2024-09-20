@@ -29,13 +29,13 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "ansi",
+    "ansi", # todo: replace with termcolor
     "anyio",
     "click",
     "diceware",
     "fabric >= 3.1",
     "humanize",
-    "importlib_metadata >=3.6 ; python_version < '3.10'",
+    # "importlib_metadata >=3.6 ; python_version < '3.10'",
     "invoke >= 2.1",
     "more_itertools",
     "packaging",
@@ -44,9 +44,10 @@ dependencies = [
     "pyyaml",
     "rapidfuzz",
     "requests",
+    "su6[black,isort]",
     "tabulate",
     "termcolor",
-    "tomlkit", #  ; python_version < '3.11'
+    "tomlkit",
     "tqdm",
     "typing-extensions",
     "uv",

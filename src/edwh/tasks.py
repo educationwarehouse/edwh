@@ -42,6 +42,7 @@ from .discover import discover, get_hosts_for_service  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
+from .helpers import interactive_selected_checkbox_values  # noqa
 from .helpers import (  # noqa
     AnyDict,
     confirm,
@@ -55,7 +56,6 @@ from .helpers import (  # noqa
 )
 from .helpers import generate_password as _generate_password
 from .helpers import (  # noqa
-    interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     noop,
     print_aligned,
@@ -1863,3 +1863,19 @@ def sleep(_: Context, n: str) -> None:
         totaltime = totaltime - 1
 
     print("")
+
+
+@task()
+def fmt(_: Context, black: bool = True, isort: bool = True, directory: Optional[str] = None):
+    """
+    Format your Python code with black and isort.
+    """
+    from su6.cli import do_fix
+
+    exclude = []
+    if not black:
+        exclude.append("black")
+    if not isort:
+        exclude.append("isort")
+
+    do_fix(directory=directory, exclude=exclude)
