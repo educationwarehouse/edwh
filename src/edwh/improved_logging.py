@@ -276,3 +276,6 @@ async def tail(config: TailConfig) -> None:
                 # but if the container was already shut down, it's probably something like migrate,
                 # which will not restart automatically, so you probably don't want to wait forever.
                 return
+            else:
+                # Add a small sleep to reduce CPU load (if no data right now)
+                await anyio.sleep(0.1)
