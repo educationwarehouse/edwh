@@ -1694,9 +1694,7 @@ def migrate(ctx: Context) -> None:
 
 @task()
 def migrations(ctx: Context) -> None:
-    if result := ctx.run(f"{DOCKER_COMPOSE} run --rm migrate migrate --list"):
-        print(result)
-
+    ctx.run(f"{DOCKER_COMPOSE} run --rm migrate migrate --list")
 
 def find_container_id(ctx: Context, container: str) -> Optional[str]:
     if result := ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True):
