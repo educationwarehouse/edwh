@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.48.0 (2024-10-08)
+
+### Feature
+
+* Added migrations task, so you could get the 'migrate --list' command in edwh. ([`b8d0bb7`](https://github.com/educationwarehouse/edwh/commit/b8d0bb70b1cee0f9fc9f36b399771aec5355e1ba))
+
+### Fix
+
+* Removed the 'migrate --list' file, because it served no purpose ([`f7bcf97`](https://github.com/educationwarehouse/edwh/commit/f7bcf978d4a9b0249cae1ce48e660ba36f8f78f3))
+* Removed migrations printing it's content a second time. ([`7d1f15a`](https://github.com/educationwarehouse/edwh/commit/7d1f15ab0caaf7ff64e35963a1dcf92d6fe356c3))
+
 ## v0.47.0 (2024-09-20)
 
 ### Feature
