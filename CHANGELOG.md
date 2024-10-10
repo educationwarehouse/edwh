@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.48.1 (2024-10-10)
+
+### Fix
+
+* Doing ctrl-c during sudo will not bypass it anymore ✨ ([`6f66529`](https://github.com/educationwarehouse/edwh/commit/6f66529b89cc1b1385133f57fb79c5a1a35af663))
+
 ## v0.48.0 (2024-10-08)
 
 ### Feature
