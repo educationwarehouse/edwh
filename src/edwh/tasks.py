@@ -842,7 +842,10 @@ def require_sudo(c: Context) -> bool:
     c.config.sudo.password = sudo_pass
 
     try:
-        c.sudo("echo ''", warn=True, hide=True)
+        result = c.sudo("echo ''", warn=True, hide=True)
+        if not (result and result.ok):
+            raise invoke.exceptions.AuthFailure(result, "sudo")
+
         cprint("Sudo password accepted!", color="green", file=sys.stderr)
         return True
     except invoke.exceptions.AuthFailure as e:
@@ -1692,9 +1695,11 @@ def ew_self_update(ctx: Context) -> None:
 def migrate(ctx: Context) -> None:
     up(ctx, service=["migrate"], tail=True)
 
+
 @task()
 def migrations(ctx: Context) -> None:
     ctx.run(f"{DOCKER_COMPOSE} run --rm migrate migrate --list")
+
 
 def find_container_id(ctx: Context, container: str) -> Optional[str]:
     if result := ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True):
