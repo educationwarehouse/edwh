@@ -650,7 +650,7 @@ def get_content_from_toml_file(
 ) -> list[str] | str | None:
     """
     Gets content from a TOML file.
-
+feat/ew_setup_2084/gwen
     :param services: A list of services.
     :param toml_contents: A dictionary representing the TOML file.
     :param content_key: The key to look for in the TOML file.
@@ -808,7 +808,7 @@ def load_dockercompose_with_includes(
     if not dc_path.exists():
         raise FileNotFoundError(dc_path)
 
-    if ran := c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
+    if ran := c.rufeat/ew_setup_2084/gwenn(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
         processed_config = ran.stdout.strip()
         # mimic a file to load the yaml from
         fake_file = io.StringIO(processed_config)
@@ -1472,6 +1472,15 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
         for req in reqs:
             print(" * ", req)
 
+    try:
+        env = read_dotenv(Path(".env"))["STATE_OF_DEVELOPMENT"]
+    except KeyError:
+        cprint(
+            "KEYERROR: No SOD found. Add STATE_OF_DEVELOPMENT to the .env file",
+            "red"
+        )
+        return
+
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
     elif with_compile and pip_compile is not None:
@@ -1481,7 +1490,6 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
                 f"{idx}/{len(reqs)}: working on {req}",
                 "blue",
             )
-
             missing = not reqtxt.exists()
             outdated = not missing and reqtxt.stat().st_ctime < req.stat().st_ctime
 
