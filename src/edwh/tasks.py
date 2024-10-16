@@ -1473,7 +1473,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
             print(" * ", req)
 
     try:
-        env = read_dotenv(Path(".env"))["STATE_OF_DEVELOPMENT"]
+        state_of_development = read_dotenv(Path(".env"))["STATE_OF_DEVELOPMENT"]
     except KeyError:
         cprint(
             "KEYERROR: No SOD found. Add STATE_OF_DEVELOPMENT to the .env file",
@@ -1483,7 +1483,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
 
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
-    elif with_compile and pip_compile is not None:
+    elif with_compile and pip_compile is not None and state_of_development == "ONT":
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"
             cprint(
