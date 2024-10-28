@@ -1692,7 +1692,10 @@ def ew_self_update(ctx: Context) -> None:
 
 
 @task()
-def migrate(ctx: Context) -> None:
+def migrate(ctx: Context, force: bool = False) -> None:
+    if force:
+        clean_flags(ctx)
+
     up(ctx, service=["migrate"], tail=True)
 
 
@@ -1735,6 +1738,15 @@ def clean_redis(_: Context, db_count: int = 3) -> None:
 
 
 @task()
+def clean_flags(ctx: Context, flag_dir: str = "migrate/flags"):
+    flag_dir_path = pathlib.Path(flag_dir)
+
+    for flag_file in flag_dir_path.glob("*.complete"):
+        print("removing", flag_file)
+        flag_file.unlink()
+
+
+@task()
 def clean_postgres(ctx: Context, yes: bool = False) -> None:
     # assumes pgpool with pg-0, pg-1 and optionally pg-stats right now!
     yes or confirm(
@@ -1744,11 +1756,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
     )
 
     # clear backend flag files
-    flag_dir = pathlib.Path("migrate/flags")
-
-    for flag_file in flag_dir.glob("*.complete"):
-        print("removing", flag_file)
-        flag_file.unlink()
+    clean_flags(ctx)
 
     config = TomlConfig.load()
     assert config, "Couldn't set up toml config -> can't continue clean!"
