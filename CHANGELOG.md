@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.48.2 (2024-10-28)
+
+### Fix
+
+* Allow `-f/--force` for `migrate` to remove existing flags ([`3a07740`](https://github.com/educationwarehouse/edwh/commit/3a07740ed3257f6a83dbab4e704995666452e2ab))
+
 ## v0.48.1 (2024-10-10)
 
 ### Fix
