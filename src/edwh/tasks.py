@@ -13,6 +13,7 @@ import time
 import typing
 import warnings
 from asyncio import CancelledError
+from collections import Counter
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
@@ -1128,6 +1129,19 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
+@task()
+def ps_all(ctx: Context):
+    """
+    Show all active (docker compose) environments.
+    """
+    dockers = ctx.run('docker ps --format "{{.Names}}"', hide=True).stdout
+
+    projects = Counter(_.split("-")[0] for _ in dockers.split("\n") if _ and "-" in _)
+    projects = {k: str(v) for k, v in projects.items()}
+
+    print(tabulate.tabulate(projects.items(), headers=["Project", "Dockers"], tablefmt="pipe"))
+
+
 @task(
     iterable=["service", "columns"],
     help=dict(
@@ -1151,6 +1165,12 @@ def ps(
     """
     Show process status of services.
     """
+    if not Path("docker-compose.yml").exists():
+        cprint("You're not in a docker compose environment.", color="red")
+        if confirm("Would you like to see all running environments? [Yn]", default=True):
+            ps_all(ctx)
+        return
+
     flags = []
 
     if show_all:
