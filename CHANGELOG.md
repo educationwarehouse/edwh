@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.49.0 (2024-11-07)
+
+### Feature
+
+* Add `ew ps-all` to show all active docker projects. Used as a fallback for `ew ps` when you're not in a docker compose project ([`9461193`](https://github.com/educationwarehouse/edwh/commit/9461193e47fcf8c88d15dbc11d4ec85652e89913))
+
 ## v0.48.2 (2024-10-28)
 
 ### Fix
