@@ -72,9 +72,9 @@ from .meta import plugins, self_update  # noqa
 
 
 def copy_fallback_toml(
-    tomlfile: str | Path = DEFAULT_TOML_NAME,
-    fallbacks: typing.Collection[str | Path] = (LEGACY_TOML_NAME, FALLBACK_TOML_NAME),
-    force: bool = False,
+        tomlfile: str | Path = DEFAULT_TOML_NAME,
+        fallbacks: typing.Collection[str | Path] = (LEGACY_TOML_NAME, FALLBACK_TOML_NAME),
+        force: bool = False,
 ) -> bool:
     tomlfile_path = Path(tomlfile)
 
@@ -95,8 +95,8 @@ def copy_fallback_toml(
 
 
 def service_names(
-    service_arg: typing.Collection[str] | None,
-    default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
+        service_arg: typing.Collection[str] | None,
+        default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -345,10 +345,10 @@ class TomlConfig:
 
     @classmethod
     def load(
-        cls,
-        fname: str | Path = DEFAULT_TOML_NAME,
-        dotenv_path: Optional[Path] = None,
-        cache: bool = True,
+            cls,
+            fname: str | Path = DEFAULT_TOML_NAME,
+            dotenv_path: Optional[Path] = None,
+            cache: bool = True,
     ) -> "TomlConfig | None":
         """
         Load config toml file, raising an error if it does not exist.
@@ -466,7 +466,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
 
 # noinspection PyDefaultArgument
 def warn_once(
-    warning: str, previously_shown: list[str] = [], color: Optional[Color] = None, **print_kwargs: typing.Any
+        warning: str, previously_shown: list[str] = [], color: Optional[Color] = None, **print_kwargs: typing.Any
 ) -> None:
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
@@ -485,17 +485,17 @@ def warn_once(
 
 
 def check_env(
-    key: str,
-    default: Optional[str],
-    comment: str,
-    # optionals:
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
-    # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-    postfix: Optional[str] = None,
-    # different config paths:
-    env_path: Optional[str | Path] = None,
-    toml_path: None = None,
+        key: str,
+        default: Optional[str],
+        comment: str,
+        # optionals:
+        prefix: Optional[str] = None,
+        suffix: Optional[str] = None,
+        # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
+        postfix: Optional[str] = None,
+        # different config paths:
+        env_path: Optional[str | Path] = None,
+        toml_path: None = None,
 ) -> str:
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -624,10 +624,10 @@ def set_env_value(path: Path, target: str, value: str) -> None:
 
 
 def write_content_to_toml_file(
-    content_key: TomlKeys,
-    content: str | list[str] | None,
-    filename: str | Path = DEFAULT_TOML_NAME,
-    allow_empty: bool = False,
+        content_key: TomlKeys,
+        content: str | list[str] | None,
+        filename: str | Path = DEFAULT_TOML_NAME,
+        allow_empty: bool = False,
 ) -> None:
     if not (content or allow_empty):
         return
@@ -641,13 +641,13 @@ def write_content_to_toml_file(
 
 
 def get_content_from_toml_file(
-    services: list[str],
-    toml_contents: ConfigTomlDict,
-    content_key: TomlKeys,
-    content: str,
-    default: list[str] | str,
-    overwrite: bool = False,
-    allow_empty: bool = False,
+        services: list[str],
+        toml_contents: ConfigTomlDict,
+        content_key: TomlKeys,
+        content: str,
+        default: list[str] | str,
+        overwrite: bool = False,
+        allow_empty: bool = False,
 ) -> list[str] | str | None:
     """
     Gets content from a TOML file.
@@ -708,7 +708,7 @@ def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
 
 
 def write_user_input_to_config_toml(
-    all_services: list[str], filename: str | Path = DEFAULT_TOML_NAME, overwrite: bool = False
+        all_services: list[str], filename: str | Path = DEFAULT_TOML_NAME, overwrite: bool = False
 ) -> TomlConfig | None:
     """
     write chosen user dockers to config.toml
@@ -754,9 +754,9 @@ def write_user_input_to_config_toml(
     if not services_celery:
         write_content_to_toml_file("include_celeries_in_minimal", "false")
     elif services_celery and (
-        "services" not in config_toml_file
-        or "include_celeries_in_minimal" not in config_toml_file["services"]
-        or overwrite
+            "services" not in config_toml_file
+            or "include_celeries_in_minimal" not in config_toml_file["services"]
+            or overwrite
     ):
         # check if user wants to include celeries
         include_celeries = (
@@ -794,7 +794,7 @@ def write_user_input_to_config_toml(
 
 
 def load_dockercompose_with_includes(
-    c: Optional[Context] = None, dc_path: str | Path = "docker-compose.yml"
+        c: Optional[Context] = None, dc_path: str | Path = "docker-compose.yml"
 ) -> AnyDict:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
@@ -886,12 +886,12 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
     dc_path = Path("docker-compose.yml")
 
     if (
-        new_config_toml
-        and config_toml.exists()
-        and confirm(
-            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
-            default=False,
-        )
+            new_config_toml
+            and config_toml.exists()
+            and confirm(
+        colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+        default=False,
+    )
     ):
         config_toml.unlink()
 
@@ -974,12 +974,12 @@ def remove_empty_dirs(c: Context, path: str | Path) -> None:
 
 
 def set_permissions(
-    c: Context,
-    path: str,
-    uid: int = 1050,
-    gid: int = 1050,
-    filepermissions: int = 664,
-    directorypermissions: int = 775,
+        c: Context,
+        path: str,
+        uid: int = 1050,
+        gid: int = 1050,
+        filepermissions: int = 664,
+        directorypermissions: int = 775,
 ) -> None:
     """
     Set all directories in path to 'directorypermissions',
@@ -996,9 +996,17 @@ def set_permissions(
 
 
 @task(help=dict(silent="do not echo the password"))
-def generate_password(_: Context, silent: bool = False) -> str:
-    """Generate a diceware password using --dice 6."""
-    return _generate_password(silent=silent)
+def generate_password(_: Context, silent: bool = False, dice: int = 6) -> str:
+    """
+    Generate a diceware password using --dice 6.
+
+    Arggs:
+        _: invoke Context
+        silent: don't print the generated password?
+        dice: amount of words to generate
+
+    """
+    return _generate_password(silent=silent, dice=dice)
 
 
 def fuzzy_match(val1: str, val2: str, verbose: bool = False) -> float:
@@ -1084,7 +1092,7 @@ def volumes(ctx: Context) -> None:
 @task(
     help=dict(
         service="Service to up, defaults to .toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+                "Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -1097,14 +1105,14 @@ def volumes(ctx: Context) -> None:
     },
 )
 def up(
-    ctx: Context,
-    service: typing.Collection[str] | None = None,
-    build: bool = False,
-    quickest: bool = False,
-    stop_timeout: int = 2,
-    tail: bool = False,
-    clean: bool = False,
-    show_settings: bool = True,
+        ctx: Context,
+        service: typing.Collection[str] | None = None,
+        build: bool = False,
+        quickest: bool = False,
+        stop_timeout: int = 2,
+        tail: bool = False,
+        clean: bool = False,
+        show_settings: bool = True,
 ) -> None:
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
@@ -1155,12 +1163,12 @@ def ps_all(ctx: Context):
     },
 )
 def ps(
-    ctx: Context,
-    quiet: bool = False,
-    service: typing.Collection[str] | None = None,
-    columns: typing.Collection[str] | None = None,
-    full_command: bool = False,
-    show_all: bool = False,
+        ctx: Context,
+        quiet: bool = False,
+        service: typing.Collection[str] | None = None,
+        columns: typing.Collection[str] | None = None,
+        full_command: bool = False,
+        show_all: bool = False,
 ) -> None:
     """
     Show process status of services.
@@ -1250,14 +1258,14 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
 
 
 async def logs_improved_async(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    new: bool = False,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
+        c: Context,
+        service: typing.Collection[str] | None = None,
+        since: Optional[str] = None,
+        new: bool = False,
+        stream: Optional[str] = None,
+        re_filter: Optional[str] = None,
+        timestamps: bool = True,
+        verbose: bool = False,
 ) -> None:
     if new:
         since = "now"
@@ -1334,13 +1342,13 @@ def elevate(target_command: str) -> None:
 
 
 def logs_improved(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    stream: Optional[str] = None,
-    filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
+        c: Context,
+        service: typing.Collection[str] | None = None,
+        since: Optional[str] = None,
+        stream: Optional[str] = None,
+        filter: Optional[str] = None,
+        timestamps: bool = True,
+        verbose: bool = False,
 ) -> None:
     with contextlib.suppress(CancelledError, KeyboardInterrupt):
         anyio.run(
@@ -1361,7 +1369,7 @@ def logs_improved(
     iterable=["service"],
     help={
         "service": "What services to follow. "
-        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
+                   "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
         "all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
         "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
@@ -1375,18 +1383,18 @@ def logs_improved(
     },
 )
 def logs(
-    ctx: Context,
-    service: typing.Collection[str] | None = None,
-    follow: bool = True,
-    limit: Optional[int] = None,
-    sort: bool = False,
-    all: bool = False,  # noqa A002
-    verbose: bool = False,
-    timestamps: bool = True,
-    since: Optional[str] = None,
-    new: bool = False,
-    stream: Optional[str] = None,
-    filter: Optional[str] = None,
+        ctx: Context,
+        service: typing.Collection[str] | None = None,
+        follow: bool = True,
+        limit: Optional[int] = None,
+        sort: bool = False,
+        all: bool = False,  # noqa A002
+        verbose: bool = False,
+        timestamps: bool = True,
+        since: Optional[str] = None,
+        new: bool = False,
+        stream: Optional[str] = None,
+        filter: Optional[str] = None,
 ) -> None:
     """Smart docker logging"""
 
@@ -1467,7 +1475,7 @@ def upgrade(ctx: Context, build: bool = False) -> None:
 @task(
     help=dict(
         yes="Don't ask for confirmation, just do it. "
-        "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
+            "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
     )
 )
@@ -1532,9 +1540,9 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     iterable=["service"],
 )
 def rebuild(
-    ctx: Context,
-    service: typing.Collection[str] | None = None,
-    force_rebuild: bool = False,
+        ctx: Context,
+        service: typing.Collection[str] | None = None,
+        force_rebuild: bool = False,
 ) -> None:
     """
     Downs ALL services, then rebuilds services using docker-compose build.
@@ -1628,7 +1636,7 @@ def version(ctx: Context) -> None:
     name="help",
     help={
         "about": "Plugin/Namespace or Subcommand you would like to see help about. "
-        "Use an empty string ('') to see help about everything."
+                 "Use an empty string ('') to see help about everything."
     },
 )
 def show_help(ctx: Context, about: str) -> None:
@@ -1679,14 +1687,14 @@ def show_help(ctx: Context, about: str) -> None:
     flags={"show_settings": ["settings", "show-settings"], "as_json": ["j", "json", "as-json"]},  # -s is for short
 )
 def task_discover(
-    ctx: Context,
-    du: bool = False,
-    exposes: bool = False,
-    ports: bool = False,
-    host_labels: bool = True,
-    short: bool = False,
-    show_settings: bool = False,
-    as_json: bool = False,
+        ctx: Context,
+        du: bool = False,
+        exposes: bool = False,
+        ports: bool = False,
+        host_labels: bool = True,
+        short: bool = False,
+        show_settings: bool = False,
+        as_json: bool = False,
 ) -> None:
     """Discover docker environments per host.
 
@@ -1805,12 +1813,12 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
 
 @task(flags={"clean_all": ["all", "a"]})
 def clean(
-    ctx: Context,
-    clean_all: bool = False,
-    db: bool = False,
-    postgres: bool = False,
-    redis: bool = False,
-    yes: bool = False,
+        ctx: Context,
+        clean_all: bool = False,
+        db: bool = False,
+        postgres: bool = False,
+        redis: bool = False,
+        yes: bool = False,
 ) -> None:
     """Rebuild the databases, possibly rebuild microservices.
 

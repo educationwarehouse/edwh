@@ -55,9 +55,11 @@ def execution_fails(c: Context, argument: str) -> bool:
     return not executes_correctly(c, argument)
 
 
-def generate_password(silent: bool = True) -> str:
+def generate_password(silent: bool = True, dice: int = 6) -> str:
     """Generate a diceware password using --dice 6."""
-    password: str = diceware.get_passphrase()
+    options = diceware.handle_options(args=[])
+    options.num = dice
+    password: str = diceware.get_passphrase(options)
     if not silent:
         print("Password:", password)
     return password
