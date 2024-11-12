@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.49.1 (2024-11-12)
+
+### Fix
+
+* **sleep:** '1' ended immediately, so added 'flush' to print instantly instead of waiting for buffer and added 'sleeping 0 seconds' for sanity ([`dfd0a96`](https://github.com/educationwarehouse/edwh/commit/dfd0a96fb7a02981ff4054988719cbd91737ec7a))
+
 ## v0.49.0 (2024-11-07)
 
 ### Feature
