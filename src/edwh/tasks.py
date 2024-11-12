@@ -1893,12 +1893,11 @@ def sleep(_: Context, n: str) -> None:
     except ValueError as e:
         raise TypeError("`ew sleep <n: int>` requires an amount of seconds to sleep.") from e
 
-    for x in range(totaltime):
-        print("\r", "Sleeping for: ", totaltime, "seconds", end=" ")
+    for remaining in range(totaltime, 0, -1):
+        print("\r", f"Sleeping for: {remaining} seconds", end=" ", flush=True)
         time.sleep(1)
-        totaltime = totaltime - 1
 
-    print("")
+    print("\r", f"Sleeping for: 0 seconds", end="\n")
 
 
 @task()
