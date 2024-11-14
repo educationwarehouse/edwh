@@ -11,7 +11,7 @@ dynamic = ["version"]
 description = 'Education Warehouse maintenance tools'
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license-expression = "MIT"
 keywords = []
 authors = [
     { name = "Remco Boerma", email = "remco.b@educationwarehouse.nl" },
