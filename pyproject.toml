@@ -30,28 +30,28 @@ classifiers = [
 ]
 dependencies = [
     "ansi", # todo: replace with termcolor
-    "anyio",
-    "click",
-    "diceware",
-    "fabric >= 3.1",
-    "humanize",
-    # "importlib_metadata >=3.6 ; python_version < '3.10'",
-    "invoke >= 2.1",
-    "more_itertools",
-    "packaging",
-    "plumbum",
-    "python-dateutil",
-    "pyyaml",
-    "rapidfuzz",
-    "requests",
-    "su6[black,isort]",
-    "tabulate",
-    "termcolor",
-    "tomlkit",
-    "tqdm",
-    "typing-extensions",
-    "uv",
-    "yarl",
+    "anyio", # for async log reading
+    "click", # for interactive select box (e.g. in `ew setup`)
+    "diceware", # for generating random, safe passhprases
+    "fabric >= 3.1", # invoke but remote
+    "humanize", # for making raw sizes huam nreadable
+    "invoke >= 2.1", # base cli tool
+    "more_itertools", # improved 'flatten' function (among others)
+    "packaging", # parsing package versions (for plugin subcommand)
+    "plumbum", # running bash commands more nicely than with invoke
+    "python-dateutil", # improved date parsing
+    "pyyaml", # yaml parser (for docker-compose.yml)
+    "rapidfuzz",  # levenshtein my beloved
+    "requests", # better than urllib no?
+    "su6[black,isort]", # For `edwh fmt`
+    "tabulate", # for nice cli tables
+    "termcolor", # improved ansi colored print
+    "threadful", # running things in different threads easily, with animations
+    "tomlkit", # for toml reading and writing
+    "tqdm", # nice progress bars
+    "typing-extensions", # using modern typing features in older python versions
+    "uv", # faster pip
+    "yayarl", # like yarl (Pathlib style URL builder) but with requests built in
 ]
 
 [project.optional-dependencies]
