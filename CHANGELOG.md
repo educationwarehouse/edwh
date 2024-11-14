@@ -2,6 +2,24 @@
 
 <!--next-version-placeholder-->
 
+## v0.49.1 (2024-11-12)
+
+### Fix
+
+* **sleep:** '1' ended immediately, so added 'flush' to print instantly instead of waiting for buffer and added 'sleeping 0 seconds' for sanity ([`dfd0a96`](https://github.com/educationwarehouse/edwh/commit/dfd0a96fb7a02981ff4054988719cbd91737ec7a))
+
+## v0.49.0 (2024-11-07)
+
+### Feature
+
+* Add `ew ps-all` to show all active docker projects. Used as a fallback for `ew ps` when you're not in a docker compose project ([`9461193`](https://github.com/educationwarehouse/edwh/commit/9461193e47fcf8c88d15dbc11d4ec85652e89913))
+
+## v0.48.2 (2024-10-28)
+
+### Fix
+
+* Allow `-f/--force` for `migrate` to remove existing flags ([`3a07740`](https://github.com/educationwarehouse/edwh/commit/3a07740ed3257f6a83dbab4e704995666452e2ab))
+
 ## v0.48.1 (2024-10-10)
 
 ### Fix
