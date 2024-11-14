@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.50.0 (2024-11-14)
+
+### Feature
+
+* Allow setting `--dice` for `edwh generate-password` ([`05ce574`](https://github.com/educationwarehouse/edwh/commit/05ce574d8b3abcecc6985dc9ba1f870e1c672431))
+
+### Fix
+
+* Add missing dependency; document what each depenency does ([`3287767`](https://github.com/educationwarehouse/edwh/commit/3287767d7c6a8f1260523d540baf566327f388df))
+* If state_of_development is empty, show a warning instead of error ([`066d0fc`](https://github.com/educationwarehouse/edwh/commit/066d0fc3d035a5337f65b353013a3a448f773949))
+
 ## v0.49.1 (2024-11-12)
 
 ### Fix
