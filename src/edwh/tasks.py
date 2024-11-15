@@ -489,6 +489,8 @@ def check_env(
     default: Optional[str],
     comment: str,
     # optionals:
+    use_default: Optional[bool] = False,
+    valid_input: Optional[list] = None,
     prefix: Optional[str] = None,
     suffix: Optional[str] = None,
     # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
@@ -522,7 +524,12 @@ def check_env(
 
     suffix = suffix or postfix
 
-    response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+    response = ""
+    if not use_default:
+        response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
+        if valid_input:
+            if response not in valid_input:
+                raise ValueError("INVALID VALUE")
     value = response.strip() or default or ""
     if prefix:
         value = prefix + value
