@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.51.0 (2024-11-15)
+
+### Feature
+
+* Added valid_input to check_env ([`c44783b`](https://github.com/educationwarehouse/edwh/commit/c44783bb1381a10c77662d7328c564fe0597e988))
+* Added use_default to check_env ([`e9718d2`](https://github.com/educationwarehouse/edwh/commit/e9718d2a91554c7b6d89fcb3256fd767363fc67b))
+
+### Fix
+
+* Allow custom local dependencies in ~/.config/edwh ([`c2ff06e`](https://github.com/educationwarehouse/edwh/commit/c2ff06e040faca2d9605f36f47a8869827a861cb))
+
 ## v0.50.0 (2024-11-14)
 
 ### Feature
