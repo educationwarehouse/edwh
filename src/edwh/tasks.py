@@ -490,6 +490,7 @@ def check_env(
     comment: str,
     # optionals:
     use_default: Optional[bool] = False,
+    valid_input: Optional[list] = None,
     prefix: Optional[str] = None,
     suffix: Optional[str] = None,
     # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
@@ -526,9 +527,9 @@ def check_env(
     response = ""
     if not use_default:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-        sods = ["ONT", "DEMO", "TEST", "UAT", "PRD"]
-        if key == "STATE_OF_DEVELOPMENT" and response not in sods:
-            raise ValueError("INVALID STATE")
+        if valid_input:
+            if response not in valid_input:
+                raise ValueError("INVALID VALUE")
     value = response.strip() or default or ""
     if prefix:
         value = prefix + value
