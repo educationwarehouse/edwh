@@ -101,6 +101,10 @@ def include_personal_tasks() -> None:
     config.mkdir(exist_ok=True, parents=True)
 
     # tasks.py - special case, add to global namespace!
+    if any(config.glob("*.py")):
+        config_path = str(config)
+        if config_path not in sys.path:
+            sys.path.append(config_path)
 
     personal_tasks = config / "tasks.py"
     if personal_tasks.exists():
