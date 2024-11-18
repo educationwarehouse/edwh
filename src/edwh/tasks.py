@@ -775,7 +775,7 @@ def write_user_input_to_config_toml(
     ):
         # check if user wants to include celeries
         include_celeries = (
-            "true" if confirm("do you want to include celeries in minimal(Y/n): ", default=True) else "false"
+            "true" if confirm("do you want to include celeries in minimal [Yn]: ", default=True) else "false"
         )
         write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
 
