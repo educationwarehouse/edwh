@@ -489,14 +489,14 @@ def check_env(
     default: Optional[str],
     comment: str,
     # optionals:
-    use_default: Optional[bool] = False,
-    valid_input: typing.Iterable[str] = (),
     prefix: Optional[str] = None,
     suffix: Optional[str] = None,
     # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
     postfix: Optional[str] = None,
     # different config paths:
     env_path: Optional[str | Path] = None,
+    force_default: Optional[bool] = False,
+    allowed_values: typing.Iterable[str] = (),
     toml_path: None = None,
 ) -> str:
     """
@@ -519,17 +519,25 @@ def check_env(
     if suffix and postfix:
         warnings.warn(
             "! both a 'suffix' and a 'postfix' parameter were specified, "
-            "but only 'suffix' will be used since 'postfix' is just an alias!"
+            "but only 'suffix' will be used since 'postfix' is just an alias!",
+            category=DeprecationWarning,
+        )
+    elif postfix:
+        warnings.warn(
+            "The 'postfix' option has been replaced by 'suffix' and may be removed in the future.",
+            category=DeprecationWarning,
         )
 
     suffix = suffix or postfix
 
-    response = ""
-    if not use_default:
+    if force_default:
+        value = default or ""
+    else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-        if valid_input and response not in valid_input:
-            raise ValueError("INVALID VALUE")
-    value = response.strip() or default or ""
+        if allowed_values and response not in allowed_values:
+            raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
+        value = response.strip() or default or ""
+
     if prefix:
         value = prefix + value
     if suffix:
