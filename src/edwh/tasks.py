@@ -534,9 +534,10 @@ def check_env(
         value = default or ""
     else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
-        if allowed_values and response not in allowed_values:
-            raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
         value = response.strip() or default or ""
+
+        if allowed_values and value not in allowed_values:
+            raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
 
     if prefix:
         value = prefix + value
