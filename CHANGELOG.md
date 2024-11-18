@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.51.2 (2024-11-18)
+
+### Fix
+
+* Don't crash when accepting default if allowed_values is set ([`305d521`](https://github.com/educationwarehouse/edwh/commit/305d5215de8ea952fb6efd2e1a708ffc5e81944a))
+
 ## v0.51.1 (2024-11-18)
 
 ### Fix
