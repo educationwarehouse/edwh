@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.51.1 (2024-11-18)
+
+### Fix
+
+* Rename new `check_env` options to be more clear ([`df95292`](https://github.com/educationwarehouse/edwh/commit/df952920558a1de9a415511b65bf550132a6030c))
+
 ## v0.51.0 (2024-11-15)
 
 ### Feature
