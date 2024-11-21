@@ -57,6 +57,8 @@ from .helpers import (  # noqa F401 - import for export
     interactive_selected_radio_value,
     noop,
     print_aligned,
+    run_pty,
+    run_pty_ok,
     shorten,
 )
 from .helpers import generate_password as _generate_password
@@ -1930,7 +1932,8 @@ def lint(ctx: Context, directory: Optional[str] = None):
     """
     directory = directory or "."
 
-    ctx.run(f"ruff check {directory}", pty=True)
+    color = "green" if run_pty(ctx, f"ruff check {directory} --quiet") else "red"
+    cprint("⬤ ruff", color=color)
 
 
 @task(aliases=("format",))
@@ -1941,7 +1944,9 @@ def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Opti
     directory = directory or "."
 
     if isort:
-        ctx.run(f"ruff check --select I --fix {directory}", pty=True)
+        color = "green" if run_pty_ok(ctx, f"ruff check --select I --fix {directory} --quiet") else "red"
+        cprint("⬤ isort", color=color)
 
     if reformat:
-        ctx.run(f"ruff format {directory}", pty=True)
+        color = "green" if run_pty_ok(ctx, f"ruff format {directory} --quiet") else "red"
+        cprint("● reformat", color=color)

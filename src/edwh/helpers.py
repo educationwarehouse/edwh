@@ -13,6 +13,7 @@ from typing import Optional
 
 import click
 import diceware
+import invoke
 import yaml
 from fabric.connection import Connection
 from invoke.context import Context
@@ -52,6 +53,19 @@ def executes_correctly(c: Context, argument: str) -> bool:
 def execution_fails(c: Context, argument: str) -> bool:
     """Returns true if the execution fails based on error level"""
     return not executes_correctly(c, argument)
+
+
+def run_pty(ctx: Context, command: str, **options) -> invoke.Result | None:
+    try:
+        return ctx.run(command, pty=True, **options)
+    except invoke.exceptions.Failure:
+        # error is already printed due to `pty`
+        return None
+
+
+def run_pty_ok(ctx: Context, command: str, **options) -> bool:
+    result = run_pty(ctx, command, **options)
+    return bool(result and result.ok)
 
 
 def generate_password(silent: bool = True, dice: int = 6) -> str:
