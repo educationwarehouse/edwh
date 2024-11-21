@@ -43,7 +43,7 @@ dependencies = [
     "pyyaml", # yaml parser (for docker-compose.yml)
     "rapidfuzz",  # levenshtein my beloved
     "requests", # better than urllib no?
-    "su6[black,isort]", # For `edwh fmt`
+    "ruff", # For `edwh fmt`, `edwh lint`
     "tabulate", # for nice cli tables
     "termcolor", # improved ansi colored print
     "threadful", # running things in different threads easily, with animations

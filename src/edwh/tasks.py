@@ -1926,16 +1926,15 @@ def sleep(_: Context, n: str) -> None:
 
 
 @task()
-def fmt(_: Context, black: bool = True, isort: bool = True, directory: Optional[str] = None):
+def fmt(ctx: Context, isort: bool = True, format: bool = True, directory: Optional[str] = None):
     """
     Format your Python code with black and isort.
     """
-    from su6.cli import do_fix
+    directory = directory or "."
 
-    exclude = []
-    if not black:
-        exclude.append("black")
-    if not isort:
-        exclude.append("isort")
+    if isort:
+        ctx.run(f"ruff check --select I --fix {directory}", pty=True)
 
-    do_fix(directory=directory, exclude=exclude)
+    if format:
+        ctx.run(f"ruff format {directory}", pty=True)
+
