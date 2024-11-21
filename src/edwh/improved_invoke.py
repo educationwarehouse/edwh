@@ -39,7 +39,9 @@ class TaskOptions(typing.TypedDict, total=False):
 
 
 class TaskCallable(typing.Protocol):
-    def __call__(self, **_: Unpack[TaskOptions]) -> Callable[
+    def __call__(
+        self, **_: Unpack[TaskOptions]
+    ) -> Callable[
         [Callable[P, R]],
         Callable[P, R],
     ]: ...

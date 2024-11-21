@@ -43,8 +43,7 @@ from .discover import discover, get_hosts_for_service  # noqa
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import interactive_selected_checkbox_values  # noqa
-from .helpers import (  # noqa
+from .helpers import (  # noqa  # noqa
     AnyDict,
     confirm,
     dc_config,
@@ -54,14 +53,13 @@ from .helpers import (  # noqa
     fabric_read,
     fabric_write,
     flatten,
-)
-from .helpers import generate_password as _generate_password
-from .helpers import (  # noqa
+    interactive_selected_checkbox_values,  # noqa
     interactive_selected_radio_value,
     noop,
     print_aligned,
     shorten,
 )
+from .helpers import generate_password as _generate_password
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
 from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
@@ -1926,15 +1924,24 @@ def sleep(_: Context, n: str) -> None:
 
 
 @task()
-def fmt(ctx: Context, isort: bool = True, format: bool = True, directory: Optional[str] = None):
+def lint(ctx: Context, directory: Optional[str] = None):
     """
-    Format your Python code with black and isort.
+    Lint code with `ruff`.
+    """
+    directory = directory or "."
+
+    ctx.run(f"ruff check {directory}", pty=True)
+
+
+@task(aliases=("format",))
+def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Optional[str] = None):
+    """
+    Format your Python code with `ruff`, including import sorting (isort).
     """
     directory = directory or "."
 
     if isort:
         ctx.run(f"ruff check --select I --fix {directory}", pty=True)
 
-    if format:
+    if reformat:
         ctx.run(f"ruff format {directory}", pty=True)
-

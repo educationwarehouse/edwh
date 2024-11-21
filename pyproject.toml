@@ -261,7 +261,7 @@ select = [
     "SIM", # simplify
     "ARG", # unused arguments
     # "COM", # comma's
-    # "PTH", # use pathlib
+    "PTH", # use pathlib
     "RUF", # ruff rules
     "C90", # mccabe (complexity)
     #    "I", # isort
@@ -278,7 +278,7 @@ select = [
     # "DTZ", # datetimes
     # "T10", # debugger
     # "DJ", # django
-    "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
+    # "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
     "SIM", # simplify
 ]
 
