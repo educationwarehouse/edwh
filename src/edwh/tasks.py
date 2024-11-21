@@ -39,11 +39,11 @@ from .constants import (
     FILE_START,
     LEGACY_TOML_NAME,
 )
-from .discover import discover, get_hosts_for_service  # noqa
+from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
-from .helpers import (  # noqa  # noqa
+from .helpers import (  # noqa F401 - import for export
     AnyDict,
     confirm,
     dc_config,
@@ -53,7 +53,7 @@ from .helpers import (  # noqa  # noqa
     fabric_read,
     fabric_write,
     flatten,
-    interactive_selected_checkbox_values,  # noqa
+    interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     noop,
     print_aligned,
@@ -1359,7 +1359,7 @@ def logs_improved(
     service: typing.Collection[str] | None = None,
     since: Optional[str] = None,
     stream: Optional[str] = None,
-    filter: Optional[str] = None,
+    re_filter: Optional[str] = None,
     timestamps: bool = True,
     verbose: bool = False,
 ) -> None:
@@ -1370,7 +1370,7 @@ def logs_improved(
                 service=service,
                 since=since,
                 stream=stream,
-                re_filter=filter,
+                re_filter=re_filter,
                 timestamps=timestamps,
                 verbose=verbose,
             )
@@ -1407,7 +1407,7 @@ def logs(
     since: Optional[str] = None,
     new: bool = False,
     stream: Optional[str] = None,
-    filter: Optional[str] = None,
+    filter: Optional[str] = None,  # noqa A002
 ) -> None:
     """Smart docker logging"""
 
@@ -1442,7 +1442,7 @@ def logs(
             service="*" if all else service,
             since=since,
             stream=stream,
-            filter=filter,
+            re_filter=filter,
             timestamps=timestamps,
             verbose=verbose,
         )
@@ -1499,7 +1499,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     Will test for the presence of `edwh-pipcompile-plugin` and use it to compile
     requirements.in files to requirements.txt files in child directories.
     """
-    reqs = list(Path(".").rglob("*/requirements.in"))
+    reqs = list(Path().rglob("*/requirements.in"))
 
     if pip_compile := get_task("pip.compile"):
         with_compile = not skip_compile
@@ -1781,7 +1781,7 @@ def clean_redis(_: Context, db_count: int = 3) -> None:
 
 
 @task()
-def clean_flags(ctx: Context, flag_dir: str = "migrate/flags"):
+def clean_flags(_: Context, flag_dir: str = "migrate/flags"):
     flag_dir_path = pathlib.Path(flag_dir)
 
     for flag_file in flag_dir_path.glob("*.complete"):
@@ -1920,7 +1920,7 @@ def sleep(_: Context, n: str) -> None:
         print("\r", f"Sleeping for: {remaining} seconds", end=" ", flush=True)
         time.sleep(1)
 
-    print("\r", f"Sleeping for: 0 seconds", end="\n")
+    print("\r", "Sleeping for: 0 seconds", end="\n")
 
 
 @task()

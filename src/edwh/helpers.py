@@ -6,7 +6,6 @@ import abc
 import datetime as dt
 import functools
 import io
-import os
 import sys
 import typing
 from pathlib import Path
@@ -445,7 +444,7 @@ def _write_bytes_remote(c: Connection, path: str, contents: bytes, parents: bool
 
     if parents:
         # ensure path to file exists
-        parent_path = os.path.dirname(path)
+        parent_path = Path(path).parent
         c.run(f"mkdir -p {parent_path}")
 
     c.put(f, path)

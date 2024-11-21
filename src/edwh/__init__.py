@@ -10,11 +10,11 @@ import warnings
 
 from cryptography.utils import CryptographyDeprecationWarning
 
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)  # noqa
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
-from . import tasks
-from .constants import DOCKER_COMPOSE
-from .helpers import (
+from . import tasks  # noqa E402 - import has to come after warning filter
+from .constants import DOCKER_COMPOSE  # noqa E402  - import has to come after warning filter
+from .helpers import (  # noqa E402  - import has to come after warning filter
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
@@ -43,8 +43,8 @@ from .helpers import (
     shorten,
     yaml_loads,
 )
-from .improved_invoke import ImprovedTask, improved_task
-from .tasks import (
+from .improved_invoke import ImprovedTask, improved_task  # noqa E402  - import has to come after warning filter
+from .tasks import (  # noqa E402  - import has to come after warning filter
     TomlConfig,
     check_env,
     get_env_value,
