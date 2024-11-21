@@ -1152,7 +1152,7 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
-@task()
+@task(aliases=("psa",))
 def ps_all(ctx: Context):
     """
     Show all active (docker compose) environments.
