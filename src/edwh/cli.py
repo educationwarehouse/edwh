@@ -119,7 +119,7 @@ def include_personal_tasks() -> None:
 
 def include_other_project_tasks() -> None:
     for file in Path().glob("*.tasks.py"):
-        namespace = file.split(".")[0]
+        namespace = file.stem.split(".")[0]
 
         spec = importlib.util.spec_from_file_location(
             name=namespace,  # note that ".test" is not a valid module name
