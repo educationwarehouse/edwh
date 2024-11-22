@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 import dateutil.parser
-import requests
 import yayarl as yarl
 from invoke import Context  # type: ignore
 from packaging.version import parse as parse_package_version
@@ -329,7 +328,7 @@ def get_changelog(github_repo: str | yarl.URL) -> str:
     github_repo = github_repo.path.removeprefix("/")  # e.g. educationwarehouse/edwh
     changelog_url = GITHUB_RAW_URL / github_repo / "master/CHANGELOG.md"  # replace github.com with github raw
 
-    return requests.get(str(changelog_url), timeout=10).text
+    return changelog_url.get(timeout=10).text
 
 
 def get_changelogs_threaded(github_repos: dict[str, str]) -> dict[str, str]:
