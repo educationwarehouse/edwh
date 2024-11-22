@@ -1927,13 +1927,25 @@ def sleep(_: Context, n: str) -> None:
 
 
 @task()
-def lint(ctx: Context, directory: Optional[str] = None):
+def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: bool = False):
     """
     Lint code with `ruff`.
+
+    Args:
+        ctx: invoke context
+        directory: where to look for code
+        select: specific lints to check
+        fix: try to fix (some) issues automatically
     """
     directory = directory or "."
 
-    color = "green" if run_pty(ctx, f"ruff check {directory} --quiet") else "red"
+    command = [f"ruff check {directory} --quiet"]
+    if select:
+        command.append(f"--select {select}")
+    if fix:
+        command.append("--fix")
+
+    color = "green" if run_pty(ctx, *command) else "red"
     cprint("⬤ ruff", color=color)
 
 

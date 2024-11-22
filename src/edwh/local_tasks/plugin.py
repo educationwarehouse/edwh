@@ -153,7 +153,7 @@ def gather_plugin_info(c: Context) -> list[Plugin]:
     available_plugins = ["edwh", *_get_available_plugins_from_pypi("edwh", "plugins")]
 
     installed_plugins_raw = list_installed_plugins(c)
-    if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
+    if not installed_plugins_raw or (len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == ""):
         cprint("No 'edwh' packages found. That can't be right", color="yellow")
 
     return _gather_plugin_info(c, available_plugins)

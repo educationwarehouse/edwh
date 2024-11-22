@@ -169,7 +169,7 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
     pip_command = _pip()
 
     edwh_packages = list_installed_plugins(c, pip_command)
-    if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
+    if not edwh_packages or (len(edwh_packages) == 1 and edwh_packages[0] == ""):
         cprint("No 'edwh' packages found. That can't be right", color="yellow")
 
     old_plugins = _determine_outdated_threaded(edwh_packages, prerelease=prerelease)

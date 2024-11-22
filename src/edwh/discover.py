@@ -168,7 +168,7 @@ class Discover:
             except json.JSONDecodeError:
                 print(f"Error loading settings for {self.data['server']}/{folder}", file=sys.stderr)
         else:
-            self.print(f"Settings:", color="red", attrs=["bold"])
+            self.print("Settings:", color="red", attrs=["bold"])
             with self.indent():
                 for line in settings_output.split("\n"):
                     self.print(line)
