@@ -7,11 +7,8 @@ from pathlib import Path
 from typing import TypedDict
 
 import humanize
-
-# todo: replace 'ansi' with termcolor
-from ansi.color import fg
-from ansi.color.fx import bold, reset
 from invoke.context import Context
+from termcolor import colored, cprint
 
 from .helpers import AnyDict, dc_config, dump_set_as_list, noop
 
@@ -96,7 +93,7 @@ class Discover:
         self.settings = settings
         self.as_json = as_json
 
-        print_fn = noop if as_json else print
+        print_fn = noop if as_json else cprint
 
         self.print_fn = typing.cast(typing.Callable[..., None], print_fn)
         self.reset()
@@ -118,7 +115,9 @@ class Discover:
         self.i = dedent(self.i, prefix)
 
     def print(self, *args: typing.Any, **kwargs: typing.Any) -> None:
-        self.print_fn(self.i, *args, **kwargs)
+        sep = kwargs.pop("sep", " ")
+        msg = sep.join([self.i, *args])
+        self.print_fn(msg, **kwargs)
 
     def get_hostingdomain_from_env(self) -> str:
         if ran := self.ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True):
@@ -150,7 +149,7 @@ class Discover:
         if ran := self.ctx.run("du -sh . --block-size=1", echo=False, hide=True):
             usage_raw = ran.stdout.strip().split("\t")[0]
             usage = humanize.naturalsize(usage_raw, binary=True)
-            self.print(f"{fg.boldred}Disk usage: {usage}{reset}")
+            self.print(f"Disk usage: {usage}", color="red", attrs=["bold"])
 
             return usage, int(usage_raw)
         else:
@@ -169,7 +168,7 @@ class Discover:
             except json.JSONDecodeError:
                 print(f"Error loading settings for {self.data['server']}/{folder}", file=sys.stderr)
         else:
-            self.print(f"{fg.boldred}Settings:", reset)
+            self.print(f"Settings:", color="red", attrs=["bold"])
             with self.indent():
                 for line in settings_output.split("\n"):
                     self.print(line)
@@ -178,30 +177,27 @@ class Discover:
     def process_docker_service(self, name: str, docker_service: AnyDict, hosting_domain: str) -> ServiceDict:
         service: ServiceDict = {"name": name}
 
-        self.print(f"{fg.green}{name}{reset}")
+        self.print(name, color="green")
         with self.indent():
             if self.exposes:
                 if _exposes := docker_service.get("expose", []):
-                    self.print(f"{fg.boldred}Exposes: {', '.join([str(port) for port in _exposes])}{reset}")
+                    self.print(f"Exposes: {', '.join([str(port) for port in _exposes])}", color="red", attrs=["bold"])
                 service["exposes"] = _exposes
             if self.ports:
                 if _ports := docker_service.get("ports", []):
                     self.print(
-                        f"{fg.boldred}Ports: {', '.join([str(port) for port in _ports]) if _ports else ''}{reset}"
+                        f"Ports: {', '.join([str(port) for port in _ports]) if _ports else ''}",
+                        color="red",
+                        attrs=["bold"],
                     )
                 service["ports"] = _ports
 
             service["domains"] = set()
             if self.host_labels:
-
-                def darken_domain(s: str) -> str:
-                    return s.replace(hosting_domain, f"{fg.brightblack}{hosting_domain}{reset}")
-
                 service["domains"] = get_hosts_for_service(docker_service)
                 for domain in service["domains"]:
-                    self.print(darken_domain(domain))
+                    self.print(domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")))
 
-            self.print(reset, end="")
         if service["domains"]:
             self.print()
 
@@ -211,9 +207,8 @@ class Discover:
         project: ProjectDict = {}
         hosting_domain = self.get_hostingdomain_from_env()
         self.print(
-            f"{fg.brightblue}{folder}{reset}",
-            f"{fg.brightyellow}{hosting_domain}",
-            reset,
+            colored(f"{folder}", color="light_blue"),
+            colored(f"{hosting_domain}", color="light_yellow"),
         )
 
         project["name"] = folder
@@ -250,7 +245,7 @@ class Discover:
     def discover(self) -> None:
         self.reset()
 
-        self.print(f"{bold}", self.data["server"], reset)
+        self.print(self.data["server"], attrs=["bold"])
 
         compose_file_paths = self.find_compose_files()
 
