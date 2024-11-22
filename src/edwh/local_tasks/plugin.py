@@ -13,7 +13,7 @@ from typing import Optional
 
 import dateutil.parser
 import requests
-import yayarl
+import yayarl as yarl
 from invoke import Context  # type: ignore
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
@@ -319,12 +319,12 @@ def remove(c: Context, plugin_names: str) -> None:
     c.run(f"{pip} uninstall " + " ".join(plugin_names_splitted))
 
 
-GITHUB_RAW_URL = yayarl.URL("https://raw.githubusercontent.com")
+GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
 
 
-def get_changelog(github_repo: str | yayarl.URL) -> str:
+def get_changelog(github_repo: str | yarl.URL) -> str:
     if isinstance(github_repo, str):
-        github_repo = yayarl.URL(github_repo)
+        github_repo = yarl.URL(github_repo)
 
     github_repo = github_repo.path.removeprefix("/")  # e.g. educationwarehouse/edwh
     changelog_url = GITHUB_RAW_URL / github_repo / "master/CHANGELOG.md"  # replace github.com with github raw
