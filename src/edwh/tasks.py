@@ -912,20 +912,21 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
 
     copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
-    if not dc_path.exists():
-        cprint("docker-compose file is missing, setup could not be completed!", color="red")
-        return False
+    if dc_path.exists():
+        print("getting services...")
 
-    print("getting services...")
+        try:
+            # run `docker compose config` to build a yaml with all processing done, include statements included.
+            build_toml(c)
+        except Exception as e:
+            cprint(
+                f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})",
+                color="red",
+            )
+            # this could be because 'include' requires a variable that's setup in local task, so still run that:
+    else:
+        cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
 
-    try:
-        # run `docker compose config` to build a yaml with all processing done, include statements included.
-        build_toml(c)
-    except Exception as e:
-        cprint(
-            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})", color="red"
-        )
-        # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
     return True
 

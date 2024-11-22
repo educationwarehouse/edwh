@@ -13,7 +13,7 @@ from typing import Optional
 
 import dateutil.parser
 import requests
-import yarl
+import yayarl as yarl
 from invoke import Context  # type: ignore
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
