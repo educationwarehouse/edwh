@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.51.3 (2024-11-22)
+
+### Fix
+
+* Still run local tasks.py:setup if docker-compose.yml is missing ([`dbf6748`](https://github.com/educationwarehouse/edwh/commit/dbf6748e53691fa99d646d761c9ba9222a95fcd5))
+* (Y/n) -> [Yn] for consistency ([`e288263`](https://github.com/educationwarehouse/edwh/commit/e288263bd387c9346737cb3eaad1a18c46f2de43))
+
 ## v0.51.2 (2024-11-18)
 
 ### Fix
