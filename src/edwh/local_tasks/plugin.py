@@ -155,7 +155,7 @@ def gather_plugin_info(c: Context) -> list[Plugin]:
 
     installed_plugins_raw = list_installed_plugins(c)
     if not installed_plugins_raw or len(installed_plugins_raw) == 1 and installed_plugins_raw[0] == "":
-        raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
+        cprint("No 'edwh' packages found. That can't be right", color="yellow")
 
     return _gather_plugin_info(c, available_plugins)
 
