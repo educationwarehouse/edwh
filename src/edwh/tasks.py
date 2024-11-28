@@ -1961,5 +1961,6 @@ def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Opti
         cprint("⬤ isort", color=color)
 
     if reformat:
-        color = "green" if run_pty_ok(ctx, f"ruff format {directory} --quiet") else "red"
+        # note: ruff format --quiet also hides what's wrong, so instead pipe stdout to dev null and only show stderr:
+        color = "green" if run_pty_ok(ctx, f"ruff format {directory} > /dev/null") else "red"
         cprint("● reformat", color=color)
