@@ -87,7 +87,7 @@ FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
 async def parse_docker_log_line(
     line: str,
     human_name: str,
-    container_id: str,
+    container_id: str,  # noqa ARG001 - may be used later
     color: ColorFn,
     stream: Optional[str] = None,
     since: Optional[str] = None,

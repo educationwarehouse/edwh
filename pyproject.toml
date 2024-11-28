@@ -29,7 +29,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "ansi", # todo: replace with termcolor
     "anyio", # for async log reading
     "click", # for interactive select box (e.g. in `ew setup`)
     "diceware", # for generating random, safe passhprases
@@ -43,7 +42,7 @@ dependencies = [
     "pyyaml", # yaml parser (for docker-compose.yml)
     "rapidfuzz",  # levenshtein my beloved
     "requests", # better than urllib no?
-    "su6[black,isort]", # For `edwh fmt`
+    "ruff", # For `edwh fmt`, `edwh lint`
     "tabulate", # for nice cli tables
     "termcolor", # improved ansi colored print
     "threadful", # running things in different threads easily, with animations
@@ -57,9 +56,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "hatch",
-    # "python-semantic-release >= 8.0.0a5",
-    "black",
-    "su6[all]",
+    "python-semantic-release<8",
     "types-requests",
     "types-python-dateutil",
     "types-redis",
@@ -261,7 +258,7 @@ select = [
     "SIM", # simplify
     "ARG", # unused arguments
     # "COM", # comma's
-    # "PTH", # use pathlib
+    "PTH", # use pathlib
     "RUF", # ruff rules
     "C90", # mccabe (complexity)
     #    "I", # isort
@@ -278,7 +275,7 @@ select = [
     # "DTZ", # datetimes
     # "T10", # debugger
     # "DJ", # django
-    "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
+    # "ISC", # implicit string concat (handig voor als je een , mist in een lijst bijv.)
     "SIM", # simplify
 ]
 

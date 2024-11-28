@@ -6,7 +6,6 @@ import abc
 import datetime as dt
 import functools
 import io
-import os
 import sys
 import typing
 from pathlib import Path
@@ -14,6 +13,7 @@ from typing import Optional
 
 import click
 import diceware
+import invoke
 import yaml
 from fabric.connection import Connection
 from invoke.context import Context
@@ -53,6 +53,20 @@ def executes_correctly(c: Context, argument: str) -> bool:
 def execution_fails(c: Context, argument: str) -> bool:
     """Returns true if the execution fails based on error level"""
     return not executes_correctly(c, argument)
+
+
+def run_pty(ctx: Context, *command_parts: str, **options) -> invoke.Result | None:
+    try:
+        command = " ".join(command_parts)
+        return ctx.run(command, pty=True, **options)
+    except invoke.exceptions.Failure:
+        # error is already printed due to `pty`
+        return None
+
+
+def run_pty_ok(ctx: Context, *command_parts: str, **options) -> bool:
+    result = run_pty(ctx, *command_parts, **options)
+    return bool(result and result.ok)
 
 
 def generate_password(silent: bool = True, dice: int = 6) -> str:
@@ -445,7 +459,7 @@ def _write_bytes_remote(c: Connection, path: str, contents: bytes, parents: bool
 
     if parents:
         # ensure path to file exists
-        parent_path = os.path.dirname(path)
+        parent_path = Path(path).parent
         c.run(f"mkdir -p {parent_path}")
 
     c.put(f, path)

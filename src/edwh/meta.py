@@ -7,7 +7,7 @@ import sys
 import typing
 from typing import Optional
 
-import requests
+import yayarl as yarl
 from invoke.context import Context
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
@@ -16,7 +16,7 @@ from termcolor import cprint
 from .helpers import AnyDict
 from .improved_invoke import improved_task as task
 
-PYPI_URL_PATTERN = "https://pypi.python.org/pypi/{package}/json"
+PYPI_URL_BASE = yarl.URL("https://pypi.python.org/pypi/")
 
 
 def _python() -> str:
@@ -38,7 +38,8 @@ def _get_pypi_info(package: str) -> AnyDict:
     """
     Load metadata from pypi for a package
     """
-    resp = requests.get(PYPI_URL_PATTERN.format(package=package), timeout=10)
+    url = PYPI_URL_BASE / package / "json"
+    resp = url.get(timeout=10)
     return typing.cast(AnyDict, resp.json())
 
 
@@ -168,8 +169,8 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
     pip_command = _pip()
 
     edwh_packages = list_installed_plugins(c, pip_command)
-    if not edwh_packages or len(edwh_packages) == 1 and edwh_packages[0] == "":
-        raise ModuleNotFoundError("No 'edwh' packages found. That can't be right")
+    if not edwh_packages or (len(edwh_packages) == 1 and edwh_packages[0] == ""):
+        cprint("No 'edwh' packages found. That can't be right", color="yellow")
 
     old_plugins = _determine_outdated_threaded(edwh_packages, prerelease=prerelease)
 

@@ -1,4 +1,3 @@
-import glob
 import importlib
 import importlib.util
 import os
@@ -47,7 +46,7 @@ def include_plugins() -> None:
 def include_packaged_plugins() -> None:
     from . import local_tasks
 
-    tasks_dir = os.path.dirname(local_tasks.__file__)
+    tasks_dir = Path(local_tasks.__file__).parent
     discovered_plugins = os.listdir(tasks_dir)
     discovered_plugins = [_.removesuffix(".py") for _ in discovered_plugins if not _.startswith("_")]
     for plugin in discovered_plugins:
@@ -107,9 +106,8 @@ def include_personal_tasks() -> None:
             sys.path.append(config_path)
 
     personal_tasks = config / "tasks.py"
-    if personal_tasks.exists():
-        if personal_collection := collection_from_abs_path(str(personal_tasks), "_personal_"):
-            collection.tasks |= personal_collection.tasks
+    if personal_tasks.exists() and (personal_collection := collection_from_abs_path(str(personal_tasks), "_personal_")):
+        collection.tasks |= personal_collection.tasks
 
     # namespace.tasks.py:
     for path in set(config.glob("*.tasks.py")):
@@ -120,8 +118,8 @@ def include_personal_tasks() -> None:
 
 
 def include_other_project_tasks() -> None:
-    for file in glob.glob("*.tasks.py"):
-        namespace = file.split(".")[0]
+    for file in Path().glob("*.tasks.py"):
+        namespace = file.stem.split(".")[0]
 
         spec = importlib.util.spec_from_file_location(
             name=namespace,  # note that ".test" is not a valid module name

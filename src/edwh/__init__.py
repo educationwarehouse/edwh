@@ -10,11 +10,11 @@ import warnings
 
 from cryptography.utils import CryptographyDeprecationWarning
 
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)  # noqa
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
-from . import tasks
-from .constants import DOCKER_COMPOSE
-from .helpers import (
+from . import tasks  # noqa E402 - import has to come after warning filter
+from .constants import DOCKER_COMPOSE  # noqa E402  - import has to come after warning filter
+from .helpers import (  # noqa E402  - import has to come after warning filter
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
@@ -43,8 +43,8 @@ from .helpers import (
     shorten,
     yaml_loads,
 )
-from .improved_invoke import ImprovedTask, improved_task
-from .tasks import (
+from .improved_invoke import ImprovedTask, improved_task  # noqa E402  - import has to come after warning filter
+from .tasks import (  # noqa E402  - import has to come after warning filter
     TomlConfig,
     check_env,
     get_env_value,
@@ -59,43 +59,43 @@ task = improved_task
 
 __all__ = [
     "DOCKER_COMPOSE",
-    "tasks",
-    "add_alias",
+    "KEY_ARROWDOWN",
+    "KEY_ARROWUP",
+    "KEY_ENTER",
     "AnyDict",
-    "Task",
     "ImprovedTask",
-    "task",
-    "improved_task",
+    "Logger",
+    "NoopLogger",
+    "Task",
     "TomlConfig",
+    "VerboseLogger",
+    "add_alias",
+    "arg_was_passed",
     "check_env",
-    "get_env_value",
-    "get_task",
-    "read_dotenv",
-    "set_env_value",
-    "task_for_namespace",
     "confirm",
+    "dc_config",
+    "dump_set_as_list",
     "executes_correctly",
     "execution_fails",
-    "generate_password",
-    "arg_was_passed",
-    "kwargs_to_options",
-    "Logger",
-    "VerboseLogger",
-    "NoopLogger",
-    "noop",
-    "dump_set_as_list",
-    "KEY_ENTER",
-    "KEY_ARROWUP",
-    "KEY_ARROWDOWN",
-    "print_box",
-    "interactive_selected_checkbox_values",
-    "interactive_selected_radio_value",
-    "yaml_loads",
-    "dc_config",
-    "print_aligned",
-    "flatten",
-    "shorten",
     "fabric_read",
     "fabric_read_bytes",
     "fabric_write",
+    "flatten",
+    "generate_password",
+    "get_env_value",
+    "get_task",
+    "improved_task",
+    "interactive_selected_checkbox_values",
+    "interactive_selected_radio_value",
+    "kwargs_to_options",
+    "noop",
+    "print_aligned",
+    "print_box",
+    "read_dotenv",
+    "set_env_value",
+    "shorten",
+    "task",
+    "task_for_namespace",
+    "tasks",
+    "yaml_loads",
 ]
