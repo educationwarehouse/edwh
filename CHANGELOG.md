@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.52.1 (2024-11-28)
+
+### Fix
+
+* **fmt:** Show stderr on `ew fmt` errors ([`408ea6c`](https://github.com/educationwarehouse/edwh/commit/408ea6c9fc660c3cdcf884fa3bcdeecd401b4158))
+
 ## v0.52.0 (2024-11-28)
 
 ### Feature
