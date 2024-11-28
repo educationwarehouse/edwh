@@ -2,6 +2,23 @@
 
 <!--next-version-placeholder-->
 
+## v0.52.0 (2024-11-28)
+
+### Feature
+
+* Allow passing `--select <code>` and `--fix` to lint/ruff ([`97a0ece`](https://github.com/educationwarehouse/edwh/commit/97a0ece194cd05cdd2ee93e57ef25cfa41893f07))
+* Add `edwh lint` subcommand, also based on `ruff` ([`76a468f`](https://github.com/educationwarehouse/edwh/commit/76a468fa6d707e94ffd6a089ac17c3761a9fd00e))
+* Replace `su6[black,isort` with `ruff` for `edwh fmt` ([`ff89c28`](https://github.com/educationwarehouse/edwh/commit/ff89c2878833ed4ccdb4fd18b0689b93c718a4e2))
+
+### Fix
+
+* Replaced old `ansi` prints with `termcolor` ([`6d44fec`](https://github.com/educationwarehouse/edwh/commit/6d44fecd5795f3ac9178c00f6b2abeebd9bfd835))
+* Change `No 'edwh' packages found. That can't be right` into a yellow print instead of an exception, so the script still continues instead of showing a traceback ([`40d5d66`](https://github.com/educationwarehouse/edwh/commit/40d5d66c83f228fc1453d46ee8111afcbf4bd44d))
+* Path.glob yields paths instead of strings ([`a98dacc`](https://github.com/educationwarehouse/edwh/commit/a98daccbfca0383e650dd996da19c7e6e0ebb441))
+* Add `psa` alias for `ps-all` ([`e2ff06d`](https://github.com/educationwarehouse/edwh/commit/e2ff06d8ed3bffedcdae64b479f6d1d8455f021b))
+* Yarl was replaced with yayarl in the dependencies but not in the plugin.py code ([`73ce7f5`](https://github.com/educationwarehouse/edwh/commit/73ce7f51a2d34855f21292a21b9ae62a99368e2a))
+* Improved output for `ew fmt/ew lint` ([`d7f9523`](https://github.com/educationwarehouse/edwh/commit/d7f9523ebd79cce3502fb4199cf6f23e16320552))
+
 ## v0.51.3 (2024-11-22)
 
 ### Fix
