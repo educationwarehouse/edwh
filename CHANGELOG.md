@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.52.2 (2024-11-29)
+
+### Fix
+
+* Add `__main__.py` so the program can be run via `python -m edwh`, which is needed to make the pycharm debugger work properly ([`eb2e981`](https://github.com/educationwarehouse/edwh/commit/eb2e98156412cfb92c6cca08b363cab35d564b80))
+
 ## v0.52.1 (2024-11-28)
 
 ### Fix
