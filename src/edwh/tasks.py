@@ -22,12 +22,14 @@ from typing import Optional
 import anyio
 import invoke
 import tabulate
+import threadful
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
+from threadful import ThreadWithReturn, threadify
 from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
@@ -1163,6 +1165,24 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
+def get_health_sync(ctx: Context, container_name: str) -> tuple[str, str, str]:
+    container_id = find_container_id(ctx, container_name)
+
+    data = inspect(ctx, container_id)
+    state = data.get("State", {})
+    health = state.get("Health", {})
+    return (
+        container_name,
+        state.get("Status", "?"),
+        health.get("Status", "?"),
+    )
+
+
+# this way pycharm understands the new return type,
+# as a decorator it does not for some reason:
+get_health_async = threadify(get_health_sync)
+
+
 @task(
     flags={
         "show_all": ("all", "a"),
@@ -1181,7 +1201,7 @@ def health(
         ctx: invoke context
         service: which services to show logs for. Defaults to 'minimal' (same as up)
         wait: should the command wait until all services are healthy? Defaults to only showing status once and exiting.
-        all: show all services. Alias for `-s all`
+        show_all: show all services. Alias for `-s all`
 
     Returns:
         Number of unhealthy services (0 is good, just like bash exit codes).
@@ -1189,7 +1209,17 @@ def health(
     """
     config = TomlConfig.load()
     # test for --service arguments, if none given: use defaults
-    services = service_names(service or (config.services_minimal if config else []))
+    services = (
+        service_names("all") if show_all else service_names(service or (config.services_minimal if config else []))
+    )
+
+    healths = threadful.join_all_unwrap(
+        *(  # sorry for the black magic fuckery (for loop generator without creating an extra list)
+            get_health_async(ctx, container_name) for container_name in services
+        )
+    )
+
+    print(healths)
 
     # todo:
     # 1. service names -> container ids

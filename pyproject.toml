@@ -46,7 +46,7 @@ dependencies = [
     "ruff", # For `edwh fmt`, `edwh lint`
     "tabulate", # for nice cli tables
     "termcolor", # improved ansi colored print
-    "threadful", # running things in different threads easily, with animations
+    "threadful>=0.5", # running things in different threads easily, with animations
     "tomlkit", # for toml reading and writing
     "tqdm", # nice progress bars
     "typing-extensions", # using modern typing features in older python versions
