@@ -1145,12 +1145,56 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
 
+    # todo:
+    #  0. build `edwh health` screen
+    #     -> return boolean whether all are healthy
+    #  1. hide default up, show 'health' screen
+    #     unless --classic or something is passed?
+    #     -> option to NOT wait for health if possible?
+    #        -> `dc up` should not wait by default but it still waits for postgres if you start py4web.
+    #           there probably is no way around this
+    #  2. devdb.reset should use health instead of sleep
+    #     -> deprecate `--wait`, show warning (don't just remove)
+
     exec_up_in_other_task(ctx, services)
     if show_settings:
         show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
+@task(
+    aliases={
+        "show_all":
+    }
+)
+def health(
+    ctx: Context,
+    service: typing.Collection[str] | None = None,
+    wait: bool = False,
+    all: bool = False,
+) -> int:
+    """
+    Show health status for docker containers
+
+    Args:
+        ctx: invoke context
+        service: which services to show logs for. Defaults to 'minimal' (same as up)
+        wait: should the command wait until all services are healthy? Defaults to only showing status once and exiting.
+        all: show all services. Alias for `-s all`
+
+    Returns:
+        Number of unhealthy services (0 is good, just like bash exit codes).
+            Should always be 0 if you use --wait
+    """
+    config = TomlConfig.load()
+    # test for --service arguments, if none given: use defaults
+    services = service_names(service or (config.services_minimal if config else []))
+
+    # todo:
+    # 1. service names -> container ids
+    # - for each container do something like:
+    # docker inspect --format "{{json .State.Health }}" <container>
+    # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
 
 @task(aliases=("psa",))
 def ps_all(ctx: Context):
