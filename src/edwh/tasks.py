@@ -1052,8 +1052,8 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75) -> typing.It
 @task(
     help=dict(find="search for this specific setting", as_json="output as json dictionary"),
     flags={
-        "as_json": ["j", "json", "as-json"],
-        "fuzz_threshold": ["t", "fuzz-threshold"],
+        "as_json": ("j", "json", "as-json"),
+        "fuzz_threshold": ("t", "fuzz-threshold"),
     },
 )
 def settings(_: Context, find: Optional[str] = None, fuzz_threshold: int = 75, as_json: bool = False) -> None:
@@ -1116,7 +1116,7 @@ def volumes(ctx: Context) -> None:
     ),
     iterable=["service"],
     flags={
-        "tail": ["tail", "logs", "l"],  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
+        "tail": ("tail", "logs", "l"),  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
     },
 )
 def up(
@@ -1162,16 +1162,17 @@ def up(
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
+
 @task(
-    aliases={
-        "show_all":
+    flags={
+        "show_all": ("all", "a"),
     }
 )
 def health(
     ctx: Context,
     service: typing.Collection[str] | None = None,
     wait: bool = False,
-    all: bool = False,
+    show_all: bool = False,
 ) -> int:
     """
     Show health status for docker containers
@@ -1196,6 +1197,7 @@ def health(
     # docker inspect --format "{{json .State.Health }}" <container>
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
 
+
 @task(aliases=("psa",))
 def ps_all(ctx: Context):
     """
@@ -1218,7 +1220,7 @@ def ps_all(ctx: Context):
         full_command="Don't truncate the command.",
     ),
     flags={
-        "show_all": ["all", "a"],
+        "show_all": ("all", "a"),
     },
 )
 def ps(
@@ -1745,7 +1747,7 @@ def show_help(ctx: Context, about: str) -> None:
         "show_settings": "show settings per folder",
         "as_json": "output json",
     },
-    flags={"show_settings": ["settings", "show-settings"], "as_json": ["j", "json", "as-json"]},  # -s is for short
+    flags={"show_settings": ("settings", "show-settings"), "as_json": ("j", "json", "as-json")},  # -s is for short
 )
 def task_discover(
     ctx: Context,
@@ -1872,7 +1874,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
         cprint("No data volumes to remove!", color="yellow")
 
 
-@task(flags={"clean_all": ["all", "a"]})
+@task(flags={"clean_all": ("all", "a")})
 def clean(
     ctx: Context,
     clean_all: bool = False,
@@ -1903,7 +1905,7 @@ def clean(
         clean_redis(ctx)
 
 
-@task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
+@task(aliases=("whipe-db",), flags={"clean_all": ("all", "a")})
 def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", yes: bool = False) -> None:
     """
     Wipes postgres volumes.

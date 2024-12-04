@@ -35,7 +35,7 @@ class TaskOptions(typing.TypedDict, total=False):
     autoprint: bool
     iterable: Optional[Iterable[str]]
     incrementable: Optional[Iterable[str]]
-    flags: dict[str, list[str]] | None
+    flags: dict[str, Iterable[str]] | None
 
 
 class TaskCallable(typing.Protocol):
@@ -71,7 +71,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         iterable: Optional[Iterable[str]] = None,
         incrementable: Optional[Iterable[str]] = None,
         # new:
-        flags: dict[str, list[str]] | None = None,
+        flags: dict[str, Iterable[str]] | None = None,
     ):
         self._flags = flags or {}
 
@@ -91,7 +91,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             incrementable=incrementable,
         )
 
-    def arg_opts(self, name: str, default: str, taken_names: typing.Iterable[str]) -> AnyDict:
+    def arg_opts(self, name: str, default: str, taken_names: Iterable[str]) -> AnyDict:
         opts = super().arg_opts(name=name, default=default, taken_names=set(taken_names))
 
         if flags := self._flags.get(name):
@@ -99,7 +99,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             #  -> currently, you get an error like
             #  'ValueError: Tried to add an argument named 't' but one already exists!'
             #  for now, you'll just have to manually set correct flags to prevent this.
-            opts["names"] = flags
+            opts["names"] = list(flags)
 
         return opts
 
