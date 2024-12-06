@@ -1145,7 +1145,7 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}", pty=True)
 
     # todo:
     #  0. build `edwh health` screen
@@ -1164,17 +1164,30 @@ def up(
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
+@dataclass
+class HealthStatus:
+    container: str
+    status: typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "dead"]
+    health: typing.Literal["starting", "healthy", "unhealthy"] | None
 
-def get_health_sync(ctx: Context, container_name: str) -> tuple[str, str, str]:
-    container_id = find_container_id(ctx, container_name)
+
+def get_health_sync(ctx: Context, container_name: str) -> HealthStatus:
+    if not (container_id := find_container_id(ctx, container_name)):
+        return HealthStatus(
+            container_name,
+            "dead",
+            None,
+        )
+
 
     data = inspect(ctx, container_id)
     state = data.get("State", {})
     health = state.get("Health", {})
-    return (
+
+    return HealthStatus(
         container_name,
-        state.get("Status", "?"),
-        health.get("Status", "?"),
+        state.get("Status"),
+        health.get("Status"),
     )
 
 
@@ -1226,7 +1239,6 @@ def health(
     # - for each container do something like:
     # docker inspect --format "{{json .State.Health }}" <container>
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
-
 
 @task(aliases=("psa",))
 def ps_all(ctx: Context):
