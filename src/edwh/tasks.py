@@ -1,4 +1,5 @@
 import contextlib
+import enum
 import fnmatch
 import hashlib
 import io
@@ -27,7 +28,7 @@ import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke.context import Context
 from rapidfuzz import fuzz
-from termcolor import colored, cprint
+from termcolor import colored, cprint, termcolor
 from termcolor._types import Color
 from threadful import ThreadWithReturn, threadify
 from typing_extensions import Never
@@ -1095,7 +1096,7 @@ def volumes(ctx: Context) -> None:
     stdout = ran.stdout if ran else ""
     for container_id in stdout.strip().split("\n"):
         with contextlib.suppress(EnvironmentError):
-            info = inspect(ctx, container_id)
+            info = inspect(ctx, container_id)[0]
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1164,27 +1165,111 @@ def up(
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
+
+StatusOptions = typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "dead"]
+HealthOptions = typing.Literal["starting", "unhealthy", "healthy"] | None
+
+
+class HealthLevel(enum.IntEnum):
+    # int-enum makes ordering possible
+
+    HEALTHY = enum.auto()  # running and healthy
+    RUNNING = enum.auto()  # running but health unknown
+    DEGRADED = enum.auto()  # running and unhealthy
+    STARTING = enum.auto()  # starting, restarting
+    UNKNOWN = enum.auto()  # created
+    DYING = enum.auto()  # paused or removing
+    CRITICAL = enum.auto()  # dead
+
+    @property
+    def ok(self) -> bool:
+        match self:
+            case self.HEALTHY | self.RUNNING:
+                return True
+            case _:
+                return False
+
+    @property
+    def color(self) -> termcolor.Color:
+        match self:
+            case self.HEALTHY:
+                return "green"
+            case self.RUNNING:
+                return "cyan"
+            case self.DEGRADED:
+                return "yellow"
+            case self.STARTING:
+                return "light_yellow"
+            case self.DYING:
+                return "light_red"
+            case self.CRITICAL:
+                return "red"
+            case _:
+                # unknown
+                return "grey"
+
+
 @dataclass
 class HealthStatus:
+    container_id: str
     container: str
-    status: typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "dead"]
-    health: typing.Literal["starting", "healthy", "unhealthy"] | None
+    status: StatusOptions
+    health: HealthOptions
+
+    @property
+    def level(self) -> HealthLevel:
+        """
+        Return health level (lower is better).
+        """
+        if self.health == "healthy":
+            return HealthLevel.HEALTHY
+        elif self.health == "unhealthy":
+            return HealthLevel.DEGRADED
+        elif self.health == "starting":
+            return HealthLevel.STARTING
+        elif self.status == "running":
+            # running but health unknown
+            return HealthLevel.RUNNING
+        elif self.status in {"restarting", "removing", "paused"}:
+            return HealthLevel.DYING
+        elif self.status in {"exited", "dead"}:
+            return HealthLevel.CRITICAL
+        else:
+            return HealthLevel.UNKNOWN
+
+    @property
+    def ok(self):
+        return self.level.ok
+
+    @property
+    def color(self) -> termcolor.Color:
+        return self.level.color
+
+    def __repr__(self):
+        return termcolor.colored(f"Health({self})", self.color)
+
+    def __str__(self):
+        status = self.status
+        if self.health:
+            status = f"{status} & {self.health}"
+        return termcolor.colored(f"{self.container}: {status}", self.color)
 
 
 def get_health_sync(ctx: Context, container_name: str) -> HealthStatus:
     if not (container_id := find_container_id(ctx, container_name)):
         return HealthStatus(
+            container_id,
             container_name,
             "dead",
             None,
         )
 
-
-    data = inspect(ctx, container_id)
+    data = inspect(ctx, container_id)[0]
     state = data.get("State", {})
     health = state.get("Health", {})
 
     return HealthStatus(
+        container_id,
         container_name,
         state.get("Status"),
         health.get("Status"),
@@ -1194,6 +1279,19 @@ def get_health_sync(ctx: Context, container_name: str) -> HealthStatus:
 # this way pycharm understands the new return type,
 # as a decorator it does not for some reason:
 get_health_async = threadify(get_health_sync)
+
+
+@task
+def inspect_health(ctx, container: str, quiet: bool = False):
+    tab = " " * 4
+    with contextlib.suppress(OSError):
+        if data := inspect(ctx, container, '--format "{{json .State.Health }}"'):
+            if not quiet:
+                print(tab + yaml.dump(data).replace("\n", f"\n{tab}"))
+
+            return data
+
+    return None
 
 
 @task(
@@ -1206,6 +1304,7 @@ def health(
     service: typing.Collection[str] | None = None,
     wait: bool = False,
     show_all: bool = False,
+    quiet: bool = False,
 ) -> int:
     """
     Show health status for docker containers
@@ -1223,22 +1322,28 @@ def health(
     config = TomlConfig.load()
     # test for --service arguments, if none given: use defaults
     services = (
-        service_names("all") if show_all else service_names(service or (config.services_minimal if config else []))
+        # todo: default to ??? Maybe new toml entry? Or 'all'?
+        service_names("all") if show_all else service_names(service or (config.all_services if config else []))
     )
 
-    healths = threadful.join_all_unwrap(
+    healths: tuple[HealthStatus, ...] = threadful.join_all_unwrap(
         *(  # sorry for the black magic fuckery (for loop generator without creating an extra list)
             get_health_async(ctx, container_name) for container_name in services
         )
     )
 
-    print(healths)
+    for health in sorted(healths, key=lambda h: h.level):
+        print(f"- {health}")
+        if not quiet and not health.ok and health.container_id:
+            inspect_health(ctx, health.container_id)
 
     # todo:
     # 1. service names -> container ids
     # - for each container do something like:
     # docker inspect --format "{{json .State.Health }}" <container>
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
+    # todo: return value
+
 
 @task(aliases=("psa",))
 def ps_all(ctx: Context):
@@ -1259,7 +1364,7 @@ def ps_all(ctx: Context):
         service="Service to query, can be used multiple times, handles wildcards.",
         quiet="Only show container ids. Useful for scripting.",
         columns="Which columns to display?",
-        full_command="Don't truncate the command.",
+        full="Don't truncate the command.",
     ),
     flags={
         "show_all": ("all", "a"),
@@ -1270,12 +1375,13 @@ def ps(
     quiet: bool = False,
     service: typing.Collection[str] | None = None,
     columns: typing.Collection[str] | None = None,
-    full_command: bool = False,
+    full: bool = False,
     show_all: bool = False,
 ) -> None:
     """
     Show process status of services.
     """
+    trunc_after = 30
     if not Path("docker-compose.yml").exists():
         cprint("You're not in a docker compose environment.", color="red")
         if confirm("Would you like to see all running environments? [Yn]", default=True):
@@ -1288,8 +1394,9 @@ def ps(
         flags.append("-a")
     if quiet:
         flags.append("-q")
-    if full_command:
-        flags.append("--no-trunc")
+
+    # we may trunc it ourselves:
+    flags.append("--no-trunc")
 
     flags.extend(service_names(service or []))
 
@@ -1305,7 +1412,7 @@ def ps(
     services = []
 
     # list because it's ordered
-    selected_columns = list(columns or []) or ["Name", "Command", "State", "Ports"]
+    selected_columns = list(columns or []) or ["Name", "Command", "Image", "State", "Health", "Ports"]
 
     for service_json in ps_output.split("\n"):
         if not service_json:
@@ -1314,8 +1421,9 @@ def ps(
 
         service_dict = json.loads(service_json)
         service_dict = {k: v for k, v in service_dict.items() if k in selected_columns}
-        if not full_command:
-            service_dict["Command"] = shorten(service_dict["Command"], 50)
+        if not full:
+            service_dict["Command"] = shorten(service_dict["Command"], trunc_after)
+            service_dict["Image"] = shorten(service_dict["Image"], trunc_after)
 
         service_dict = dict(sorted(service_dict.items(), key=lambda x: selected_columns.index(x[0])))
         services.append(service_dict)
@@ -1419,17 +1527,22 @@ async def logs_improved_async(
             )
 
 
-def inspect(ctx: Context, container_id: str) -> AnyDict:
+def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDict]:
     """
     Docker inspect a container by ID and get the first result.
 
     :raise EnvironmentError if docker inspect failed.
     """
-    ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
+    command = f"docker inspect {container_id}"
+    if args:
+        command = f"{command} {' '.join(args)}"
+    ran = ctx.run(command, hide=True, warn=True)
     if ran and ran.ok:
-        return typing.cast(AnyDict, json.loads(ran.stdout)[0])
+        return typing.cast(AnyDict, json.loads(ran.stdout))
     else:
-        print(ran.stderr if ran else "-")
+        if ran:
+            print(ran.stdout, file=sys.stdout)
+            print(ran.stderr, file=sys.stderr)
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
@@ -1902,7 +2015,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
-        info = inspect(ctx, container_id)
+        info = inspect(ctx, container_id)[0]
         pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
