@@ -1326,16 +1326,16 @@ def health(
         service_names("all") if show_all else service_names(service or (config.all_services if config else []))
     )
 
-    healths: tuple[HealthStatus, ...] = threadful.join_all_unwrap(
+    healths: tuple[HealthStatus | None, ...] = threadful.join_all_unwrap(
         *(  # sorry for the black magic fuckery (for loop generator without creating an extra list)
             get_health_async(ctx, container_name) for container_name in services
         )
     )
 
-    for health in sorted(healths, key=lambda h: h.level):
-        print(f"- {health}")
-        if not quiet and not health.ok and health.container_id:
-            inspect_health(ctx, health.container_id)
+    for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
+        print(f"- {health_status}")
+        if not quiet and not health_status.ok and health_status.container_id:
+            inspect_health(ctx, health_status.container_id)
 
     # todo:
     # 1. service names -> container ids
