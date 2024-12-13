@@ -1297,7 +1297,8 @@ def inspect_health(ctx, container: str, quiet: bool = False):
 @task(
     flags={
         "show_all": ("all", "a"),
-    }
+    },
+    iterable=("service",),
 )
 def health(
     ctx: Context,
@@ -1305,6 +1306,7 @@ def health(
     wait: bool = False,
     show_all: bool = False,
     quiet: bool = False,
+    verbose: bool = False,
 ) -> int:
     """
     Show health status for docker containers
@@ -1314,6 +1316,8 @@ def health(
         service: which services to show logs for. Defaults to 'minimal' (same as up)
         wait: should the command wait until all services are healthy? Defaults to only showing status once and exiting.
         show_all: show all services. Alias for `-s all`
+        quiet: don't print anything, only return amount of unhealthy containers
+        verbose: print health inspection for unhealthy containers
 
     Returns:
         Number of unhealthy services (0 is good, just like bash exit codes).
@@ -1331,18 +1335,23 @@ def health(
             get_health_async(ctx, container_name) for container_name in services
         )
     )
-
-    for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
-        print(f"- {health_status}")
-        if not quiet and not health_status.ok and health_status.container_id:
-            inspect_health(ctx, health_status.container_id)
-
-    # todo:
-    # 1. service names -> container ids
-    # - for each container do something like:
-    # docker inspect --format "{{json .State.Health }}" <container>
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
-    # todo: return value
+
+    if wait:
+        # for every container with a health check, wait for it to be either healthy or dead (not starting)
+        while tracked := [_.container for _ in healths if _ and _.health == "starting"]:
+            if not quiet:
+                print(f" Waiting for {tracked}" + " " * 25, end="\r")
+
+            healths = tuple(get_health_sync(ctx, _) for _ in tracked)
+    elif not quiet:
+        for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
+            print(f"- {health_status}")
+            if verbose and not health_status.ok and health_status.container_id:
+                inspect_health(ctx, health_status.container_id)
+
+    # return amount of sick containers:
+    return sum(not _.ok for _ in healths)
 
 
 @task(aliases=("psa",))
