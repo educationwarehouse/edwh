@@ -1259,7 +1259,10 @@ class HealthStatus:
 def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]:
     container_ids = find_container_ids(ctx, *container_names)
 
-    state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
+    # note: use `docker inspect `docker compose ps -aq`` to prevent issues
+    #  when containers die between these two statements:
+    # state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
+    state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, "`docker compose ps -aq`")}
 
     def container_health(container_name: str):
         container_id = container_ids.get(container_name)
@@ -1553,13 +1556,20 @@ def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDi
     command = f"docker inspect {container_id}"
     if args:
         command = f"{command} {' '.join(args)}"
-    ran = ctx.run(command, hide=True, warn=True)
-    if ran and ran.ok:
+
+    # note: this assumes bash is installed and available at /usr/bin/bash,
+    #  which should be fine in debian-based Linuces.
+    #  this allows you to pass "`docker compose ps -aq`" as container_id
+    ran = ctx.run(command, hide=True, warn=True, shell="/usr/bin/bash")
+
+    if not ran.ok:
+        cprint(f"docker inspect says: {ran.stderr}", file=sys.stderr, color="yellow")
+
+    try:
+        # even if 'ran' is falsey, it could still have valid data.
+        # e.g. `docker inspect <real> <real> <fake>
         return typing.cast(AnyDict, json.loads(ran.stdout))
-    else:
-        if ran:
-            print(ran.stdout, file=sys.stdout)
-            print(ran.stderr, file=sys.stderr)
+    except json.decoder.JSONDecodeError:
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
