@@ -1,4 +1,5 @@
 import contextlib
+import enum
 import fnmatch
 import hashlib
 import io
@@ -26,7 +27,7 @@ import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke.context import Context
 from rapidfuzz import fuzz
-from termcolor import colored, cprint
+from termcolor import colored, cprint, termcolor
 from termcolor._types import Color
 from typing_extensions import Never
 
@@ -339,6 +340,8 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     services_db: list[str]
+    services_health: list[str]
+
     dotenv_path: Path
 
     # __loaded was replaced with tomlconfig_singletons
@@ -413,6 +416,7 @@ class TomlConfig:
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
             services_db=config["services"]["db"],
+            services_health=config["services"].get("health", []),
             dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
         )
         return instance
@@ -1053,8 +1057,8 @@ def _settings(find: typing.Optional[str], fuzz_threshold: int = 75) -> typing.It
 @task(
     help=dict(find="search for this specific setting", as_json="output as json dictionary"),
     flags={
-        "as_json": ["j", "json", "as-json"],
-        "fuzz_threshold": ["t", "fuzz-threshold"],
+        "as_json": ("j", "json", "as-json"),
+        "fuzz_threshold": ("t", "fuzz-threshold"),
     },
 )
 def settings(_: Context, find: Optional[str] = None, fuzz_threshold: int = 75, as_json: bool = False) -> None:
@@ -1094,7 +1098,7 @@ def volumes(ctx: Context) -> None:
     stdout = ran.stdout if ran else ""
     for container_id in stdout.strip().split("\n"):
         with contextlib.suppress(EnvironmentError):
-            info = inspect(ctx, container_id)
+            info = inspect(ctx, container_id)[0]
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1117,7 +1121,7 @@ def volumes(ctx: Context) -> None:
     ),
     iterable=["service"],
     flags={
-        "tail": ["tail", "logs", "l"],  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
+        "tail": ("tail", "logs", "l"),  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
     },
 )
 def up(
@@ -1144,13 +1148,216 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}")
+        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}", pty=True)
+
+    # todo:
+    #  0. build `edwh health` screen
+    #     -> return boolean whether all are healthy
+    #  1. hide default up, show 'health' screen
+    #     unless --classic or something is passed?
+    #     -> option to NOT wait for health if possible?
+    #        -> `dc up` should not wait by default but it still waits for postgres if you start py4web.
+    #           there probably is no way around this
+    #  2. devdb.reset should use health instead of sleep
+    #     -> deprecate `--wait`, show warning (don't just remove)
 
     exec_up_in_other_task(ctx, services)
     if show_settings:
         show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
+
+
+StatusOptions = typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "dead"]
+HealthOptions = typing.Literal["starting", "unhealthy", "healthy"] | None
+
+
+class HealthLevel(enum.IntEnum):
+    # int-enum makes ordering possible
+
+    HEALTHY = enum.auto()  # running and healthy
+    RUNNING = enum.auto()  # running but health unknown
+    DEGRADED = enum.auto()  # running and unhealthy
+    STARTING = enum.auto()  # starting, restarting
+    UNKNOWN = enum.auto()  # created
+    DYING = enum.auto()  # paused or removing
+    CRITICAL = enum.auto()  # dead
+
+    @property
+    def ok(self) -> bool:
+        match self:
+            case self.HEALTHY | self.RUNNING:
+                return True
+            case _:
+                return False
+
+    @property
+    def color(self) -> termcolor.Color:
+        match self:
+            case self.HEALTHY:
+                return "green"
+            case self.RUNNING:
+                return "cyan"
+            case self.DEGRADED:
+                return "yellow"
+            case self.STARTING:
+                return "light_yellow"
+            case self.DYING:
+                return "light_red"
+            case self.CRITICAL:
+                return "red"
+            case _:
+                # unknown
+                return "grey"
+
+
+@dataclass
+class HealthStatus:
+    container_id: str
+    container: str
+    status: StatusOptions
+    health: HealthOptions
+
+    @property
+    def level(self) -> HealthLevel:
+        """
+        Return health level (lower is better).
+        """
+        if self.health == "healthy":
+            return HealthLevel.HEALTHY
+        elif self.health == "unhealthy":
+            return HealthLevel.DEGRADED
+        elif self.health == "starting":
+            return HealthLevel.STARTING
+        elif self.status == "running":
+            # running but health unknown
+            return HealthLevel.RUNNING
+        elif self.status in {"restarting", "removing", "paused"}:
+            return HealthLevel.DYING
+        elif self.status in {"exited", "dead"}:
+            return HealthLevel.CRITICAL
+        else:
+            return HealthLevel.UNKNOWN
+
+    @property
+    def ok(self):
+        return self.level.ok
+
+    @property
+    def color(self) -> termcolor.Color:
+        return self.level.color
+
+    def __repr__(self):
+        return termcolor.colored(f"Health({self})", self.color)
+
+    def __str__(self):
+        status = self.status
+        if self.health:
+            status = f"{status} & {self.health}"
+        return termcolor.colored(f"{self.container}: {status}", self.color)
+
+
+def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]:
+    container_ids = find_container_ids(ctx, *container_names)
+
+    state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
+
+    def container_health(container_name: str):
+        container_id = container_ids.get(container_name)
+        if not (container_id and container_id in state_by_id):
+            return HealthStatus(
+                container_id,
+                container_name,
+                "dead",
+                None,
+            )
+
+        state = state_by_id[container_id]
+        health = state.get("Health", {})
+
+        return HealthStatus(
+            container_id,
+            container_name,
+            state.get("Status"),
+            health.get("Status"),
+        )
+
+    return tuple(container_health(container) for container in container_names)
+
+
+@task
+def inspect_health(ctx, container: str, quiet: bool = False):
+    tab = " " * 4
+    with contextlib.suppress(OSError):
+        if data := inspect(ctx, container, '--format "{{json .State.Health }}"'):
+            if not quiet:
+                print(tab + yaml.dump(data).replace("\n", f"\n{tab}"))
+
+            return data
+
+    return None
+
+
+@task(
+    flags={
+        "show_all": ("all", "a"),
+    },
+    iterable=("service",),
+)
+def health(
+    ctx: Context,
+    service: typing.Collection[str] | None = None,
+    wait: bool = False,
+    show_all: bool = False,
+    quiet: bool = False,
+    verbose: bool = False,
+) -> int:
+    """
+    Show health status for docker containers
+
+    Args:
+        ctx: invoke context
+        service: which services to show logs for.
+            If you have a 'health' section in your .toml, those services will be used by default.
+            Otherwise, 'all' will be used by default.
+        wait: should the command wait until all services are healthy? Defaults to only showing status once and exiting.
+        show_all: show all services. Alias for `-s all`
+        quiet: don't print anything, only return amount of unhealthy containers
+        verbose: print health inspection for unhealthy containers
+
+    Returns:
+        Number of unhealthy services (0 is good, just like bash exit codes).
+            Should always be 0 if you use --wait
+    """
+    config = TomlConfig.load()
+    # test for --service arguments, if none given: use defaults
+    if show_all:
+        services = service_names("all")
+    elif service:
+        services = service_names(service)
+    elif config:
+        services = service_names(config.services_health or config.all_services)
+    else:
+        services = []
+
+    healths = get_healths(ctx, *services)
+    # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
+
+    if wait:
+        # for every container with a health check, wait for it to be either healthy or dead (not starting)
+        while tracked := [_.container for _ in healths if _ and _.health == "starting"]:
+            if not quiet:
+                print(f" Waiting for {tracked}" + " " * 25, end="\r")
+
+            healths = get_healths(ctx, *tracked)
+    elif not quiet:
+        for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
+            print(f"- {health_status}")
+            if verbose and not health_status.ok and health_status.container_id:
+                inspect_health(ctx, health_status.container_id)
+
+    # return amount of sick containers:
+    return sum(not _.ok for _ in healths)
 
 
 @task(aliases=("psa",))
@@ -1172,10 +1379,10 @@ def ps_all(ctx: Context):
         service="Service to query, can be used multiple times, handles wildcards.",
         quiet="Only show container ids. Useful for scripting.",
         columns="Which columns to display?",
-        full_command="Don't truncate the command.",
+        full="Don't truncate the command.",
     ),
     flags={
-        "show_all": ["all", "a"],
+        "show_all": ("all", "a"),
     },
 )
 def ps(
@@ -1183,12 +1390,13 @@ def ps(
     quiet: bool = False,
     service: typing.Collection[str] | None = None,
     columns: typing.Collection[str] | None = None,
-    full_command: bool = False,
+    full: bool = False,
     show_all: bool = False,
 ) -> None:
     """
     Show process status of services.
     """
+    trunc_after = 30
     if not Path("docker-compose.yml").exists():
         cprint("You're not in a docker compose environment.", color="red")
         if confirm("Would you like to see all running environments? [Yn]", default=True):
@@ -1201,8 +1409,9 @@ def ps(
         flags.append("-a")
     if quiet:
         flags.append("-q")
-    if full_command:
-        flags.append("--no-trunc")
+
+    # we may trunc it ourselves:
+    flags.append("--no-trunc")
 
     flags.extend(service_names(service or []))
 
@@ -1218,7 +1427,7 @@ def ps(
     services = []
 
     # list because it's ordered
-    selected_columns = list(columns or []) or ["Name", "Command", "State", "Ports"]
+    selected_columns = list(columns or []) or ["Name", "Command", "Image", "State", "Health", "Ports"]
 
     for service_json in ps_output.split("\n"):
         if not service_json:
@@ -1227,8 +1436,9 @@ def ps(
 
         service_dict = json.loads(service_json)
         service_dict = {k: v for k, v in service_dict.items() if k in selected_columns}
-        if not full_command:
-            service_dict["Command"] = shorten(service_dict["Command"], 50)
+        if not full:
+            service_dict["Command"] = shorten(service_dict["Command"], trunc_after)
+            service_dict["Image"] = shorten(service_dict["Image"], trunc_after)
 
         service_dict = dict(sorted(service_dict.items(), key=lambda x: selected_columns.index(x[0])))
         services.append(service_dict)
@@ -1332,17 +1542,25 @@ async def logs_improved_async(
             )
 
 
-def inspect(ctx: Context, container_id: str) -> AnyDict:
+def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDict]:
     """
     Docker inspect a container by ID and get the first result.
 
+    Args:
+        container_id: may be multiple (space separated)
+
     :raise EnvironmentError if docker inspect failed.
     """
-    ran = ctx.run(f"docker inspect {container_id}", hide=True, warn=True)
+    command = f"docker inspect {container_id}"
+    if args:
+        command = f"{command} {' '.join(args)}"
+    ran = ctx.run(command, hide=True, warn=True)
     if ran and ran.ok:
-        return typing.cast(AnyDict, json.loads(ran.stdout)[0])
+        return typing.cast(AnyDict, json.loads(ran.stdout))
     else:
-        print(ran.stderr if ran else "-")
+        if ran:
+            print(ran.stdout, file=sys.stdout)
+            print(ran.stderr, file=sys.stderr)
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
@@ -1702,7 +1920,7 @@ def show_help(ctx: Context, about: str) -> None:
         "show_settings": "show settings per folder",
         "as_json": "output json",
     },
-    flags={"show_settings": ["settings", "show-settings"], "as_json": ["j", "json", "as-json"]},  # -s is for short
+    flags={"show_settings": ("settings", "show-settings"), "as_json": ("j", "json", "as-json")},  # -s is for short
 )
 def task_discover(
     ctx: Context,
@@ -1815,7 +2033,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
-        info = inspect(ctx, container_id)
+        info = inspect(ctx, container_id)[0]
         pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
@@ -1829,7 +2047,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
         cprint("No data volumes to remove!", color="yellow")
 
 
-@task(flags={"clean_all": ["all", "a"]})
+@task(flags={"clean_all": ("all", "a")})
 def clean(
     ctx: Context,
     clean_all: bool = False,
@@ -1860,7 +2078,7 @@ def clean(
         clean_redis(ctx)
 
 
-@task(aliases=("whipe-db",), flags={"clean_all": ["all", "a"]})
+@task(aliases=("whipe-db",), flags={"clean_all": ("all", "a")})
 def wipe_db(ctx: Context, clean_all: bool = False, flag_path: str = "migrate/flags", yes: bool = False) -> None:
     """
     Wipes postgres volumes.
