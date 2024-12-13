@@ -23,14 +23,12 @@ from typing import Optional
 import anyio
 import invoke
 import tabulate
-import threadful
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
 import yaml
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint, termcolor
 from termcolor._types import Color
-from threadful import threadify
 from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
@@ -43,6 +41,7 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
@@ -67,6 +66,7 @@ from .helpers import generate_password as _generate_password
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
 from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
@@ -1256,30 +1256,32 @@ class HealthStatus:
         return termcolor.colored(f"{self.container}: {status}", self.color)
 
 
-def get_health_sync(ctx: Context, container_name: str) -> HealthStatus:
-    if not (container_id := find_container_id(ctx, container_name)):
+def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]:
+    container_ids = find_container_ids(ctx, *container_names)
+
+    state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
+
+    def container_health(container_name: str):
+        container_id = container_ids.get(container_name)
+        if not (container_id and container_id in state_by_id):
+            return HealthStatus(
+                container_id,
+                container_name,
+                "dead",
+                None,
+            )
+
+        state = state_by_id[container_id]
+        health = state.get("Health", {})
+
         return HealthStatus(
             container_id,
             container_name,
-            "dead",
-            None,
+            state.get("Status"),
+            health.get("Status"),
         )
 
-    data = inspect(ctx, container_id)[0]
-    state = data.get("State", {})
-    health = state.get("Health", {})
-
-    return HealthStatus(
-        container_id,
-        container_name,
-        state.get("Status"),
-        health.get("Status"),
-    )
-
-
-# this way pycharm understands the new return type,
-# as a decorator it does not for some reason:
-get_health_async = threadify(get_health_sync)
+    return tuple(container_health(container) for container in container_names)
 
 
 @task
@@ -1337,12 +1339,7 @@ def health(
     else:
         services = []
 
-
-    healths: tuple[HealthStatus | None, ...] = threadful.join_all_unwrap(
-        *(  # sorry for the black magic fuckery (for loop generator without creating an extra list)
-            get_health_async(ctx, container_name) for container_name in services
-        )
-    )
+    healths = get_healths(ctx, *services)
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
 
     if wait:
@@ -1351,7 +1348,7 @@ def health(
             if not quiet:
                 print(f" Waiting for {tracked}" + " " * 25, end="\r")
 
-            healths = tuple(get_health_sync(ctx, _) for _ in tracked)
+            healths = get_healths(ctx, *tracked)
     elif not quiet:
         for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
             print(f"- {health_status}")
@@ -1547,6 +1544,9 @@ async def logs_improved_async(
 def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDict]:
     """
     Docker inspect a container by ID and get the first result.
+
+    Args:
+        container_id: may be multiple (space separated)
 
     :raise EnvironmentError if docker inspect failed.
     """
