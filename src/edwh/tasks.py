@@ -30,7 +30,7 @@ from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint, termcolor
 from termcolor._types import Color
-from threadful import ThreadWithReturn, threadify
+from threadful import threadify
 from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
@@ -43,7 +43,6 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
@@ -68,7 +67,6 @@ from .helpers import generate_password as _generate_password
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
 from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
@@ -342,6 +340,8 @@ class TomlConfig:
     services_minimal: list[str]
     services_log: list[str]
     services_db: list[str]
+    services_health: list[str]
+
     dotenv_path: Path
 
     # __loaded was replaced with tomlconfig_singletons
@@ -416,6 +416,7 @@ class TomlConfig:
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
             services_db=config["services"]["db"],
+            services_health=config["services"].get("health", []),
             dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
         )
         return instance
@@ -1313,7 +1314,9 @@ def health(
 
     Args:
         ctx: invoke context
-        service: which services to show logs for. Defaults to 'minimal' (same as up)
+        service: which services to show logs for.
+            If you have a 'health' section in your .toml, those services will be used by default.
+            Otherwise, 'all' will be used by default.
         wait: should the command wait until all services are healthy? Defaults to only showing status once and exiting.
         show_all: show all services. Alias for `-s all`
         quiet: don't print anything, only return amount of unhealthy containers
@@ -1325,10 +1328,15 @@ def health(
     """
     config = TomlConfig.load()
     # test for --service arguments, if none given: use defaults
-    services = (
-        # todo: default to ??? Maybe new toml entry? Or 'all'?
-        service_names("all") if show_all else service_names(service or (config.all_services if config else []))
-    )
+    if show_all:
+        services = service_names("all")
+    elif service:
+        services = service_names(service)
+    elif config:
+        services = service_names(config.services_health or config.all_services)
+    else:
+        services = []
+
 
     healths: tuple[HealthStatus | None, ...] = threadful.join_all_unwrap(
         *(  # sorry for the black magic fuckery (for loop generator without creating an extra list)
