@@ -1262,7 +1262,11 @@ def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]
     # note: use `docker inspect `docker compose ps -aq`` to prevent issues
     #  when containers die between these two statements:
     # state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
-    state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, "`docker compose ps -aq`")}
+    try:
+        state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, "`docker compose ps -aq`")}
+    except EnvironmentError:
+        # probably everything down (warning is already shown by inspect() -> this can be safely ignored)
+        state_by_id = {}
 
     def container_health(container_name: str):
         container_id = container_ids.get(container_name)
