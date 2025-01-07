@@ -71,6 +71,9 @@ from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
+if typing.TYPE_CHECKING:
+    from _typeshed import SupportsWrite
+
 
 def copy_fallback_toml(
     tomlfile: str | Path = DEFAULT_TOML_NAME,
@@ -1296,8 +1299,17 @@ def inspect_health(ctx, container: str, quiet: bool = False):
     tab = " " * 4
     with contextlib.suppress(OSError):
         if data := inspect(ctx, container, '--format "{{json .State.Health }}"'):
+            # change data.Log[].Output to fancy output:
+            # data["Log"] = [
+            #     row | {
+            #         "Output": ...,
+            #     }
+            #     for row
+            #     in data.get("Log", [])
+            # ]
+
             if not quiet:
-                print(tab + yaml.dump(data).replace("\n", f"\n{tab}"))
+                print(tab + yaml.dump(data, allow_unicode=True).replace("\n", f"\n{tab}"))
 
             return data
 
