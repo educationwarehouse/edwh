@@ -919,20 +919,21 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
 
     copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
-    if not dc_path.exists():
-        cprint("docker-compose file is missing, setup could not be completed!", color="red")
-        return False
+    if dc_path.exists():
+        print("getting services...")
 
-    print("getting services...")
+        try:
+            # run `docker compose config` to build a yaml with all processing done, include statements included.
+            build_toml(c)
+        except Exception as e:
+            cprint(
+                f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})",
+                color="red",
+            )
+            # this could be because 'include' requires a variable that's setup in local task, so still run that:
+    else:
+        cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
 
-    try:
-        # run `docker compose config` to build a yaml with all processing done, include statements included.
-        build_toml(c)
-    except Exception as e:
-        cprint(
-            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})", color="red"
-        )
-        # this could be because 'include' requires a variable that's setup in local task, so still run that:
     exec_setup_in_other_task(c, run_local_setup)
     return True
 
@@ -2170,13 +2171,25 @@ def sleep(_: Context, n: str) -> None:
 
 
 @task()
-def lint(ctx: Context, directory: Optional[str] = None):
+def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: bool = False):
     """
     Lint code with `ruff`.
+
+    Args:
+        ctx: invoke context
+        directory: where to look for code
+        select: specific lints to check
+        fix: try to fix (some) issues automatically
     """
     directory = directory or "."
 
-    color = "green" if run_pty(ctx, f"ruff check {directory} --quiet") else "red"
+    command = [f"ruff check {directory} --quiet"]
+    if select:
+        command.append(f"--select {select}")
+    if fix:
+        command.append("--fix")
+
+    color = "green" if run_pty(ctx, *command) else "red"
     cprint("⬤ ruff", color=color)
 
 
@@ -2192,5 +2205,6 @@ def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Opti
         cprint("⬤ isort", color=color)
 
     if reformat:
-        color = "green" if run_pty_ok(ctx, f"ruff format {directory} --quiet") else "red"
+        # note: ruff format --quiet also hides what's wrong, so instead pipe stdout to dev null and only show stderr:
+        color = "green" if run_pty_ok(ctx, f"ruff format {directory} > /dev/null") else "red"
         cprint("● reformat", color=color)

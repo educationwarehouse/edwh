@@ -29,7 +29,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "ansi", # todo: replace with termcolor
     "anyio", # for async log reading
     "click", # for interactive select box (e.g. in `ew setup`)
     "diceware", # for generating random, safe passhprases

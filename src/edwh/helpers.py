@@ -55,16 +55,17 @@ def execution_fails(c: Context, argument: str) -> bool:
     return not executes_correctly(c, argument)
 
 
-def run_pty(ctx: Context, command: str, **options) -> invoke.Result | None:
+def run_pty(ctx: Context, *command_parts: str, **options) -> invoke.Result | None:
     try:
+        command = " ".join(command_parts)
         return ctx.run(command, pty=True, **options)
     except invoke.exceptions.Failure:
         # error is already printed due to `pty`
         return None
 
 
-def run_pty_ok(ctx: Context, command: str, **options) -> bool:
-    result = run_pty(ctx, command, **options)
+def run_pty_ok(ctx: Context, *command_parts: str, **options) -> bool:
+    result = run_pty(ctx, *command_parts, **options)
     return bool(result and result.ok)
 
 
