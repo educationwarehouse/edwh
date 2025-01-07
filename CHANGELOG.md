@@ -2,6 +2,26 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.0-beta.1 (2025-01-07)
+
+### Feature
+
+* **health:** Add optional 'health' section to .toml (as a default for `edwh health`) ([`b6e676d`](https://github.com/educationwarehouse/edwh/commit/b6e676da2b0cb185348b988fc4ad90afb01b9842))
+* Add `--wait` to `edwh health` to wait for containers to be done starting (up/dead) ([`37d4938`](https://github.com/educationwarehouse/edwh/commit/37d4938650aabfc57dcd9f9e4c2773ff0fea138e))
+* Colored printing on `edwh health`, include failing reason by default (hide with `-q`) ([`6120e03`](https://github.com/educationwarehouse/edwh/commit/6120e03cb730bdc295989ae2cac010c3b9dc13de))
+* **health:** Load docker health statuses ([`a64b5b3`](https://github.com/educationwarehouse/edwh/commit/a64b5b3fd8e249ebc8094fd2331c29ce17433294))
+* Started on `edwh health` command which works with docker (compose) health checks ([`20d041b`](https://github.com/educationwarehouse/edwh/commit/20d041ba18daacf3e90f67bddee29f16ca54a510))
+
+### Fix
+
+* Improved unicode output in `inspect-health` ([`b55a46d`](https://github.com/educationwarehouse/edwh/commit/b55a46d205b97b41df655bdb1dc337b5f5d8177b))
+* **health:** Don't crash if all containers are down ([`9626819`](https://github.com/educationwarehouse/edwh/commit/9626819258b12660152a925f9f427db602808f53))
+* Call `inspect()` with `docker compose ps -aq` to prevent issues when docker containers stop in between invoke commands ([`0c93d27`](https://github.com/educationwarehouse/edwh/commit/0c93d27a3cb15b6828ec4b9f9e080d4e62942a96))
+* **health:** Simplify and increase performance by doing 1 docker inspect on multiple containers instead of multiple separate inspects ([`4b93430`](https://github.com/educationwarehouse/edwh/commit/4b934307a8431c07e8520d210840a01703203491))
+* Skip health status if it is None (e.g. when container is removed during check) ([`2db3fa7`](https://github.com/educationwarehouse/edwh/commit/2db3fa7b8aea6c9b7d346576bec9addc2ce4a6bd))
+* Report containers as dead if they're missing; + pty on ew up for nicer rendering ([`915a5a1`](https://github.com/educationwarehouse/edwh/commit/915a5a17d57d729f1faa4f0d2615f523b1b84f5e))
+* Don't force list for `flags`, also support e.g. tuple ([`39c0caa`](https://github.com/educationwarehouse/edwh/commit/39c0caadbd863797efdca84bcb68fac6c58dd8e9))
+
 ## v0.52.2 (2024-11-29)
 
 ### Fix
