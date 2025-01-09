@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.1 (2025-01-09)
+
+### Fix
+
+* Differentiate between exited with exit code 0 (degraded/yellow) or higher (red/critical) ([`bcdb7d7`](https://github.com/educationwarehouse/edwh/commit/bcdb7d7f44d093319a8d7c196d71e16e882c4863))
+
 ## v0.53.0 (2025-01-09)
 
 
