@@ -1171,7 +1171,7 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
 
-StatusOptions = typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "dead"]
+StatusOptions = typing.Literal["created", "restarting", "running", "removing", "paused", "exited", "exited ok", "dead"]
 HealthOptions = typing.Literal["starting", "unhealthy", "healthy"] | None
 
 
@@ -1228,7 +1228,7 @@ class HealthStatus:
         """
         if self.health == "healthy":
             return HealthLevel.HEALTHY
-        elif self.health == "unhealthy":
+        elif self.health == "unhealthy" or self.status == "exited ok":
             return HealthLevel.DEGRADED
         elif self.health == "starting":
             return HealthLevel.STARTING
@@ -1285,11 +1285,18 @@ def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]
         state = state_by_id[container_id]
         health = state.get("Health", {})
 
+        container_status = state.get("Status")
+        health_status = health.get("Status")
+
+        if container_status == "exited" and str(state.get("ExitCode")) == "0":
+            # use exit code to know whether it was critical or not
+            container_status = "exited ok"
+
         return HealthStatus(
             container_id,
             container_name,
-            state.get("Status"),
-            health.get("Status"),
+            container_status,
+            health_status,
         )
 
     return tuple(container_health(container) for container in container_names)
