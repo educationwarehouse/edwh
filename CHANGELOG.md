@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.2 (2025-01-13)
+
+### Fix
+
+* **health:** When wait is done, print empty line to cleanup print traces ([`e8098ae`](https://github.com/educationwarehouse/edwh/commit/e8098ae14643e7144666be1a40ecbdbb94242e00))
+
 ## v0.53.1 (2025-01-09)
 
 ### Fix
