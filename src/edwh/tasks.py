@@ -1370,12 +1370,21 @@ def health(
     # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
 
     if wait:
+        initial_length = 0
         # for every container with a health check, wait for it to be either healthy or dead (not starting)
         while tracked := [_.container for _ in healths if _ and _.health == "starting"]:
             if not quiet:
-                print(f" Waiting for {tracked}" + " " * 25, end="\r")
+                msg = f" Waiting for {tracked}" + " " * 25
+                if not initial_length:
+                    initial_length = len(msg)
 
+                print(msg, end="\r")
             healths = get_healths(ctx, *tracked)
+
+        # wait is done, now print empty line to cleanup print traces:
+        if initial_length and not quiet:
+            print(" " * initial_length)
+
     elif not quiet:
         for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
             print(f"- {health_status}")
