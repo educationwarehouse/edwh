@@ -71,9 +71,6 @@ from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
 # ^ keep imports for other tasks to register them!
 from .meta import plugins, self_update  # noqa
 
-if typing.TYPE_CHECKING:
-    from _typeshed import SupportsWrite
-
 
 def copy_fallback_toml(
     tomlfile: str | Path = DEFAULT_TOML_NAME,
@@ -959,7 +956,7 @@ def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDi
         value = read_dotenv(env_path).get(key)
         project = env_path.parent.name
         if not silent:
-            print(f"{project :>20} : {value}")
+            print(f"{project:>20} : {value}")
         adjacent_settings[project] = value
     return adjacent_settings
 
@@ -1114,8 +1111,7 @@ def volumes(ctx: Context) -> None:
 # noinspection PyShadowingNames
 @task(
     help=dict(
-        service="Service to up, defaults to .toml's [services].minimal. "
-        "Can be used multiple times, handles wildcards.",
+        service="Service to up, defaults to .toml's [services].minimal. Can be used multiple times, handles wildcards.",
         build="request a build be performed first",
         quickest="restart only, no down;up",
         stop_timeout="timeout for stopping services, defaults to 2 seconds",
@@ -1490,7 +1486,7 @@ def ls(ctx: Context, quiet: bool = False) -> None:
     """
     List running compose projects.
     """
-    ctx.run(f'{DOCKER_COMPOSE} ls {"-q" if quiet else ""}')
+    ctx.run(f"{DOCKER_COMPOSE} ls {'-q' if quiet else ''}")
 
 
 def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
@@ -2186,6 +2182,15 @@ def sleep(_: Context, n: str) -> None:
     print("\r", "Sleeping for: 0 seconds", end="\n")
 
 
+def find_ruff() -> str:
+    """
+    Use ruff's own logic to find the required binary.
+    """
+    from ruff import __main__ as ruff
+
+    return ruff.find_ruff_bin()
+
+
 @task()
 def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: bool = False):
     """
@@ -2199,7 +2204,9 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
     """
     directory = directory or "."
 
-    command = [f"ruff check {directory} --quiet"]
+    ruff = find_ruff()
+
+    command = [ruff, "check", directory, "--quiet"]
     if select:
         command.append(f"--select {select}")
     if fix:
@@ -2216,11 +2223,13 @@ def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Opti
     """
     directory = directory or "."
 
+    ruff = find_ruff()
+
     if isort:
-        color = "green" if run_pty_ok(ctx, f"ruff check --select I --fix {directory} --quiet") else "red"
+        color = "green" if run_pty_ok(ctx, ruff, f"check --select I --fix {directory} --quiet") else "red"
         cprint("⬤ isort", color=color)
 
     if reformat:
         # note: ruff format --quiet also hides what's wrong, so instead pipe stdout to dev null and only show stderr:
-        color = "green" if run_pty_ok(ctx, f"ruff format {directory} > /dev/null") else "red"
+        color = "green" if run_pty_ok(ctx, ruff, f"format {directory} > /dev/null") else "red"
         cprint("● reformat", color=color)
