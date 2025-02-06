@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.4 (2025-02-06)
+
+### Fix
+
+* `edwh plugin.remove all` ([`c59c1f1`](https://github.com/educationwarehouse/edwh/commit/c59c1f166cf1720310931094b1590343f7bcd82b))
+
 ## v0.53.3 (2025-02-04)
 
 ### Fix
