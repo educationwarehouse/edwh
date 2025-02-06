@@ -239,7 +239,7 @@ def remove_all(c: Context) -> None:
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
     plugins_joined = " ".join(plugins)
-    c.run(f"{pip} uninstall --yes {plugins_joined}")
+    c.run(f"{pip} uninstall {plugins_joined}")
 
 
 @task(aliases=("install",))
