@@ -42,7 +42,7 @@ dependencies = [
     "pyyaml", # yaml parser (for docker-compose.yml)
     "rapidfuzz",  # levenshtein my beloved
     "requests", # better than urllib no?
-    "ruff", # For `edwh fmt`, `edwh lint`
+    "ruff==0.9.6", # For `edwh fmt`, `edwh lint`
     "tabulate", # for nice cli tables
     "termcolor", # improved ansi colored print
     "threadful>=0.5", # running things in different threads easily, with animations
@@ -170,26 +170,6 @@ build_command = "hatch build"
 [tool.hatch.version]
 path = "src/edwh/__about__.py"
 
-[tool.hatch.envs.semver]
-dependencies = [
-    "python-semantic-release",
-]
-[tool.hatch.envs.semver.scripts]
-semver = "semantic-release"
-
-[tool.hatch.envs.default]
-dependencies = [
-    "coverage[toml]>=6.5",
-    "pytest",
-    # 'python-semantic-release >= 8.0.0a5'
-]
-[tool.hatch.envs.default.scripts]
-# semver
-test-semver = [
-    'python --version',
-    'semantic-release --version',
-]
-
 # note: don't run `hatch run publish` right now,
 # because semantic release v7 (stable) is not compatible with invoke 2 (which is required for python3.11+)
 # and semantic release v8 (alpha) is not compatible with the tool.semantic_release config in this file!
@@ -208,32 +188,6 @@ cov-report = [
 cov = [
     "test-cov",
     "cov-report",
-]
-
-[[tool.hatch.envs.all.matrix]]
-python = ["3.10", "3.11", "3.12"]
-
-[tool.hatch.envs.lint]
-detached = true
-dependencies = [
-    "black>=23.1.0",
-    "mypy>=1.0.0",
-    "ruff>=0.0.243",
-]
-[tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/edwh tests}"
-style = [
-    "ruff {args:.}",
-    "black --check --diff {args:.}",
-]
-fmt = [
-    "black {args:.}",
-    "ruff --fix {args:.}",
-    "style",
-]
-all = [
-    "style",
-    "typing",
 ]
 
 [tool.black]
