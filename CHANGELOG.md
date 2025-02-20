@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.5 (2025-02-20)
+
+### Fix
+
+* Pin ruff to specific version, so its updates are linked to edwh updates, ensuring self-update also updates ruff ([`603d4b4`](https://github.com/educationwarehouse/edwh/commit/603d4b4c51da60d7839adef634e7b7ffda06d013))
+
 ## v0.53.4 (2025-02-06)
 
 ### Fix
