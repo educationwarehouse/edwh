@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.6 (2025-02-21)
+
+### Fix
+
+* Ensure uvenv and python-semantic-release<8 is installed when doing `plugin.release` ([`153e613`](https://github.com/educationwarehouse/edwh/commit/153e6131ed35053421dd7679d3941e72b0d0a45c))
+
 ## v0.53.5 (2025-02-20)
 
 ### Fix
