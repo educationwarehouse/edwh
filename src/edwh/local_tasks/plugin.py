@@ -617,7 +617,50 @@ def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw: ty
     return None
 
 
-@task(aliases=("publish",))
+def is_installed(ctx: Context, command: str) -> bool:
+    """
+    Check if a bash command is known.
+    """
+    return ctx.run(f"which {command}", hide="both", warn=True).ok
+
+
+def uvenv(ctx: Context, specifier: str):
+    """
+    Install something using uvenv.
+
+    specifier can be a package name, optionally with version specifier:
+        `uvenv(ctx, 'python-semantic-release<8')`
+    """
+    return ctx.run(f"~/.local/bin/uvenv install '{specifier}'", warn=True)
+
+
+@task()
+def require_semantic_release(ctx: Context):
+    """
+    Task to ensure psr is available.
+    """
+    if is_installed(ctx, "semantic-release"):
+        return
+
+    uvenv(ctx, "python-semantic-release<8")
+
+    assert is_installed(ctx, "semantic-release"), "Tool 'semantic-release' still can't be found!"
+
+
+@task()
+def require_hatch(ctx: Context):
+    """
+    Task to ensure hatch is available.
+    """
+    if is_installed(ctx, "hatch"):
+        return
+
+    uvenv(ctx, "hatch")
+
+    assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
+
+
+@task(aliases=("publish",), pre=[require_semantic_release, require_hatch])
 def release(
     c: Context,
     noop: bool = False,
