@@ -1,3 +1,4 @@
+import typing as t
 from pathlib import Path
 
 # file.seek(_, whence), 'whence' can be one of:
@@ -10,3 +11,5 @@ DEFAULT_TOML_NAME = ".toml"  # was config.toml
 FALLBACK_TOML_NAME = "default.toml"
 LEGACY_TOML_NAME = "config.toml"  # set to None when no longer supported
 DEFAULT_DOTENV_PATH = Path(".env")
+
+AnyDict: t.TypeAlias = dict[str, t.Any]

@@ -212,3 +212,10 @@ def self_update(c: Context, prerelease: bool = False, no_cache: bool = False) ->
     :param no_cache: download fresh?
     """
     return _self_update(c, prerelease, no_cache)
+
+
+def is_installed(ctx: Context, command: str) -> bool:
+    """
+    Check if a bash command is known.
+    """
+    return ctx.run(f"which {command}", hide="both", warn=True).ok

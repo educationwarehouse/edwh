@@ -27,6 +27,7 @@ from ..meta import (  # type: ignore
     _get_latest_version_from_pypi,
     _parse_versions,
     _pip,
+    is_installed,
 )
 
 
@@ -615,13 +616,6 @@ def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw: ty
 
     cprint("No new version found!", "yellow")
     return None
-
-
-def is_installed(ctx: Context, command: str) -> bool:
-    """
-    Check if a bash command is known.
-    """
-    return ctx.run(f"which {command}", hide="both", warn=True).ok
 
 
 def uvenv(ctx: Context, specifier: str):

@@ -19,9 +19,7 @@ from fabric.connection import Connection
 from invoke.context import Context
 from more_itertools import flatten as _flatten
 
-from .constants import DOCKER_COMPOSE
-
-AnyDict: typing.TypeAlias = dict[str, typing.Any]
+from .constants import DOCKER_COMPOSE, AnyDict
 
 
 def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = None, strict: bool = False) -> bool:
