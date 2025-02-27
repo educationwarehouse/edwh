@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.7 (2025-02-27)
+
+### Fix
+
+* Refactor structure to export more helper functions ([`b661ff4`](https://github.com/educationwarehouse/edwh/commit/b661ff4f49461e3878ed726b4bae62661e4f0f29))
+
 ## v0.53.6 (2025-02-21)
 
 ### Fix
