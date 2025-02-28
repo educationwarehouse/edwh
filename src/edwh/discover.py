@@ -3,6 +3,7 @@ import re
 import sys
 import typing
 from contextlib import contextmanager
+from operator import length_hint
 from pathlib import Path
 from typing import TypedDict
 
@@ -176,10 +177,10 @@ class Discover:
 
     def process_docker_service(self, name: str, docker_service: AnyDict, hosting_domain: str) -> ServiceDict:
         service: ServiceDict = {"name": name}
-
-        self.print(name, color="green")
+        if not self.short:
+            self.print(name, color="green")
         with self.indent():
-            if self.exposes:
+            if self.exposes and not self.short:
                 if _exposes := docker_service.get("expose", []):
                     self.print(f"Exposes: {', '.join([str(port) for port in _exposes])}", color="red", attrs=["bold"])
                 service["exposes"] = _exposes
@@ -193,7 +194,7 @@ class Discover:
                 service["ports"] = _ports
 
             service["domains"] = set()
-            if self.host_labels:
+            if self.host_labels and not self.short:
                 service["domains"] = get_hosts_for_service(docker_service)
                 for domain in service["domains"]:
                     self.print(domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")))
@@ -214,23 +215,22 @@ class Discover:
         project["name"] = folder
         project["hostingdomain"] = hosting_domain
 
-        if self.short:
-            return None
-
         with self.indent():
             config = dc_config(self.ctx)
             if config is None:
                 return None
 
-            if self.du:
+            if self.du and not self.short:
                 usage, usage_raw = self.get_disk_usage()
                 project["disk_usage_human"] = usage
                 project["disk_usage_raw"] = usage_raw
 
-            if self.settings and (settings := self.get_settings(folder)):
+            if self.settings and (settings := self.get_settings(folder)) and not self.short:
                 project["settings"] = settings
 
             project["services"] = []
+            if not self.short:
+                print(config.get("services", {}).items())
             for name, docker_service in config.get("services", {}).items():
                 project["services"].append(self.process_docker_service(name, docker_service, hosting_domain))
 
