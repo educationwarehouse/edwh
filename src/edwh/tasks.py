@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import fnmatch
 import hashlib
@@ -19,7 +20,6 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
-import anyio
 import invoke
 import tabulate
 import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
@@ -65,7 +65,7 @@ from .helpers import (  # noqa F401 - import for export
 from .helpers import generate_password as _generate_password
 from .improved_invoke import ImprovedTask as Task
 from .improved_invoke import improved_task as task
-from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
+from .improved_logging import logs_improved_async, parse_regex, parse_timedelta, rainbow
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -1383,65 +1383,6 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
-async def logs_improved_async(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    new: bool = False,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
-) -> None:
-    if new:
-        since = "now"
-
-    if since:
-        since = parse_timedelta(since)
-
-    re_filter_fn = parse_regex(re_filter) if re_filter else None
-
-    services = service_names(service, default="logs")
-    containers = get_docker_info(c, services)
-
-    if not containers:
-        cprint(f"No running containers found for services {services}", color="red")
-        exit(1)
-    elif len(containers) != len(services):
-        cprint("Amount of requested services does not match the amount of running containers!", color="yellow")
-
-    # for adjusting the | location
-    longest_name = max([len(_["Service"]) for _ in containers.values()])
-
-    colors = rainbow()
-
-    print("---", file=sys.stderr)
-    async with anyio.create_task_group() as task_group:
-        for container, container_info in containers.items():
-            # ontwikkelstraat-py4web-1 -> py4web-1
-            # this is slightly different from the original 'service' which is just e.g. 'py4web'
-            container_name = (
-                container_info["Name"].removeprefix(container_info["Project"] + "-").ljust(longest_name + 3, " ")
-            )
-
-            file = f"/var/lib/docker/containers/{container}/{container}-json.log"
-            task_group.start_soon(
-                tail,  # type: ignore
-                {
-                    "filename": file,
-                    "human_name": container_name,
-                    "container_id": container,
-                    "stream": stream,
-                    "since": since,
-                    "re_filter": re_filter_fn,
-                    "color": next(colors),
-                    "timestamps": timestamps,
-                    "verbose": verbose,
-                    "state": container_info["State"],
-                },
-            )
-
-
 def elevate(target_command: str) -> None:
     if os.geteuid() == 0:
         return
@@ -1462,16 +1403,19 @@ def logs_improved(
     timestamps: bool = True,
     verbose: bool = False,
 ) -> None:
+    services = service_names(service, default="logs")
+    containers = get_docker_info(c, services)
+
     with contextlib.suppress(CancelledError, KeyboardInterrupt):
-        anyio.run(
-            lambda *_: logs_improved_async(
-                c,
-                service=service,
+        asyncio.run(
+            logs_improved_async(
+                services=services,
+                containers=containers,
                 since=since,
-                stream=stream,
                 re_filter=re_filter,
                 timestamps=timestamps,
                 verbose=verbose,
+                stream=stream,
             )
         )
 
@@ -1534,7 +1478,7 @@ def logs(
         ...
     elif follow:
         # rerun `ew logs` with sudo:
-        elevate("logs")
+        # elevate("logs")
         # only allow follow if not sorting and no limit (tail):
         return logs_improved(
             ctx,

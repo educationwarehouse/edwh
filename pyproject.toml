@@ -32,6 +32,7 @@ dependencies = [
     "anyio", # for async log reading
     "click", # for interactive select box (e.g. in `ew setup`)
     "diceware", # for generating random, safe passhprases
+    "docker", # for logging
     "fabric >= 3.1", # invoke but remote
     "humanize", # for making raw sizes huam nreadable
     "invoke >= 2.1", # base cli tool
