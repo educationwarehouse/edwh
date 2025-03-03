@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.54.1 (2025-03-03)
+
+### Fix
+
+* **self-update:** Make `-f` and `--fresh` an alias for `--no-cache` ([`7fd6971`](https://github.com/educationwarehouse/edwh/commit/7fd6971215657938846439219079fec46fde48bf))
+
 ## v0.54.0 (2025-03-03)
 
 ### Fix
