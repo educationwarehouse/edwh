@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.53.8 (2025-03-03)
+
+### Feature
+
+* --shorts now doesn't return None, instead it will check most things to run individual so it can work alongside with --ports ([`2dd8aba`](https://github.com/educationwarehouse/edwh/commit/2dd8aba4c5381e720f411bc821428156235d4aa1))
+
+### Fix
+
+* Use compose bake if available for better performance ([`6640f75`](https://github.com/educationwarehouse/edwh/commit/6640f751700e15b95401d32194a2173069a4d36c))
+
 ## v0.53.7 (2025-02-27)
 
 ### Fix
