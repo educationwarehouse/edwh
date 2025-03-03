@@ -33,6 +33,7 @@ class HealthLevel(enum.IntEnum):
     STARTING = enum.auto()  # starting, restarting
     UNKNOWN = enum.auto()  # created
     DYING = enum.auto()  # paused or removing
+    STOPPED = enum.auto()  # dead (in a good way)
     CRITICAL = enum.auto()  # dead
 
     @property
@@ -54,6 +55,8 @@ class HealthLevel(enum.IntEnum):
                 return "yellow"
             case self.STARTING:
                 return "light_yellow"
+            case self.STOPPED:
+                return "blue"
             case self.DYING:
                 return "light_red"
             case self.CRITICAL:
@@ -75,9 +78,13 @@ class HealthStatus:
         """
         Return health level (lower is better).
         """
-        if self.health == "healthy":
+        if self.status == "exited ok":
+            return HealthLevel.STOPPED
+        elif self.status in {"exited", "dead"}:
+            return HealthLevel.CRITICAL
+        elif self.health == "healthy":
             return HealthLevel.HEALTHY
-        elif self.health == "unhealthy" or self.status == "exited ok":
+        elif self.health == "unhealthy":
             return HealthLevel.DEGRADED
         elif self.health == "starting":
             return HealthLevel.STARTING
@@ -86,8 +93,7 @@ class HealthStatus:
             return HealthLevel.RUNNING
         elif self.status in {"restarting", "removing", "paused"}:
             return HealthLevel.DYING
-        elif self.status in {"exited", "dead"}:
-            return HealthLevel.CRITICAL
+
         else:
             return HealthLevel.UNKNOWN
 
