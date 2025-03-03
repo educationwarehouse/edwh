@@ -1643,7 +1643,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
 
     print()
     if yes or confirm("Build docker images? [yN]", default=False):
-        ctx.run(f"{DOCKER_COMPOSE} build", pty=True)
+        ctx.run(f"{DOCKER_COMPOSE} build", pty=True, env=dict(COMPOSE_BAKE="true"))
 
 
 @task(
