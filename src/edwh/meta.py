@@ -201,15 +201,19 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
         cprint(f"{', '.join(failure)} failed updating", "red")
 
 
-@task()
+@task(
+    flags={
+        "prerelease": ["prerelease", "pre", "pre-release", "p"],
+        "no_cache": ["no-cache", "f", "fresh"],
+    }
+)
 def self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -> None:
-    """
-    Updates `edwh` and all installed plugins.
+    """Updates `edwh` and all installed plugins.
 
-    :param c: invoke ctx
-    :type c: Context
-    :param prerelease: allow non-stable releases?
-    :param no_cache: download fresh?
+    Args:
+        c (Context): invoke ctx
+        prerelease (bool, optional): allow non-stable releases? Defaults to False.
+        no_cache (bool, optional): download fresh? Defaults to False.
     """
     return _self_update(c, prerelease, no_cache)
 
