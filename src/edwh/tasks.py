@@ -1168,27 +1168,20 @@ def up(
 
 
 @task
-def inspect_health(ctx, container: str, quiet: bool = False):
-    # fixme: container by human name
-
+def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
     tab = " " * 2
+    result = {}
+
     with contextlib.suppress(OSError):
-        if data := inspect(ctx, container, '--format "{{json .State.Health }}"'):
-            # change data.Log[].Output to fancy output:
-            # data["Log"] = [
-            #     row | {
-            #         "Output": ...,
-            #     }
-            #     for row
-            #     in data.get("Log", [])
-            # ]
+        container_ids = find_container_ids(ctx, container) or [container]
 
-            if not quiet:
-                print(tab + yaml.dump({container: data}, allow_unicode=True).replace("\n", f"\n{tab}"))
+        for container_id in container_ids:
+            result[container_id] = inspect(ctx, container_id, '--format "{{json .State.Health }}"')
 
-            return data
+    if result and not quiet:
+        print(tab + yaml.dump(result, allow_unicode=True).replace("\n", f"\n{tab}"))
 
-    return None
+    return result
 
 
 @task(
