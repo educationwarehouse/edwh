@@ -4,9 +4,9 @@
 
 ## v0.53.8 (2025-03-03)
 
-### Feature
+### Fix
 
-* --shorts now doesn't return None, instead it will check most things to run individual so it can work alongside with --ports ([`2dd8aba`](https://github.com/educationwarehouse/edwh/commit/2dd8aba4c5381e720f411bc821428156235d4aa1))
+* --short now doesn't return None, instead it will check most things to run individual so it can work alongside with --ports ([`2dd8aba`](https://github.com/educationwarehouse/edwh/commit/2dd8aba4c5381e720f411bc821428156235d4aa1))
 
 ### Fix
 
