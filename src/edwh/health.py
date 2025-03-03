@@ -2,10 +2,12 @@ import enum
 import json
 import sys
 import typing as t
+import warnings
 from dataclasses import dataclass
 
 from invoke import Context
 from termcolor import colored, cprint, termcolor
+from typing_extensions import deprecated
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
@@ -13,15 +15,47 @@ StatusOptions = t.Literal["created", "restarting", "running", "removing", "pause
 HealthOptions = t.Literal["starting", "unhealthy", "healthy"] | None
 
 
-def find_container_id(ctx: Context, container: str) -> t.Optional[str]:
+# keep deprecated functions here for external use:
+
+
+@deprecated("Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`")
+def find_container_id(ctx: Context, container: str) -> None:
+    """Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`"""
+    warnings.warn(
+        "Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`",
+        category=DeprecationWarning,
+    )
+    return None
+
+
+def find_container_ids(ctx: Context, container: str) -> list[str]:
+    """Retrieve container IDs from Docker Compose.
+
+    Args:
+        ctx (Context): The context in which to run the Docker command.
+        container (str): The name of the container for which to retrieve IDs.
+
+    Returns:
+        list[str]: A list of container IDs associated with the specified container.
+    """
     if result := ctx.run(f"{DOCKER_COMPOSE} ps -aq {container}", hide=True, warn=True):
-        return result.stdout.strip()
+        return result.stdout.strip().split("\n")
     else:
-        return None
+        return []
 
 
-def find_container_ids(ctx: Context, *containers: str) -> dict[str, t.Optional[str]]:
-    return {container: find_container_id(ctx, container) for container in containers}
+def find_containers_ids(ctx: Context, *containers: str) -> dict[str, list[str]]:
+    """Finds the IDs of the specified containers.
+
+    Args:
+        ctx (Context): The context in which to find container IDs.
+        *containers (str): Names of the containers to find IDs for.
+
+    Returns:
+        dict[str, list[str]]: A dictionary where the keys are container names
+        and the values are lists of corresponding container IDs.
+    """
+    return {container: find_container_ids(ctx, container) for container in containers}
 
 
 class HealthLevel(enum.IntEnum):
@@ -144,21 +178,35 @@ def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDi
         raise EnvironmentError(f"docker inspect {container_id} failed")
 
 
-def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]:
-    container_ids = find_container_ids(ctx, *container_names)
+def get_healths(ctx: Context, *container_names: str) -> list[HealthStatus]:
+    """
+    Retrieves the health statuses of specified containers.
+
+    Args:
+        ctx (Context): The context in which the function is executed.
+        *container_names (str): Variable length argument list of container names.
+
+    Returns:
+        list[HealthStatus]: A list containing the health statuses of the specified containers.
+
+    Note:
+        The amount of output health statuses can differ from the amount of containers if multiple replicas are used.
+    """
+
+    # {name: [ids]}
+    container_name_to_ids = find_containers_ids(ctx, *container_names)
 
     # note: use `docker inspect `docker compose ps -aq`` to prevent issues
     #  when containers die between these two statements:
-    # state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
+    #  info_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
     try:
-        state_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, "`docker compose ps -aq`")}
+        info_by_id = {_["Id"]: _ for _ in inspect(ctx, "`docker compose ps -aq`")}
     except EnvironmentError:
         # probably everything down (warning is already shown by inspect() -> this can be safely ignored)
-        state_by_id = {}
+        info_by_id = {}
 
-    def container_health(container_name: str):
-        container_id = container_ids.get(container_name)
-        if not (container_id and container_id in state_by_id):
+    def container_health(container_id: str, container_name: str, multiple: bool = False):
+        if not (container_id and container_id in info_by_id):
             return HealthStatus(
                 container_id,
                 container_name,
@@ -166,7 +214,13 @@ def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]
                 None,
             )
 
-        state = state_by_id[container_id]
+        info = info_by_id[container_id]
+        state = info["State"]
+
+        config = info.get("Config", {})
+        labels = config.get("Labels", {})
+        container_number = labels.get("com.docker.compose.container-number", "1")
+
         health = state.get("Health", {})
 
         container_status = state.get("Status")
@@ -178,9 +232,25 @@ def get_healths(ctx: Context, *container_names: str) -> tuple[HealthStatus, ...]
 
         return HealthStatus(
             container_id,
-            container_name,
+            f"{container_name}-{container_number}" if multiple else container_name,
             container_status,
             health_status,
         )
 
-    return tuple(container_health(container) for container in container_names)
+    result = []
+    for container_name in container_names:
+        if container_ids := container_name_to_ids.get(container_name, []):
+            for container_id in container_ids:
+                result.append(container_health(container_id, container_name, multiple=len(container_ids) > 1))
+        else:
+            # weird scenario
+            result.append(
+                HealthStatus(
+                    "",
+                    container_name,
+                    "unknown",
+                    None,
+                )
+            )
+
+    return result

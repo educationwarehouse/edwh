@@ -44,7 +44,14 @@ from .helpers import (  # noqa E402  - import has to come after warning filter
     yaml_loads,
 )
 from .meta import is_installed  # noqa E402  - import has to come after warning filter
-from .health import HealthLevel, get_healths, find_container_ids, find_container_id, HealthStatus, inspect  # noqa E402  - import has to come after warning filter
+from .health import (
+    HealthLevel,
+    get_healths,
+    find_container_ids,
+    find_containers_ids,
+    HealthStatus,
+    inspect,
+)  # noqa E402  - import has to come after warning filter
 from .improved_invoke import ImprovedTask, improved_task  # noqa E402  - import has to come after warning filter
 from .tasks import (  # noqa E402  - import has to come after warning filter
     TomlConfig,
@@ -104,7 +111,7 @@ __all__ = [
     "HealthLevel",
     "get_healths",
     "find_container_ids",
-    "find_container_id",
+    "find_containers_ids",
     "HealthStatus",
     "inspect",
 ]

@@ -40,7 +40,7 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
-from .health import find_container_ids, get_healths, inspect
+from .health import find_container_ids, find_containers_ids, get_healths, inspect  # noqa F401 - import for export
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
@@ -1169,7 +1169,9 @@ def up(
 
 @task
 def inspect_health(ctx, container: str, quiet: bool = False):
-    tab = " " * 4
+    # fixme: container by human name
+
+    tab = " " * 2
     with contextlib.suppress(OSError):
         if data := inspect(ctx, container, '--format "{{json .State.Health }}"'):
             # change data.Log[].Output to fancy output:
@@ -1182,7 +1184,7 @@ def inspect_health(ctx, container: str, quiet: bool = False):
             # ]
 
             if not quiet:
-                print(tab + yaml.dump(data, allow_unicode=True).replace("\n", f"\n{tab}"))
+                print(tab + yaml.dump({container: data}, allow_unicode=True).replace("\n", f"\n{tab}"))
 
             return data
 
@@ -1232,7 +1234,6 @@ def health(
         services = []
 
     healths = get_healths(ctx, *services)
-    # todo: how to deal with multiple containers? E.g. py4web 2 healthy 1 failing?
 
     if wait:
         initial_length = 0
@@ -1251,7 +1252,7 @@ def health(
             print(" " * initial_length)
 
     elif not quiet:
-        for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: h.level):
+        for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: (h.level, h.container)):
             print(f"- {health_status}")
             if verbose and not health_status.ok and health_status.container_id:
                 inspect_health(ctx, health_status.container_id)
@@ -1893,15 +1894,16 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
     assert config, "Couldn't set up toml config -> can't continue clean!"
 
     # find the images based on the instances
-    containers = find_container_ids(ctx, *config.services_db)
+    containers = find_containers_ids(ctx, *config.services_db)
     pg_data_volumes = []
-    for container_name, container_id in containers.items():
-        if not container_id:
+    for container_name, container_ids in containers.items():
+        if not container_ids:
             # probably missing (such as pg-1, pg-stats in some environments)
             continue
 
-        info = inspect(ctx, container_id)[0]
-        pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
+        for container_id in container_ids:
+            info = inspect(ctx, container_id)[0]
+            pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
     stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")

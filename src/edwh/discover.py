@@ -3,7 +3,6 @@ import re
 import sys
 import typing
 from contextlib import contextmanager
-from operator import length_hint
 from pathlib import Path
 from typing import TypedDict
 
