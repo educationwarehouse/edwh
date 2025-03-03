@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.54.0 (2025-03-03)
+
+### Fix
+
+* **inspect:** Allow both a container id OR a human name to be passed to `inspect-health` ([`11629ec`](https://github.com/educationwarehouse/edwh/commit/11629ecb00fb9bfe527f9ec259aa39859a652075))
+* `healths` deals with multiple container replica's now. ([`3817884`](https://github.com/educationwarehouse/edwh/commit/38178841ea0af34ef510b2c92bcc04d961a267e4))
+* **health:** Add extra level for stopped so it doesn't count as DEGRADED (because it's different) ([`4530573`](https://github.com/educationwarehouse/edwh/commit/45305732af6cd335aa06ef76ad39496195d42352))
+
 ## v0.53.8 (2025-03-03)
 
 ### Fix
