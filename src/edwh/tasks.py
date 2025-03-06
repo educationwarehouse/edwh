@@ -488,9 +488,12 @@ def warn_once(
     )
 
 
+DefaultFn: typing.TypeAlias = typing.Callable[[], Optional[str]]
+
+
 def check_env(
     key: str,
-    default: Optional[str],
+    default: Optional[str] | DefaultFn,
     comment: str,
     # optionals:
     prefix: Optional[str] = None,
@@ -505,6 +508,30 @@ def check_env(
 ) -> str:
     """
     Test if key is in .env file path, appends prompted or default value if missing.
+
+    Args:
+        key: The environment variable key to check.
+        default: The default value to use if the key is not found. Can also be a function for lazy evaluation.
+        comment: A comment describing the purpose of the environment variable.
+        prefix: An optional prefix to prepend to the key.
+        suffix: An optional suffix to append to the key.
+        postfix: An optional parameter for backward compatibility with 'suffix'.
+        env_path: An optional path to the environment file.
+        force_default: Whether to force the default value even if the key exists.
+        allowed_values: A list of allowed values for the environment variable.
+        toml_path: Optional path to a TOML configuration file.
+
+    Returns:
+        The value of the environment variable, either from the file, default, or forced.
+
+
+    Example:
+        > check_env(
+        >    key="SOME_KEY",
+        >    default=lambda c: slow_function()
+        >    comment="This key has a lazily evaluated default",
+        >    ...
+        > )
     """
     if toml_path:
         warn_once(f"Deprecated: toml_path ({toml_path} is not used by check_env anymore.)", color="yellow")
@@ -533,6 +560,9 @@ def check_env(
         )
 
     suffix = suffix or postfix
+
+    if callable(default):
+        default = default()
 
     if force_default:
         value = default or ""
