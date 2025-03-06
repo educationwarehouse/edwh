@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.55.0 (2025-03-06)
+
+### Feature
+
+* `check_env` default now accepts a callback function for lazy evaluation ([`562e098`](https://github.com/educationwarehouse/edwh/commit/562e0986217ffd18d8697097c36745c12af685fc))
+
 ## v0.54.1 (2025-03-03)
 
 ### Fix
