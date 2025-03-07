@@ -106,10 +106,18 @@ class ImprovedTask(InvokeTask[TaskCallable]):
 
         return opts
 
-    def _run_hooks(self, ctx: Context):
+    def _run_hooks(self, ctx: Context, *args, **kwargs):
+        import inspect
+
         for task in find_task_across_namespaces(self.name):
             if task is not self:
-                task(ctx)
+                sig = inspect.signature(task)
+                if len(sig.parameters) > 1:  # Assuming the first parameter is always Context
+                    # e.g. def up(ctx, services)
+                    task(ctx, *args, **kwargs)
+                else:
+                    # e.g. def up(ctx)
+                    task(ctx)
 
     def __call__(self, ctx: Context, *args, **kwargs):
         result = super().__call__(ctx, *args, **kwargs)
