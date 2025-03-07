@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.1 (2025-03-07)
+
+### Fix
+
+* Specify `devdb` as official plugin ([`ecd6467`](https://github.com/educationwarehouse/edwh/commit/ecd64672bf4b3d24c5f798b19f0fc4e379d529c8))
+
 ## v0.56.0 (2025-03-07)
 
 ### Feature
