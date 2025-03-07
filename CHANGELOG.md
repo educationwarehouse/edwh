@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.2 (2025-03-07)
+
+### Fix
+
+* Undo commit removing arguments since cascading functions can now simply choose to ignore them ([`73b03c6`](https://github.com/educationwarehouse/edwh/commit/73b03c61ff0360bd8d6af861d97a84829522f415))
+* Cascading tasks can choose to inherit the hookable arguments or ignore them. `inspect` is used to determine whether the arguments should be passed or not. ([`4823300`](https://github.com/educationwarehouse/edwh/commit/48233003f88f5c709fe84c7ef9d827d4b59fd6d7))
+* Remove old unused arguments to `setup` (so local setup doesn't need to have that in their signature) ([`fec8587`](https://github.com/educationwarehouse/edwh/commit/fec8587d327b27526ef47a4c003f3ec230456c18))
+
 ## v0.56.1 (2025-03-07)
 
 ### Fix
