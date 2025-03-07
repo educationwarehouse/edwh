@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.4 (2025-03-07)
+
+### Fix
+
+* Make `up` return the requested services for use by local `up` ([`de2198d`](https://github.com/educationwarehouse/edwh/commit/de2198dbc89c4aa215340f023ff641494ce461c3))
+
 ## v0.56.3 (2025-03-07)
 
 ### Fix
