@@ -8,6 +8,7 @@
 import functools
 import inspect
 import typing
+import warnings
 from typing import Any, Callable, Iterable, Optional
 
 from invoke.context import Context
@@ -150,9 +151,16 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             *args: Positional arguments for the hooks.
             **kwargs: Keyword arguments for the hooks.
         """
-        for task in find_task_across_namespaces(self.name):
+        for namespace, task in find_task_across_namespaces(self.name).items():
             if task is not self:
-                subresult = self._execute_subtask(ctx, task, *args, **kwargs)
+                try:
+                    subresult = self._execute_subtask(ctx, task, *args, **kwargs)
+                except Exception as e:
+                    warnings.warn(
+                        f"Failed running subtask {namespace}.{task.name}: {e}.", source=e, category=RuntimeWarning
+                    )
+                    continue
+
                 if isinstance(ctx["result"], dict) and isinstance(subresult, dict):
                     ctx["result"].update(subresult)
                 elif subresult is not None:
@@ -183,10 +191,10 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         return ctx["result"]
 
 
-def find_task_across_namespaces(name: str) -> list[ImprovedTask]:
+def find_task_across_namespaces(name: str) -> dict[str, ImprovedTask]:
     from .cli import collection
 
-    return [task for ns in collection.collections.values() if (task := ns.tasks.get(name))]
+    return {ns.name: task for ns in collection.collections.values() if (task := ns.tasks.get(name))}
 
 
 improved_task: TaskCallable = functools.partial(invoke_task, klass=ImprovedTask)
