@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.3 (2025-03-07)
+
+### Fix
+
+* Allow cherry-picking argument names in cascading hookable tasks; provide return value data via `context['result']` ([`e6257b1`](https://github.com/educationwarehouse/edwh/commit/e6257b18c5d224025494152484f49dca5a179fd2))
+
+### Documentation
+
+* Explained `improved_task` ([`0a7c679`](https://github.com/educationwarehouse/edwh/commit/0a7c679986a546e6ef673e998f5f59f44eaaf49c))
+
 ## v0.56.2 (2025-03-07)
 
 ### Fix
