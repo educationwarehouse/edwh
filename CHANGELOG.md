@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.0 (2025-03-07)
+
+### Feature
+
+* Add `hookable` to more tasks (stop, down, version, clean) ([`0603a1e`](https://github.com/educationwarehouse/edwh/commit/0603a1ec8a2d5a619ae1cc6492f91dc2a2e03670))
+* Add `hookable: bool` option to `@task`, which makes the existing logic in `up` and `setup` for local tasks: ([`35d33ad`](https://github.com/educationwarehouse/edwh/commit/35d33ad7b948e2fa2ad676f924599deab62f5a53))
+
 ## v0.55.0 (2025-03-06)
 
 ### Feature
