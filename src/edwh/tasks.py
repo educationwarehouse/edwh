@@ -919,9 +919,12 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 
 @task(
     pre=[require_sudo],
+    help={
+        "new_config_toml": "will REMOVE and create a new config.toml file",
+    },
     hookable=True,
 )
-def setup(c: Context) -> bool:
+def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> bool:
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -930,7 +933,18 @@ def setup(c: Context) -> bool:
     While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
 
     """
+    config_toml = Path(DEFAULT_TOML_NAME)
     dc_path = Path("docker-compose.yml")
+
+    if (
+        new_config_toml
+        and config_toml.exists()
+        and confirm(
+            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+            default=False,
+        )
+    ):
+        config_toml.unlink()
 
     copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
