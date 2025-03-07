@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.5 (2025-03-07)
+
+### Fix
+
+* Warn on subtask failure instead of crashing ([`91ad82d`](https://github.com/educationwarehouse/edwh/commit/91ad82d2f7c7b615626133f964d13937a8182e6c))
+
 ## v0.56.4 (2025-03-07)
 
 ### Fix
