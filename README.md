@@ -52,7 +52,7 @@ Commands are loaded in the following order:
     - Loaded into their own namespaces (like `ew mp.`).
 
 3. **Current Directory**:
-    - Loaded into the `local.` namespace. If it doesn't exist, it traverses up the directory tree 
+    - Loaded into the `local.` namespace. If it doesn't exist, it traverses up the directory tree
     - (e.g., `../tasks.py`, `../../tasks.py`).
 
 4. **Other Local Tasks**:
@@ -145,6 +145,46 @@ Commands are loaded in the following order:
 - github: [`educationwarehouse/edwh-whitelabel-plugin`](https://github.com/educationwarehouse/edwh-whitelabel-plugin)
 - plugin name `edwh[whitelabel]`
 - subcommand namespace `wl`
+
+### devdb
+
+- pip name: [`edwh-devdb-plugin`](https://pypi.org/project/edwh-whitelabel-plugin)
+- github: [`educationwarehouse/edwh-devdb-plugin`](https://github.com/educationwarehouse/edwh-whitelabel-plugin)
+- plugin name `edwh[devdb]`
+- subcommand namespace `devdb`
+
+## Improvements to `@task`
+
+The `edwh.improved_task` decorator enhances the functionality of the standard `@task` decorator from Invoke by
+introducing additional features:
+
+- **Flags**: You can now specify custom flags for command line arguments. This allows you to define aliases, rename
+  arguments (e.g., using `--json` for an argument named `as_json`), and create custom short flags (e.g., `--exclude` can
+  also be represented as `-x`).
+
+- **Hookable**: The improved task supports hooks that allow you to run additional tasks after the main task
+  execution. If the `hookable` option is set to `True`, any tasks found across namespaces with the same name will be
+  executed in sequence, passing along the context and any provided arguments.
+
+### Example Usage
+
+```python
+from edwh import improved_task as task
+
+
+@task(flags={'exclude': ['--exclude', '-x'], 'as_json': ['--json']}, hookable=True)
+def process_data(ctx, exclude: str, as_json: bool = False):
+    # Task implementation here
+    pass
+
+
+# other plugin (or local tasks.py) can now also specify 'process_data':
+@task()
+def process_data(ctx):
+    # the cascading function can choose whether to include the arguments `exclude` and `as_json` or not.
+    # note that you have to choose either none of the # arguments or all of them, you can not cherry-pick.
+    ...
+```
 
 ## License
 
