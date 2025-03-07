@@ -967,13 +967,6 @@ def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> bo
     return True
 
 
-@task(
-    pre=[require_sudo],
-)
-def test_sudo(c):
-    print(c.sudo("whoami"))
-
-
 @task()
 def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
     """
@@ -1569,6 +1562,7 @@ def logs(
 @task(
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    hookable=True,
 )
 def stop(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
@@ -1581,6 +1575,7 @@ def stop(ctx: Context, service: typing.Collection[str] | None = None) -> None:
 @task(
     iterable=["service"],
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
+    hookable=True,
 )
 def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     """
@@ -1591,7 +1586,9 @@ def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", pty=True)
 
 
-@task()
+@task(
+    hookable=True,
+)
 def upgrade(ctx: Context, build: bool = False) -> None:
     if build:
         ctx.run(f"{DOCKER_COMPOSE} build")
@@ -1606,7 +1603,8 @@ def upgrade(ctx: Context, build: bool = False) -> None:
         yes="Don't ask for confirmation, just do it. "
         "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
-    )
+    ),
+    hookable=True,
 )
 def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     """
@@ -1749,7 +1747,9 @@ def completions(_: Context) -> None:
     print("---")
 
 
-@task()
+@task(
+    hookable=True,
+)
 def version(ctx: Context) -> None:
     """
     Show edwh app version and docker + compose version.
@@ -1932,7 +1932,10 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
         cprint("No data volumes to remove!", color="yellow")
 
 
-@task(flags={"clean_all": ("all", "a")})
+@task(
+    flags={"clean_all": ("all", "a")},
+    hookable=True,
+)
 def clean(
     ctx: Context,
     clean_all: bool = False,
