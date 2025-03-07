@@ -36,6 +36,7 @@ class TaskOptions(typing.TypedDict, total=False):
     iterable: Optional[Iterable[str]]
     incrementable: Optional[Iterable[str]]
     flags: dict[str, Iterable[str]] | None
+    hookable: bool
 
 
 class TaskCallable(typing.Protocol):
@@ -72,8 +73,10 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         incrementable: Optional[Iterable[str]] = None,
         # new:
         flags: dict[str, Iterable[str]] | None = None,
+        hookable: bool = False,
     ):
         self._flags = flags or {}
+        self.hookable = hookable
 
         super().__init__(
             body=body,
@@ -102,6 +105,24 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             opts["names"] = list(flags)
 
         return opts
+
+    def _run_hooks(self, ctx: Context):
+        for task in find_task_across_namespaces(self.name):
+            if task is not self:
+                task(ctx)
+
+    def __call__(self, ctx: Context, *args, **kwargs):
+        result = super().__call__(ctx, *args, **kwargs)
+        if self.hookable:
+            self._run_hooks(ctx)
+
+        return result
+
+
+def find_task_across_namespaces(name: str) -> list[ImprovedTask]:
+    from .cli import collection
+
+    return [task for ns in collection.collections.values() if (task := ns.tasks.get(name))]
 
 
 improved_task: TaskCallable = functools.partial(invoke_task, klass=ImprovedTask)

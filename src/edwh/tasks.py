@@ -28,7 +28,7 @@ from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
-from typing_extensions import Never
+from typing_extensions import Never, deprecated
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
@@ -206,6 +206,7 @@ def get_task(identifier: str) -> Task | None:
         return task_for_identifier(identifier)
 
 
+@deprecated("This functionality was replaced by @task(hookable=True)")
 def exec_setup_in_other_task(c: Context, run_setup: bool, **kw: typing.Any) -> bool:
     """
     Run a setup function in another task.py.
@@ -221,6 +222,7 @@ def exec_setup_in_other_task(c: Context, run_setup: bool, **kw: typing.Any) -> b
     return False
 
 
+@deprecated("This functionality was replaced by @task(hookable=True)")
 def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
     """
     Run a setup function in another task.py.
@@ -918,11 +920,11 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 @task(
     pre=[require_sudo],
     help={
-        "run_local_setup": "executes local_tasks setup (default is True)",
         "new_config_toml": "will REMOVE and create a new config.toml file",
     },
+    hookable=True,
 )
-def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = False, _retry: bool = False) -> bool:
+def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> bool:
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -961,7 +963,7 @@ def setup(c: Context, run_local_setup: bool = True, new_config_toml: bool = Fals
     else:
         cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
 
-    exec_setup_in_other_task(c, run_local_setup)
+    # local/plugin setup happens here because of `hookable`
     return True
 
 
@@ -1152,6 +1154,7 @@ def volumes(ctx: Context) -> None:
     flags={
         "tail": ("tail", "logs", "l"),  # instead of -a; NOTE: 'tail' must be first (matches parameter name)
     },
+    hookable=True,
 )
 def up(
     ctx: Context,
@@ -1179,22 +1182,12 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
         ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}", pty=True)
 
-    # todo:
-    #  0. build `edwh health` screen
-    #     -> return boolean whether all are healthy
-    #  1. hide default up, show 'health' screen
-    #     unless --classic or something is passed?
-    #     -> option to NOT wait for health if possible?
-    #        -> `dc up` should not wait by default but it still waits for postgres if you start py4web.
-    #           there probably is no way around this
-    #  2. devdb.reset should use health instead of sleep
-    #     -> deprecate `--wait`, show warning (don't just remove)
-
-    exec_up_in_other_task(ctx, services)
     if show_settings:
         show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
+
+    # local/plugin up happens here because of `hookable`
 
 
 @task
