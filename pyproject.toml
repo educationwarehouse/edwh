@@ -82,6 +82,7 @@ plugins = [
     'edwh-sshkey-plugin',
     'edwh-uptime-plugin',
     'edwh-whitelabel-plugin',
+    'edwh-devdb-plugin',
 ]
 
 # plugins that are useful on a (production) server:
@@ -92,6 +93,7 @@ server-plugins = [
     'edwh-pipcompile-plugin',
     'edwh-restic-plugin',
     'edwh-uptime-plugin',
+    'edwh-devdb-plugin',
 ]
 
 server-provisioning = [
@@ -148,6 +150,10 @@ whitelabel = [
 
 uptime = [
     'edwh-uptime-plugin'
+]
+
+devdb = [
+    'edwh-devdb-plugin'
 ]
 
 [project.scripts]
