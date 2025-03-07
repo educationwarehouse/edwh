@@ -1158,7 +1158,7 @@ def up(
     tail: bool = False,
     clean: bool = False,
     show_settings: bool = True,
-) -> None:
+) -> dict:
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
     # recalculate the hash and save it, so with the next up, migrate will see differences and start migration
@@ -1181,6 +1181,9 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
 
     # local/plugin up happens here because of `hookable`
+    return {
+        "services": services,
+    }
 
 
 @task
