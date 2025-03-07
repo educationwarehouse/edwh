@@ -166,6 +166,9 @@ introducing additional features:
   execution. If the `hookable` option is set to `True`, any tasks found across namespaces with the same name will be
   executed in sequence, passing along the context and any provided arguments.
 
+The return value of a hookable task will be available in the context under the key `result`.
+Using a dictionary as the return value is recommended, as it allows you to merge the results of multiple cascading tasks.
+
 ### Example Usage
 
 ```python
@@ -175,15 +178,19 @@ from edwh import improved_task as task
 @task(flags={'exclude': ['--exclude', '-x'], 'as_json': ['--json']}, hookable=True)
 def process_data(ctx, exclude: str, as_json: bool = False):
     # Task implementation here
-    pass
+    return {
+        "data": [],
+    }
 
 
 # other plugin (or local tasks.py) can now also specify 'process_data':
 @task()
-def process_data(ctx):
+def process_data(ctx, exclude: str):
     # the cascading function can choose whether to include the arguments `exclude` and `as_json` or not.
-    # note that you have to choose either none of the # arguments or all of them, you can not cherry-pick.
-    ...
+    # this can be cherry-picked as long as the names match the arguments of the main function.
+    print(
+        ctx["result"] # will contain {"data": []}
+    )
 ```
 
 ## License

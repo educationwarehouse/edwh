@@ -924,7 +924,7 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
     },
     hookable=True,
 )
-def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> bool:
+def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> dict:
     """
     sets up config.toml and tries to run setup in local tasks.py if it exists
 
@@ -964,7 +964,7 @@ def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> bo
         cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
 
     # local/plugin setup happens here because of `hookable`
-    return True
+    return {"success": True, "services": ["todo"]}
 
 
 @task()

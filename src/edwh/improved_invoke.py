@@ -6,6 +6,7 @@
 """
 
 import functools
+import inspect
 import typing
 from typing import Any, Callable, Iterable, Optional
 
@@ -95,36 +96,91 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         )
 
     def arg_opts(self, name: str, default: str, taken_names: Iterable[str]) -> AnyDict:
+        """Get argument options.
+
+        Args:
+            name (str): The name of the argument.
+            default (str): The default value of the argument.
+            taken_names (Iterable[str]): Names that have already been taken.
+
+        Returns:
+            AnyDict: A dictionary of argument options.
+        """
         opts = super().arg_opts(name=name, default=default, taken_names=set(taken_names))
 
         if flags := self._flags.get(name):
-            # todo: check taken?
-            #  -> currently, you get an error like
-            #  'ValueError: Tried to add an argument named 't' but one already exists!'
-            #  for now, you'll just have to manually set correct flags to prevent this.
             opts["names"] = list(flags)
 
         return opts
 
-    def _run_hooks(self, ctx: Context, *args, **kwargs):
-        import inspect
+    def _execute_subtask(self, ctx: Context, task: TaskFn, *args, **kwargs):
+        """Execute a subtask with provided context and arguments.
 
+        Args:
+            ctx (Context): The context to pass to the task.
+            task (TaskFn): The task function to execute.
+            *args: Positional arguments for the task.
+            **kwargs: Keyword arguments for the task.
+        """
+        sig = inspect.signature(task)
+        task_args = [ctx]  # Start with the context
+        task_kwargs = {}
+
+        # Collect positional arguments
+        param_names = list(sig.parameters.keys())
+        for i, param in enumerate(param_names[1:], start=0):  # Skip 'ctx'
+            if i < len(args):
+                task_args.append(args[i])
+            elif sig.parameters[param].default is sig.empty:
+                raise ValueError(f"Missing required argument: {param}")
+
+        # Collect keyword arguments
+        for param in param_names[1:]:
+            if param in kwargs:
+                task_kwargs[param] = kwargs[param]
+
+        # Call the task with the prepared arguments
+        return task(*task_args, **task_kwargs)
+
+    def _run_hooks(self, ctx: Context, *args, **kwargs):
+        """Run hooks for the current instance.
+
+        Args:
+            ctx (Context): The context to pass to the hooks.
+            *args: Positional arguments for the hooks.
+            **kwargs: Keyword arguments for the hooks.
+        """
         for task in find_task_across_namespaces(self.name):
             if task is not self:
-                sig = inspect.signature(task)
-                if len(sig.parameters) > 1:  # Assuming the first parameter is always Context
-                    # e.g. def up(ctx, services)
-                    task(ctx, *args, **kwargs)
-                else:
-                    # e.g. def up(ctx)
-                    task(ctx)
+                subresult = self._execute_subtask(ctx, task, *args, **kwargs)
+                if isinstance(ctx["result"], dict) and isinstance(subresult, dict):
+                    ctx["result"].update(subresult)
+                elif subresult is not None:
+                    ctx["result"] = subresult
 
     def __call__(self, ctx: Context, *args, **kwargs):
-        result = super().__call__(ctx, *args, **kwargs)
-        if self.hookable:
-            self._run_hooks(ctx)
+        """Invoke the callable instance.
 
-        return result
+        Args:
+            ctx (Context): The context to pass.
+            *args: Positional arguments.
+            **kwargs: Keyword arguments.
+
+        Returns:
+            The result of the superclass call.
+        """
+        ctx["result"] = ctx.get("result") or {}
+        result = super().__call__(ctx, *args, **kwargs)
+
+        if isinstance(ctx["result"], dict) and isinstance(result, dict):
+            ctx["result"].update(result)
+        elif result is not None:
+            ctx["result"] = result
+
+        if self.hookable:
+            self._run_hooks(ctx, *args, **kwargs)
+
+        return ctx["result"]
 
 
 def find_task_across_namespaces(name: str) -> list[ImprovedTask]:
