@@ -5,12 +5,12 @@
 >>> def something(): ...
 """
 
-import functools
 import inspect
 import typing
 import warnings
 from typing import Any, Callable, Iterable, Optional
 
+from fabric import Connection
 from invoke.context import Context
 from invoke.tasks import Task as InvokeTask
 from invoke.tasks import task as invoke_task
@@ -38,7 +38,7 @@ class TaskOptions(typing.TypedDict, total=False):
     iterable: Optional[Iterable[str]]
     incrementable: Optional[Iterable[str]]
     flags: dict[str, Iterable[str]] | None
-    hookable: bool
+    hookable: Optional[bool]
 
 
 class TaskCallable(typing.Protocol):
@@ -75,7 +75,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         incrementable: Optional[Iterable[str]] = None,
         # new:
         flags: dict[str, Iterable[str]] | None = None,
-        hookable: bool = False,
+        hookable: Optional[bool] = None,
     ):
         self._flags = flags or {}
         self.hookable = hookable
@@ -152,7 +152,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             **kwargs: Keyword arguments for the hooks.
         """
         for namespace, task in find_task_across_namespaces(self.name).items():
-            if task is not self:
+            if task is not self and task.hookable is not False:
                 try:
                     subresult = self._execute_subtask(ctx, task, *args, **kwargs)
                 except Exception as e:
@@ -166,7 +166,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
                 elif subresult is not None:
                     ctx["result"] = subresult
 
-    def __call__(self, ctx: Context, *args, **kwargs):
+    def __call__(self, ctx: Context | Connection, *args, **kwargs):
         """Invoke the callable instance.
 
         Args:
@@ -177,7 +177,9 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         Returns:
             The result of the superclass call.
         """
-        ctx["result"] = ctx.get("result") or {}
+        # ctx.get works for Context but not for Connection!
+        setattr(ctx, "result", getattr(ctx, "result", {}))  # ctx["result"] = ctx.get("result") or {}
+
         result = super().__call__(ctx, *args, **kwargs)
 
         if isinstance(ctx["result"], dict) and isinstance(result, dict):
@@ -197,6 +199,67 @@ def find_task_across_namespaces(name: str) -> dict[str, ImprovedTask]:
     return {ns.name: task for ns in collection.collections.values() if (task := ns.tasks.get(name))}
 
 
-improved_task: TaskCallable = functools.partial(invoke_task, klass=ImprovedTask)
+def improved_task(*fn: Optional[TaskCallable], **options: Unpack[TaskOptions]) -> TaskCallable:
+    """
+    Marks wrapped callable object as a valid Invoke task.
+
+    This function may be called without any parentheses if no extra options need to be
+    specified. Otherwise, the following keyword arguments are allowed in the
+    parenthesized form:
+
+    Args:
+        name (str): Default name to use when binding to a `.Collection`. Useful for
+            avoiding Python namespace issues (i.e. when the desired CLI level name
+            can't or shouldn't be used as the Python level name.)
+        aliases (List[str]): Specify one or more aliases for this task, allowing it to be
+            invoked as multiple different names. For example, a task named ``mytask``
+            with a simple ``@task`` wrapper may only be invoked as ``"mytask"``.
+            Changing the decorator to be ``@task(aliases=['myothertask'])`` allows
+            invocation as ``"mytask"`` *or* ``"myothertask"``.
+        positional (Iterable[str]): Iterable overriding the parser's automatic "args with no
+            default value are considered positional" behavior. If a list of arg
+            names, no args besides those named in this iterable will be considered
+            positional. (This means that an empty list will force all arguments to be
+            given as explicit flags.)
+        optional (Iterable[str]): Iterable of argument names, declaring those args to
+            have optional values. Such arguments may be
+            given as value-taking options (e.g. ``--my-arg=myvalue``, wherein the
+            task is given ``"myvalue"``) or as Boolean flags (``--my-arg``, resulting
+            in ``True``).
+        iterable (Iterable[str]): Iterable of argument names, declaring them to build
+            iterable values.
+        incrementable (Iterable[str]): Iterable of argument names, declaring them to
+            increment their values.
+        default (bool): Boolean option specifying whether this task should be its
+            collection's default task (i.e. called if the collection's own name is
+            given.)
+        auto_shortflags (bool): Whether or not to automatically create short
+            flags from task options; defaults to True.
+        help (Dict[str, str]): Dict mapping argument names to their help strings. Will be
+            displayed in ``--help`` output. For arguments containing underscores
+            (which are transformed into dashes on the CLI by default), either the
+            dashed or underscored version may be supplied here.
+        pre (List[TaskCallable]): Lists of task objects to execute prior to the wrapped
+            task whenever it is executed.
+        post (List[TaskCallable]): Lists of task objects to execute after the wrapped
+            task whenever it is executed.
+        autoprint (bool): Boolean determining whether to automatically print this
+            task's return value to standard output when invoked directly via the CLI.
+            Defaults to False.
+        flags (dict[str, list[str]]): Mapping of flag names that modify task behavior.
+                               e.g. `@task(flags={'exclude': ['--exclude', '-x'], 'as_json': ['--json']})`
+        hookable (Optional[bool]): Boolean option that controls whether the task can be hooked by plugins.
+                                       - **True**: This setting is primarily used by core tasks. It allows the task to look for other tasks (from plugins or local definitions) with the same name and execute them after the main task completes. This enables a cascading execution of tasks, enhancing modularity and reusability.
+                                       - **False**: This setting is typically used by local or plugin tasks to indicate that they do not want to be hooked by core tasks, even if they share the same name. This ensures that the task remains isolated and does not trigger any unintended behavior from cascading executions.
+                                       - **None** (default): This represents the default behavior. For core tasks, it means that the task will not search for other tasks with the same name to execute. For local or plugin tasks, it allows them to be hooked by other tasks.
+        fn (TaskCallable): when you use `@task` without parentheses, this is the function you're decorating.
+                            Using `@task()` with parens is recommended for better type-hints.
+
+    If any non-keyword arguments are given, they are taken as the value of the
+    ``pre`` kwarg for convenience's sake. (It is an error to give both
+    ``*args`` and ``pre`` at the same time.)
+    """
+    return invoke_task(*fn, **options, klass=ImprovedTask)
+
 
 __all__ = ["ImprovedTask", "improved_task"]
