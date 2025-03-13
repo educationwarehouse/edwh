@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.7 (2025-03-13)
+
+### Fix
+
+* If old-school task is used (instead of improved_task) - hookable does not exist. Conservatively set hookable to False in that case, preventing unexpected cascading ([`6ebd509`](https://github.com/educationwarehouse/edwh/commit/6ebd5096e9c14269b0f229f8492ce5dc0e5bf43a))
+
 ## v0.56.6 (2025-03-13)
 
 ### Fix
