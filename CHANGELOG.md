@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.6 (2025-03-13)
+
+### Fix
+
+* Remove debug return in `setup` and use `@task()` with parens for better typing support. ([`5a51d2c`](https://github.com/educationwarehouse/edwh/commit/5a51d2cf49f7f77de40ad5979533a8022546b978))
+* Allow subtasks to define `hookable=False` and prevent being cascaded from core ([`7824e12`](https://github.com/educationwarehouse/edwh/commit/7824e1236119472bd090290aaa445be69357ab2e))
+* Make `ctx['result']` work with fabric (`.get` is a file operation instead of a dict get in fabric) ([`1f5a11f`](https://github.com/educationwarehouse/edwh/commit/1f5a11f74676f79e1f2e1db4c70a2a31c144b3b6))
+
 ## v0.56.5 (2025-03-07)
 
 ### Fix
