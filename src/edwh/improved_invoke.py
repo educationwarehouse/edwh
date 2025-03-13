@@ -152,7 +152,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             **kwargs: Keyword arguments for the hooks.
         """
         for namespace, task in find_task_across_namespaces(self.name).items():
-            if task is not self and task.hookable is not False:
+            if task is not self and getattr(task, "hookable", False) is not False:
                 try:
                     subresult = self._execute_subtask(ctx, task, *args, **kwargs)
                 except Exception as e:
