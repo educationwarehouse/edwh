@@ -5,7 +5,6 @@
 >>> def something(): ...
 """
 
-import functools
 import inspect
 import typing
 import warnings
@@ -260,8 +259,7 @@ def improved_task(*fn: Optional[TaskCallable], **options: Unpack[TaskOptions]) -
     ``pre`` kwarg for convenience's sake. (It is an error to give both
     ``*args`` and ``pre`` at the same time.)
     """
-    options["klass"] = ImprovedTask
-    return invoke_task(*fn, **options)
+    return invoke_task(*fn, **options, klass=ImprovedTask)
 
 
 __all__ = ["ImprovedTask", "improved_task"]
