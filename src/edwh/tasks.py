@@ -964,7 +964,7 @@ def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> di
         cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
 
     # local/plugin setup happens here because of `hookable`
-    return {"success": True, "services": ["todo"]}
+    return {}
 
 
 @task()
@@ -1186,7 +1186,7 @@ def up(
     }
 
 
-@task
+@task()
 def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
     tab = " " * 2
     result = {}
