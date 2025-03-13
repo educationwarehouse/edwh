@@ -11,6 +11,7 @@ import typing
 import warnings
 from typing import Any, Callable, Iterable, Optional
 
+from fabric import Connection
 from invoke.context import Context
 from invoke.tasks import Task as InvokeTask
 from invoke.tasks import task as invoke_task
@@ -166,7 +167,7 @@ class ImprovedTask(InvokeTask[TaskCallable]):
                 elif subresult is not None:
                     ctx["result"] = subresult
 
-    def __call__(self, ctx: Context, *args, **kwargs):
+    def __call__(self, ctx: Context | Connection, *args, **kwargs):
         """Invoke the callable instance.
 
         Args:
@@ -177,7 +178,9 @@ class ImprovedTask(InvokeTask[TaskCallable]):
         Returns:
             The result of the superclass call.
         """
-        ctx["result"] = ctx.get("result") or {}
+        # ctx.get works for Context but not for Connection!
+        setattr(ctx, "result", getattr(ctx, "result", {}))  # ctx["result"] = ctx.get("result") or {}
+
         result = super().__call__(ctx, *args, **kwargs)
 
         if isinstance(ctx["result"], dict) and isinstance(result, dict):
