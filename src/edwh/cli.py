@@ -6,6 +6,7 @@ import typing
 import warnings
 from importlib.metadata import entry_points
 from pathlib import Path
+from typing import Optional
 
 from fabric import Config, Executor
 from fabric.main import Fab
@@ -14,6 +15,9 @@ from termcolor import cprint
 
 from . import tasks
 from .__about__ import __version__
+
+if typing.TYPE_CHECKING:
+    from invoke.loader import Loader
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
@@ -151,8 +155,18 @@ class CustomExecutor(Executor):  # type: ignore
         return typing.cast(list[Call], super().expand_calls(calls, apply_hosts))
 
 
+class ImprovedFab(Fab):
+    # = Program
+
+    def print_task_help(self, name: str):
+        for flag, arg in self.parser.contexts[name].flags.items():
+            # invoke's help uses arg.attr_name instead of flag (key) so patch here:
+            arg.attr_name = flag.strip("-")
+        return super().print_task_help(name)
+
+
 # ExtendableFab is not used right now
-program = Fab(
+program = ImprovedFab(
     executor_class=CustomExecutor,
     config_class=Config,
     namespace=collection,

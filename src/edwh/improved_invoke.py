@@ -8,9 +8,11 @@
 import inspect
 import typing
 import warnings
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, List, Optional
 
+from docstring_parser import parse as parse_docstring
 from fabric import Connection
+from invoke import Argument
 from invoke.context import Context
 from invoke.tasks import Task as InvokeTask
 from invoke.tasks import task as invoke_task
@@ -22,6 +24,17 @@ TaskFn: typing.TypeAlias = typing.Callable[[Context], Any] | typing.Callable[...
 
 P = typing.ParamSpec("P")
 R = typing.TypeVar("R")
+
+
+def extract_arg_doc(docstring: str, arg_name: str):
+    doc = parse_docstring(docstring)
+    for param in doc.params:
+        if param.arg_name != arg_name:
+            continue
+
+        return param.description
+
+    return None
 
 
 class TaskOptions(typing.TypedDict, total=False):
@@ -108,11 +121,18 @@ class ImprovedTask(InvokeTask[TaskCallable]):
             AnyDict: A dictionary of argument options.
         """
         opts = super().arg_opts(name=name, default=default, taken_names=set(taken_names))
+        help_str = self.help.pop(name, None) or opts.get("help") or extract_arg_doc(self.body.__doc__, name)
+        opts["help"] = opts.get("help") or help_str
 
         if flags := self._flags.get(name):
             opts["names"] = list(flags)
+            for synonym in list(flags):
+                self.help[synonym] = help_str
 
         return opts
+
+    def get_arguments(self, ignore_unknown_help: Optional[bool] = None) -> List[Argument]:
+        return super().get_arguments(ignore_unknown_help=True)
 
     def _execute_subtask(self, ctx: Context, task: TaskFn, *args, **kwargs):
         """Execute a subtask with provided context and arguments.

@@ -36,6 +36,7 @@ dependencies = [
     "humanize", # for making raw sizes huam nreadable
     "invoke >= 2.1", # base cli tool
     "more_itertools", # improved 'flatten' function (among others)
+    "docstring_parser", # better help
     "packaging", # parsing package versions (for plugin subcommand)
     "plumbum", # running bash commands more nicely than with invoke
     "python-dateutil", # improved date parsing
