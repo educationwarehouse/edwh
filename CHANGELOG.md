@@ -8,6 +8,14 @@
 
 * Improved `help` parsing (for custom flags) + try to load help from docstring if not explicitly available ([`94430b7`](https://github.com/educationwarehouse/edwh/commit/94430b7fac4e2dc79d65b72ea78c5e8cd876958b))
 
+
+## v0.56.8 (2025-03-14)
+
+### Fix
+
+* Bump ruff to 0.10 ([`d262f65`](https://github.com/educationwarehouse/edwh/commit/d262f65894a3a57139d3ddede3af5aa85c2300fa))
+
+
 ## v0.56.7 (2025-03-13)
 
 ### Fix
