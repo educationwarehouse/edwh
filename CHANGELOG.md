@@ -4,10 +4,6 @@
 
 ## v0.56.9 (2025-03-17)
 
-
-
-## v0.56.8 (2025-03-17)
-
 ### Fix
 
 * Improved `help` parsing (for custom flags) + try to load help from docstring if not explicitly available ([`94430b7`](https://github.com/educationwarehouse/edwh/commit/94430b7fac4e2dc79d65b72ea78c5e8cd876958b))
