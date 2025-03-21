@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.10 (2025-03-21)
+
+### Fix
+
+* Allow `1`/`t`/`y` as boolish values (e.g. for `include_celeries_in_minimal`) ([`61d1857`](https://github.com/educationwarehouse/edwh/commit/61d1857dd32c85dc813c860bf32cdb1324fe9388))
+
 ## v0.56.9 (2025-03-17)
 
 ### Fix
