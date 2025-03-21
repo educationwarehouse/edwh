@@ -316,7 +316,7 @@ class ServicesTomlConfig(typing.TypedDict, total=False):
 
     services: typing.Literal["discover"] | list[str]
     minimal: list[str]
-    include_celeries_in_minimal: str  # 'true' or 'false'
+    include_celeries_in_minimal: str  # 'true'/'1' or 'false'/'0'
     log: list[str]
     db: list[str]
 
@@ -332,6 +332,21 @@ class ConfigTomlDict(typing.TypedDict, total=True):
 
     services: ServicesTomlConfig
     dotenv: AnyDict
+
+
+def boolish(value: typing.Literal["y", "yes", "t", "true", "1", "n", "no", "false", "f", "0"] | str | int) -> bool:
+    """
+    Convert a given value to a boolean.
+
+    Args:
+        value (Union[str, int]): The value to be converted.
+            Accepts strings representing true/false values such as "y", "yes", "t", "true", "1" for true
+            and "n", "no", "false", "f", "0" for false, as well as integers.
+
+    Returns:
+        bool: The boolean representation of the input value.
+    """
+    return bool(value) and str(value)[0].strip().lower() in {"y", "t", "1"}
 
 
 @dataclass
@@ -408,7 +423,7 @@ class TomlConfig:
         celeries = [s for s in all_services if "celery" in s.lower()]
 
         minimal_services = config["services"]["minimal"]
-        if config["services"].get("include_celeries_in_minimal", "false") == "true":
+        if boolish(config["services"].get("include_celeries_in_minimal", "false")):
             minimal_services += celeries
 
         tomlconfig_singletons[singleton_key] = instance = TomlConfig(

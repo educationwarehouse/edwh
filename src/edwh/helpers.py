@@ -27,7 +27,7 @@ def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = No
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
     """
-    allowed = allowed or {"y", "1"}
+    allowed = allowed or {"y", "t", "1"}
     if default:
         allowed.add(" ")
 
