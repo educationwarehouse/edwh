@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.57.0 (2025-04-03)
+
+### Feature
+
+* **up:** Use `edwh up --wait -s <service>` to wait for service(s) to be healthy ([`cad79ea`](https://github.com/educationwarehouse/edwh/commit/cad79ea8bbe31792a9504d5382a34399a73a1cdf))
+
 ## v0.56.11 (2025-04-03)
 
 ### Fix
