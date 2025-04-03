@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.56.11 (2025-04-03)
+
+### Fix
+
+* Pin dependencies at major level to prevent breaking changes leaking through (e.g. termcolor v3) ([`5602de4`](https://github.com/educationwarehouse/edwh/commit/5602de4d213068a3fa6a60703dc6cc1b16d847db))
+
 ## v0.56.10 (2025-03-21)
 
 ### Fix
