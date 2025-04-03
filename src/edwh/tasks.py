@@ -1173,6 +1173,7 @@ def up(
     tail: bool = False,
     clean: bool = False,
     show_settings: bool = True,
+    wait: bool = False,
 ) -> dict:
     """Restart (or down;up) some or all services, after an optional rebuild."""
     config = TomlConfig.load()
@@ -1194,6 +1195,8 @@ def up(
         show_related_settings(ctx, services)
     if tail:
         ctx.run(f"{DOCKER_COMPOSE} logs --tail=10 -f {services_ls}")
+    if wait:
+        health(ctx, services, wait=True)
 
     # local/plugin up happens here because of `hookable`
     return {
