@@ -94,26 +94,43 @@ async def parse_docker_log_line(
     re_filter: FilterFn = None,
     show_ts: bool = True,  # full, default, no
     verbose: bool = False,
-) -> None:
+) -> bool:
+    """
+    Parses a single line of Docker log.
+
+    Args:
+        line (str): The log line to parse as a JSON string.
+        human_name (str): A human-readable name for the container.
+        container_id (str): The ID of the container generating the log.
+        color (ColorFn): A function to apply color formatting to the output.
+        stream (Optional[str]): The log stream type (stdout/stderr) to filter by.
+        since (Optional[str]): A timestamp to filter logs that are earlier than this value.
+        re_filter (FilterFn): A regex filter function to apply to the log message.
+        show_ts (bool): If true, include the timestamp in the output.
+        verbose (bool): If true, show detailed timestamps.
+
+    Returns:
+        bool: True if the log line was processed successfully and something was actually printed, False otherwise.
+    """
     try:
         data = json.loads(line)
     except json.JSONDecodeError:
         # don't crash, just ignore
-        return
+        return False
 
     # data containers log, stream (stdout/stderr) and time.
 
     if stream and data["stream"] != stream:
-        return
+        return False
 
     if since and data["time"] < since:
-        return
+        return False
 
     if not (log := data.get("log")):
-        return
+        return False
 
     if re_filter and not re_filter(log):
-        return
+        return False
 
     if show_ts:
         # iso is up to 30 chars wide
@@ -124,6 +141,7 @@ async def parse_docker_log_line(
         prefix = color(f"{human_name} |")
 
     print(prefix, log, end="")
+    return True
 
 
 TD_RE = re.compile(r"(\d+)\s*(h(our)?|m(inute)?|s(econd)?|d(ay)?)s?\s*(ago)?", re.IGNORECASE)
@@ -257,7 +275,7 @@ async def tail(config: TailConfig) -> None:
 
             if contents := await f.readline():
                 print(" " * 20, end="\r")
-                await parse_docker_log_line(
+                did_print = await parse_docker_log_line(
                     contents,
                     config["human_name"],
                     config["container_id"],
@@ -268,7 +286,10 @@ async def tail(config: TailConfig) -> None:
                     show_ts=config["timestamps"],
                     verbose=config["verbose"],
                 )
-                cprint(f"$ edwh {print_args}", color="white", end="\r")
+
+                if did_print:
+                    cprint(f"$ edwh {print_args}", color="white", end="\r")
+
             elif exited:
                 # if state = 'exited' and last line was reached -> stop
                 # note: this only happens when the container was already shut down when 'logs' started,
