@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.57.1 (2025-04-04)
+
+### Fix
+
+* Print('$ edwh ...') line only after actually printing a log line ([`02bc5ae`](https://github.com/educationwarehouse/edwh/commit/02bc5aea96c59ddbf25d5bd82cf960e32fb28821))
+
 ## v0.57.0 (2025-04-03)
 
 ### Feature
