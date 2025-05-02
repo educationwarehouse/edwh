@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.57.3 (2025-05-02)
+
+### Fix
+
+* Bump version of `ruff` ([`4f25a6f`](https://github.com/educationwarehouse/edwh/commit/4f25a6f7849193c766e4b5c9896ade62dcf471f6))
+
 ## v0.57.2 (2025-04-18)
 
 ### Fix
