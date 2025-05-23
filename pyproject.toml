@@ -45,7 +45,7 @@ dependencies = [
     "pyyaml < 7", # yaml parser (for docker-compose.yml)
     "rapidfuzz < 4",  # levenshtein my beloved
     "requests < 3", # better than urllib no?
-    "ruff==0.11.8", # For `edwh fmt`, `edwh lint`
+    "ruff==0.11.11", # For `edwh fmt`, `edwh lint`
     "tabulate < 1", # for nice cli tables
     "termcolor < 3", # improved ansi colored print (v3 removes Color type)
     "threadful >= 0.5, < 1", # running things in different threads easily, with animations
