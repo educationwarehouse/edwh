@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.58.0 (2025-06-19)
+
+### Feature
+
+* **publish:** First git pull (+ check for unstaged changes) to prevent annoying tag conflicts ([`9f4ead0`](https://github.com/educationwarehouse/edwh/commit/9f4ead00773da14745e50ac37691ab3cb96679c3))
+
+### Fix
+
+* **build:** Look for any .in files, not just ones named requirements.in (useful in whitelabel) ([`df9b2a5`](https://github.com/educationwarehouse/edwh/commit/df9b2a507aa06a38f2faddda1674ba58f03cb91f))
+
 ## v0.57.3 (2025-05-02)
 
 ### Fix
