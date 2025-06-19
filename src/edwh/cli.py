@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fabric import Config, Executor
 from fabric.main import Fab
-from invoke import Call, Collection  # type: ignore
+from invoke import Argument, Call, Collection
 from termcolor import cprint
 
 from . import tasks
@@ -137,13 +137,6 @@ def include_other_project_tasks() -> None:
         collection.add_collection(plugin_collection, namespace)
 
 
-include_plugins()  # pip plugins
-include_packaged_plugins()  # from src.edwh.local_tasks
-include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
-include_other_project_tasks()  # *.tasks.py in current project
-include_personal_tasks()
-
-
 class CustomExecutor(Executor):  # type: ignore
     def expand_calls(self, calls: list[Call], apply_hosts: bool = True) -> list[Call]:
         # always apply hosts (so pre and post are also executed remotely)
@@ -154,11 +147,61 @@ class CustomExecutor(Executor):  # type: ignore
 class ImprovedFab(Fab):
     # = Program
 
+    def core_args(self):
+        core_args = super().core_args()
+        my_args = [
+            Argument(
+                names=("no-local",),
+                kind=bool,
+                help="Skip importing ./tasks.py",
+            ),
+            Argument(
+                names=("no-plugins",),
+                kind=bool,
+                help="Skip importing plugins from entry points",
+            ),
+            Argument(
+                names=("no-packaged",),
+                kind=bool,
+                help="Skip importing packaged plugins from edwh/local_tasks",
+            ),
+            Argument(
+                names=("no-personal",),
+                kind=bool,
+                help="Skip importing personal tasks from ~/.config/edwh",
+            ),
+            Argument(
+                names=("no-project",),
+                kind=bool,
+                help="Skip importing *.tasks.py files from the current project",
+            ),
+        ]
+        return core_args + my_args
+
     def print_task_help(self, name: str):
         for flag, arg in self.parser.contexts[name].flags.items():
             # invoke's help uses arg.attr_name instead of flag (key) so patch here:
             arg.attr_name = flag.strip("-")
         return super().print_task_help(name)
+
+    def parse_collection(self):
+        import_local = not self.args["no-local"].value
+        import_plugins = not self.args["no-plugins"].value
+        import_packaged = not self.args["no-packaged"].value
+        import_personal = not self.args["no-personal"].value
+        import_project = not self.args["no-project"].value
+
+        if import_plugins:
+            include_plugins()  # pip plugins
+        if import_packaged:
+            include_packaged_plugins()  # from src.edwh.local_tasks
+        if import_local:
+            include_cwd_tasks()  # from tasks.py and ../tasks.py etc.
+        if import_project:
+            include_other_project_tasks()  # *.tasks.py in current project
+        if import_personal:
+            include_personal_tasks()
+        return super().parse_collection()
 
 
 # ExtendableFab is not used right now
