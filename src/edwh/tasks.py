@@ -1634,7 +1634,8 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     Will test for the presence of `edwh-pipcompile-plugin` and use it to compile
     requirements.in files to requirements.txt files in child directories.
     """
-    reqs = list(Path().rglob("*/requirements.in"))
+    # Path.cwd() uses absolute paths, Path() is the same but relative
+    reqs = list(Path().rglob("*/*.in"))
 
     if pip_compile := get_task("pip.compile"):
         with_compile = not skip_compile
