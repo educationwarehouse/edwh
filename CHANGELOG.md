@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.59.1 (2025-06-19)
+
+### Fix
+
+* **fmt:** Improve handling of file arguments in run_fmt method ([`c76de0d`](https://github.com/educationwarehouse/edwh/commit/c76de0d0aa33861e81db36d3183f4fdea2d694ea))
+
 ## v0.59.0 (2025-06-19)
 
 ### Feature
