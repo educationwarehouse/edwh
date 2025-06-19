@@ -147,36 +147,24 @@ class CustomExecutor(Executor):  # type: ignore
 class ImprovedFab(Fab):
     # = Program
 
+    # Define all the no-flags in one place for reuse
+    CUSTOM_FLAGS = {
+        "no-local": "Skip importing ./tasks.py",
+        "no-plugins": "Skip importing plugins from entry points",
+        "no-packaged": "Skip importing packaged plugins from edwh/local_tasks",
+        "no-personal": "Skip importing personal tasks from ~/.config/edwh",
+        "no-project": "Skip importing *.tasks.py files from the current project",
+    }
+
     def core_args(self):
-        core_args = super().core_args()
-        my_args = [
+        return super().core_args() + [
             Argument(
-                names=("no-local",),
+                names=(name,),
                 kind=bool,
-                help="Skip importing ./tasks.py",
-            ),
-            Argument(
-                names=("no-plugins",),
-                kind=bool,
-                help="Skip importing plugins from entry points",
-            ),
-            Argument(
-                names=("no-packaged",),
-                kind=bool,
-                help="Skip importing packaged plugins from edwh/local_tasks",
-            ),
-            Argument(
-                names=("no-personal",),
-                kind=bool,
-                help="Skip importing personal tasks from ~/.config/edwh",
-            ),
-            Argument(
-                names=("no-project",),
-                kind=bool,
-                help="Skip importing *.tasks.py files from the current project",
-            ),
+                help=help_text,
+            )
+            for name, help_text in self.CUSTOM_FLAGS.items()
         ]
-        return core_args + my_args
 
     def print_task_help(self, name: str):
         for flag, arg in self.parser.contexts[name].flags.items():
@@ -202,6 +190,20 @@ class ImprovedFab(Fab):
         if import_personal:
             include_personal_tasks()
         return super().parse_collection()
+
+    def run_fmt(self, argv: list[str] = None, exit: bool = True):
+        # ew-fmt "binary" is an alias for `ew --no-local --no-plugins --no-packaged --no-personal --no-project fmt` for more performance and less tasks.py interference
+        argv = argv or []
+
+        # Add all the --no-* flags at the beginning and ensure 'fmt' is included
+        if "fmt" not in argv:
+            argv.append("fmt")
+
+        # Insert all no_flags at the beginning of argv
+        for flag in self.CUSTOM_FLAGS:
+            argv.insert(0, f"--{flag}")
+
+        return super().run(argv, exit)
 
 
 # ExtendableFab is not used right now

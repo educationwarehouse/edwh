@@ -162,6 +162,7 @@ devdb = [
 [project.scripts]
 edwh = "edwh.cli:program.run"
 ew = "edwh.cli:program.run"
+ew-fmt = "edwh.cli:program.run_fmt"
 
 [project.urls]
 Documentation = "https://github.com/educationwarehouse/edwh#readme"
