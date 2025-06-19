@@ -192,16 +192,26 @@ class ImprovedFab(Fab):
         return super().parse_collection()
 
     def run_fmt(self, argv: list[str] = None, exit: bool = True):
-        # ew-fmt "binary" is an alias for `ew --no-local --no-plugins --no-packaged --no-personal --no-project fmt` for more performance and less tasks.py interference
-        argv = argv or []
+        """
+        Process arguments for the fmt command with special handling:
+        - `ew-fmt` == `ew fmt`
+        - `ew-fmt file1` == `ew fmt --file file1`
+        - `ew-fmt file1 file2` == `ew fmt --file file1 fmt --file file2`
+        """
+        argv = argv or sys.argv[1:]
 
-        # Add all the --no-* flags at the beginning and ensure 'fmt' is included
-        if "fmt" not in argv:
-            argv.append("fmt")
+        # Filter out any 'fmt' arguments to prevent duplicates
+        argv = [arg for arg in argv if arg != "fmt"]
 
-        # Insert all no_flags at the beginning of argv
-        for flag in self.CUSTOM_FLAGS:
-            argv.insert(0, f"--{flag}")
+        if not argv:
+            # No files specified, just run fmt command
+            argv = ["fmt"]
+        else:
+            # Convert each argument to fmt --file arg format using list comprehension
+            argv = [item for arg in argv for item in ["fmt", "--file", arg]]
+
+        # Add all no_flags at the beginning
+        argv = [f"--{flag}" for flag in self.CUSTOM_FLAGS] + argv
 
         return super().run(argv, exit)
 
