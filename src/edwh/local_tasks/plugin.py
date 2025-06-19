@@ -654,6 +654,43 @@ def require_hatch(ctx: Context):
     assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
 
 
+@dataclass
+class GitException(Exception):
+    reason: str
+
+
+@task()
+def git_pull(c: Context, yes: bool) -> None:
+    cprint("pulling latest version from git", "blue")
+
+    # Check for unstaged changes
+    git_status = c.run("git status --porcelain", hide=True)
+    # --porcelain produces an easier output format which empty if there are no uncommitted changes.
+    if git_status.stdout.strip():
+        cprint("Warning: You have unstaged changes in your working directory:", "yellow")
+        c.run("git status", hide=False)  # Show status to help user see unstaged changes
+        if not yes and not confirm("Continue with git pull despite unstaged changes? [yN] ", default=False):
+            cprint("Operation cancelled. Please commit or stash your changes first.", "red")
+            raise GitException("unstaged changes")
+
+    # 1. pull
+    git_pull = c.run("git pull", warn=True)
+
+    # 2. check if merge is going on, in that case: stop and let the user fix it
+    if git_pull.stderr and ("merge" in git_pull.stderr.lower() or "conflict" in git_pull.stderr.lower()):
+        cprint("Git merge conflict detected! Please resolve the conflicts manually and try again.", "red")
+        c.run("git status", hide=False)  # Show status to help user identify conflicting files
+        raise GitException("merge required")
+
+    # 3. if no merge - we good so continue
+    if git_pull.ok:
+        cprint("Git pull completed successfully", "green")
+    else:
+        cprint(f"Git pull failed: {git_pull.stderr}", "red")
+        if not yes and not confirm("Continue despite git pull failure? [yN] ", default=False):
+            raise GitException(git_pull.stderr)
+
+
 @task(aliases=("publish",), pre=[require_semantic_release, require_hatch])
 def release(
     c: Context,
@@ -663,6 +700,7 @@ def release(
     patch: bool = False,
     prerelease: bool = False,
     yes: bool = False,
+    pull: bool = True,
 ) -> None:
     """
     Release a new version of a plugin.
@@ -674,8 +712,17 @@ def release(
         minor: bump minor version
         patch: bump patch version
         prerelease: release as beta version (e.g. 1.0.0b1)
+        pull: it's recommended to do a git pull before trying to bump the version;
+                otherwise the git tags could get messed up
         yes: don't ask for confirmation
     """
+    if pull:
+        try:
+            git_pull(c, yes=yes)
+        except GitException:
+            # stop
+            return
+
     cprint("bumping version", "blue")
 
     if not (yes or noop):
