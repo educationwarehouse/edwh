@@ -2089,19 +2089,40 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
 
 
 @task(aliases=("format",))
-def fmt(ctx: Context, isort: bool = True, reformat: bool = True, directory: Optional[str] = None):
+def fmt(
+    ctx: Context,
+    isort: bool = True,
+    ioptimize: bool = False,
+    reformat: bool = True,
+    directory: Optional[str] = None,
+    file: Optional[str] = None,
+):
     """
     Format your Python code with `ruff`, including import sorting (isort).
+
+    `ioptimize` would remove unused imports, but that functionality in `ruff` doesn't seem to work right now
+        -> so only display problems for now.
+
+    `file` and `directory` have the same behavior, the different names are there for sugar.
     """
-    directory = directory or "."
+    if file and directory:
+        raise ValueError("Conflicting arguments --file and --directory. Please pick one, the behavior is the same.")
+
+    target = directory or file or "."
 
     ruff = find_ruff()
 
     if isort:
-        color = "green" if run_pty_ok(ctx, ruff, f"check --select I --fix {directory} --quiet") else "red"
+        color = "green" if run_pty_ok(ctx, ruff, f"check --select I --fix {target} --quiet") else "red"
         cprint("⬤ isort", color=color)
 
     if reformat:
         # note: ruff format --quiet also hides what's wrong, so instead pipe stdout to dev null and only show stderr:
-        color = "green" if run_pty_ok(ctx, ruff, f"format {directory} > /dev/null") else "red"
+        color = "green" if run_pty_ok(ctx, ruff, f"format {target} > /dev/null") else "red"
         cprint("● reformat", color=color)
+
+    if ioptimize:
+        # F401 = unused-import
+        # `--fix F401` currently does nothing, so no --ioptimize for now. Do print out unused imports:
+        color = "green" if run_pty_ok(ctx, ruff, f"check --select F401 {target} --quiet") else "red"
+        cprint("⬤ ioptimize", color=color)

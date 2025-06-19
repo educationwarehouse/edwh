@@ -6,7 +6,6 @@ import typing
 import warnings
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Optional
 
 from fabric import Config, Executor
 from fabric.main import Fab
@@ -15,9 +14,6 @@ from termcolor import cprint
 
 from . import tasks
 from .__about__ import __version__
-
-if typing.TYPE_CHECKING:
-    from invoke.loader import Loader
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 
