@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.59.0 (2025-06-19)
+
+### Feature
+
+* Add `ew-fmt` script which runs `ew fmt` without importing other namespaces (faster + less interference) ([`8900826`](https://github.com/educationwarehouse/edwh/commit/8900826dd193586e3f6d4fdd241b59a3194e4bd9))
+* **cli:** Add CLI flags to selectively disable task imports ([`449e834`](https://github.com/educationwarehouse/edwh/commit/449e8349965190a5c2e7ff3d4dad3154d590eb5a))
+
 ## v0.58.1 (2025-06-19)
 
 ### Fix
