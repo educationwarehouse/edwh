@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.58.1 (2025-06-19)
+
+### Fix
+
+* Allow `--file` as alias for `--directory` and start on `--ioptimize` (but ruff --fix F401 doesn't work right now) ([`f6aede8`](https://github.com/educationwarehouse/edwh/commit/f6aede82d2dc0420eb9180d06add3af557b4b21d))
+
 ## v0.58.0 (2025-06-19)
 
 ### Feature
