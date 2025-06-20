@@ -63,8 +63,7 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
 )
 from .helpers import generate_password as _generate_password
-from .improved_invoke import ImprovedTask as Task
-from .improved_invoke import improved_task as task
+from ewok import Task, task
 from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
 
 # noinspection PyUnresolvedReferences

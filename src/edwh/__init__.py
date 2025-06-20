@@ -10,11 +10,11 @@ import warnings
 
 from cryptography.utils import CryptographyDeprecationWarning
 
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+# warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
-from . import tasks  # noqa E402 - import has to come after warning filter
-from .constants import DOCKER_COMPOSE  # noqa E402  - import has to come after warning filter
-from .helpers import (  # noqa E402  - import has to come after warning filter
+from . import tasks
+from .constants import DOCKER_COMPOSE
+from .helpers import (
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
@@ -43,7 +43,7 @@ from .helpers import (  # noqa E402  - import has to come after warning filter
     shorten,
     yaml_loads,
 )
-from .meta import is_installed  # noqa E402  - import has to come after warning filter
+from .meta import is_installed
 from .health import (
     HealthLevel,
     get_healths,
@@ -51,9 +51,8 @@ from .health import (
     find_containers_ids,
     HealthStatus,
     inspect,
-)  # noqa E402  - import has to come after warning filter
-from .improved_invoke import ImprovedTask, improved_task  # noqa E402  - import has to come after warning filter
-from .tasks import (  # noqa E402  - import has to come after warning filter
+)
+from .tasks import (
     TomlConfig,
     check_env,
     get_env_value,
@@ -62,9 +61,10 @@ from .tasks import (  # noqa E402  - import has to come after warning filter
     set_env_value,
     task_for_namespace,
 )
+from ewok import Task, task
 
-Task = ImprovedTask
-task = improved_task
+ImprovedTask = Task
+improved_task = task
 
 __all__ = [
     "DOCKER_COMPOSE",

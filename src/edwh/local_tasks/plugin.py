@@ -19,7 +19,7 @@ from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
-from ..improved_invoke import improved_task as task
+from ewok import task
 from ..meta import (  # type: ignore
     Version,
     _gather_package_metadata_threaded,
@@ -44,7 +44,10 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
         packages = []
 
     # filter out comments and editable (local) installs:
-    return [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
+    regular_installs = [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
+    local_installs = [_.split('/')[-1] for _ in packages if _.startswith('-e')]
+
+    return regular_installs + local_installs
 
 
 @dataclass
@@ -86,6 +89,18 @@ class Plugin:
                 plugin_details = (
                     f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url}"
                 )
+
+            cprint(
+                plugin_details,
+                "yellow",
+            )
+        elif self.is_installed and not self.installed_version:
+            if verbose:
+                plugin_details = (
+                    f"• {self.clean_name} (unknown) - {self.github_url} - Python {self.requires_python}"
+                )
+            else:
+                plugin_details = f"• {self.clean_name} - {self.github_url}"
 
             cprint(
                 plugin_details,

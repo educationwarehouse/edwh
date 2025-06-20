@@ -34,8 +34,7 @@ dependencies = [
     "anyio < 5", # for async log reading
     "click < 9", # for interactive select box (e.g. in `ew setup`)
     "diceware < 2", # for generating random, safe passhprases
-    "fabric >= 3.1, < 4", # invoke but remote
-    "invoke >= 2.1, < 3", # base cli tool
+    "ewok < 2", # base cli tool based on invoke and fabric
     "humanize < 5", # for making raw sizes huam nreadable
     "more-itertools < 11", # improved 'flatten' function (among others)
     "docstring_parser < 1", # better help
