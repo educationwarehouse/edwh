@@ -1,17 +1,22 @@
 import contextlib
+import datetime as dt
 import fnmatch
 import hashlib
 import io
+import itertools
 import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import sys
+import threading
 import time
 import typing
 import warnings
 from collections import Counter
+from concurrent.futures import Future
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
@@ -20,10 +25,12 @@ from typing import Optional
 import ewok
 import invoke
 import tabulate
+import termcolor
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
 from ewok import Task, task
+from invoke import Promise, StreamWatcher
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
@@ -41,6 +48,7 @@ from .constants import (
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
 from .health import find_container_ids, find_containers_ids, get_healths, inspect  # noqa F401 - import for export
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
@@ -62,6 +70,7 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
 )
 from .helpers import generate_password as _generate_password
+
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import is_installed, plugins, self_update  # noqa
@@ -166,7 +175,7 @@ def calculate_schema_hash(quiet: bool = False) -> str:
     return hasher.hexdigest()
 
 
-def task_for_namespace(ctx:Context,namespace: str, task_name: str) -> Task | None:
+def task_for_namespace(ctx: Context, namespace: str, task_name: str) -> Task | None:
     """
     Get a task by namespace + task_name.
 
@@ -407,6 +416,7 @@ def process_env_file(env_path: Path) -> dict[str, str]:
         return {}
 
     return dict(dotenv_values())
+
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
@@ -1360,13 +1370,282 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
 
     return result
 
+
+ColorFn = typing.Callable[[str], str]
+FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
+
+
+class NoopHandler:
+    def process(self, chunk: str):
+        return
+
+
+class LineBufferHandler:
+    def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
+        self.buffer = ""
+        self.prefix = prefix
+        self.output_stream = output_stream
+        self.filter_fn = filter_fn
+
+    def process(self, chunk: str):
+        if not chunk:
+            return
+
+        filter_fn = self.filter_fn
+        self.buffer += chunk
+
+        if "\n" in self.buffer:
+            lines = self.buffer.splitlines(True)
+
+            if not self.buffer.endswith("\n"):
+                # last line wasn't finished yet, save it to buffer instead of printing
+                self.buffer = lines.pop()
+            else:
+                # all lines complete, clean buffer
+                self.buffer = ""
+
+            for line in lines:
+                if filter_fn and not filter_fn(line):
+                    continue
+
+                print(f"{self.prefix}{line}", end="", flush=True, file=self.output_stream)
+
+
+POSSIBLE_FLAGS = {
+    # https://docs.python.org/3/library/re.html
+    "a": re.ASCII,
+    "d": re.DEBUG,
+    "i": re.IGNORECASE,
+    "l": re.LOCALE,
+    "m": None,  # re.MULTILINE but the logger works line-by-line so this isn't really possible
+    "s": re.DOTALL,
+    "u": re.UNICODE,
+    "x": re.VERBOSE,
+    # custom: 'v' to invert
+}
+
+
+def parse_regex(raw: str) -> FilterFn:
+    """
+    Turn `/pattern/flags` into a Regex object.
+
+    Uses the grep style flags (i for case insensitive, v for invert)
+    """
+
+    # zero slashes: just a pattern, no flags.
+    # one slash: search term with / in it
+    # two slashes (+ starts with /): regex with flags
+    # more slashes: flags AND / in filter itself
+
+    if raw.startswith("/") and raw.count("/") > 1:
+        # flag-mode
+        _, *rest, flags_str = raw.split("/")
+        flags = set(flags_str.lower())
+        pattern = "/".join(rest)
+    else:
+        # normal search mode, no flags
+        flags = set()
+        pattern = raw
+
+    flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
+
+    for flag in flags:
+        flags_bin |= POSSIBLE_FLAGS.get(flag) or 0  # re.NOFLAG
+
+    re_compiled = re.compile(pattern, flags_bin)
+
+    if "v" in flags:
+        # v for inverse like `grep -v`
+        return lambda text: not re_compiled.search(text)
+    else:
+        return lambda text: bool(re_compiled.search(text))
+
+
+def follow_logs(
+    ctx: Context,
+    container_id: str,
+    project: str,
+    longest_name: int,
+    color: ColorFn,
+    since: str | None,
+    verbose: bool,
+    timestamps: bool,
+    stream: typing.Literal["stdout", "stderr", "out", "err", ""] = "",
+    filter_pattern: str = "",
+):
+    """
+    Follow logs of a container until it exits
+    """
+    # Get container name for prefix
+    name_result = ctx.run(
+        "docker inspect --format='{{.Name}}' %(container)s" % {"container": container_id}, hide=True, warn=True
+    )
+
+    container_name = name_result.stdout.strip().lstrip("/")
+    container_name = container_name.removeprefix(f"{project}-").ljust(longest_name + 3, " ")
+
+    prefix = color(f"{container_name} | ")
+
+    re_filter_fn = parse_regex(filter_pattern) if filter_pattern else None
+
+    stdout_handler = (
+        LineBufferHandler(f"{prefix}out | " if verbose else prefix, sys.stdout, filter_fn=re_filter_fn)
+        if stream in ("out", "stdout", "")
+        else NoopHandler()
+    )
+    stderr_handler = (
+        LineBufferHandler(f"{prefix}err | " if verbose else prefix, sys.stderr, filter_fn=re_filter_fn)
+        if stream in ("out", "stdout", "")
+        else NoopHandler()
+    )
+
+    # Loop until container state is 'exited'
+    while True:
+        # Check container state
+        result = ctx.run(
+            "docker inspect --format='{{.State.Status}}' %(container)s" % {"container": container_id},
+            hide=True,
+            warn=True,
+        )
+
+        if result.failed:
+            return
+
+        state = result.stdout.strip()
+
+        if state == "exited":
+            break
+
+        # Follow logs with timestamps, starting from last_timestamp if available
+        try:
+            args = ["docker", "logs", "--follow", container_id]
+            if timestamps:
+                args.append("--timestamps")
+
+            # If we have a last timestamp, use it to start from where we left off
+            if since:
+                args.extend(("--since", since))
+
+            # Run the docker logs command with our watcher
+            cmd = shlex.join(args)
+            process: Promise = ctx.run(cmd, pty=True, warn=True, asynchronous=True)
+            runner = process.runner
+
+            try:
+                while not runner.process_is_finished:
+                    # fixme:
+                    # initial 'buffer' (e.g. runner.stdout) can start with multiple lines, where the last could be incomplete. Example:
+                    # eb2py-1  | out | 25-06-26T14:42:16.491850531Z [2025-06-26 14:42:16 +0000] [12] [INFO] Worker exiting (pid: 12)
+                    # 2025-06-26T14:42:17.718001537Z [2025-06-26 14:42:17 +0000] [13] [INFO] Booting worker with pid: 13
+                    # 2025-06-26T14:42:17.733072258Z [2025-06-26 14:42:17 +0000] [14] [INFO] Booting worker with pid: 14
+                    # 2025-06-26T14:42:17.818149344Z [2025-06-26 14:42:17 +0000] [15] [INFO] Booting worker with pid: 15
+                    # 2025-06-26T14:42:21.335637993Z Cache hit "core-b
+                    # web2py-1  | out | ackend-tag-load-19682a99-50a3-4fc0-bb67-e0f6eff5da55", None, 1228, 1efe4abb90f73d60c55b660ea814bb4e806b46d0
+
+                    while runner.stdout:
+                        stdout_handler.process(runner.stdout.pop(0))
+
+                    while runner.stderr:
+                        stderr_handler.process(runner.stderr.pop(0))
+
+                    time.sleep(0.1)
+            except ChildProcessError:
+                # --since <datetime> includes rows at that datetime so `dt.timedelta(microseconds=1)` is added:
+                since = (dt.datetime.now() + dt.timedelta(microseconds=1)).isoformat()
+                time.sleep(0.1)
+                continue
+
+        except KeyboardInterrupt:
+            # Cancel the process if it's still running
+            if process and not process.is_finished:
+                process.close()
+            break
+
+
+T = typing.TypeVar("T")
+
+
+# def join_all[T](futures: list[Future[T]]) -> list[T]:
+def join_all(futures: list[Future[T]]) -> list[T]:
+    return [f.join() for f in futures]
+
+
+def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
+    res = "\033["
+    for c in format_opts:
+        res += f"{c};"
+    return f"{res}{code}m"
+
+
+def make_color_func(code: str) -> ColorFn:
+    return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
+
+
+def build_rainbow() -> tuple[ColorFn, ...]:
+    names = (
+        "grey",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+    )
+
+    colors = {}
+    for i, name in enumerate(names):
+        colors[name] = make_color_func(str(30 + i))
+        colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
+
+    return (
+        colors["cyan"],
+        colors["yellow"],
+        colors["green"],
+        colors["magenta"],
+        colors["blue"],
+        colors["intense_cyan"],
+        colors["intense_yellow"],
+        colors["intense_green"],
+        colors["intense_magenta"],
+        colors["intense_blue"],
+    )
+
+
+termcolor.COLORS
+
+
+def rainbow() -> typing.Generator[str, None, None]:
+    """
+    rainbow = []colorFunc{
+                colors["cyan"],
+                colors["yellow"],
+                colors["green"],
+                colors["magenta"],
+                colors["blue"],
+                colors["intense_cyan"],
+                colors["intense_yellow"],
+                colors["intense_green"],
+                colors["intense_magenta"],
+                colors["intense_blue"],
+        }
+
+    Yield colors from the docker compose rainbow map in a cyclic way.
+    """
+    yield from itertools.cycle(build_rainbow())
+
+
 @task(
     aliases=("log",),
     iterable=["service"],
+    flags={
+        "show_all": ("all", "a"),
+        "filter_pattern": ("filter", "p"),  # -p for pattern, -f is already for follow
+    },
     help={
         "service": "What services to follow. "
         "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
-        "all": "Ignore --service and show all service logs (same as `-s '*'`).",
+        "show_all": "Ignore --service and show all service logs (same as `-s '*'`).",
         "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
         "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
         "limit": "Start with how many lines of history, don't follow.",
@@ -1374,7 +1653,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
         "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now); in UTC",
         "new": "Don't show old entries (conflicts with since, same as --since now)",
         "stream": "Filter by stdout/stderr (defaults to both), only used when following",
-        "filter": "Search by term or regex, only used when following",
+        "filter_pattern": "Search by term or regex, only used when following",
         "verbose": "Show slightly more info, like full timestamps.",
     },
 )
@@ -1384,17 +1663,94 @@ def logs(
     follow: bool = True,
     limit: Optional[int] = None,
     sort: bool = False,
-    all: bool = False,  # noqa A002
+    show_all: bool = False,
     verbose: bool = False,
     timestamps: bool = True,
     since: Optional[str] = None,
     new: bool = False,
-    stream: Optional[str] = None,
-    filter: Optional[str] = None,  # noqa A002
+    stream: str = "",
+    filter_pattern: str = "",
 ) -> None:
     """Smart docker logging"""
 
-    raise NotImplementedError("improved_logging is under construction")
+    if new and since:
+        raise ValueError("Cannot use --new and --since together")
+    if new:
+        since = "1s"
+
+    if sort and follow:
+        raise ValueError("--sort is mutually exclusive with following logs")
+
+    if show_all:
+        services = service_names([], default="all")
+    else:
+        services = service_names(service or [], default="logs")
+
+    if limit or not follow or sort:
+        if filter:
+            raise ValueError("--filter is exclusive with --limit, --no-follow and --sort")
+        # use basic logs
+        cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
+        cmdline.extend(services)
+        if sort or timestamps:
+            # add timestamps
+            cmdline.append("-t")
+
+        if sort:
+            cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
+
+        if since:
+            cmdline.extend(["--since", since])
+
+        return ctx.run(" ".join(cmdline), echo=verbose, pty=True)
+
+    # else use fancy logs
+
+    # now find containers for these services:
+    # -> `py4web` can map to `py4web-1, py4web-2` etc
+    futures = []
+    colors = rainbow()
+    containers = get_docker_info(ctx, services)
+
+    if not containers:
+        cprint(f"No running containers found for services {services}", color="red")
+        exit(1)
+    elif len(containers) != len(services):
+        cprint("Amount of requested services does not match the amount of running containers!", color="yellow")
+
+    # for adjusting the | location
+    longest_name = max([len(_["Service"]) for _ in containers.values()])
+
+    for service in services:
+        # py4web ['84e1ba25a0060f73010a076ab1ff37cd59d8eb4fe6689e0a30f2c84065da3078', '81300df087b05a4130de75aad8e85528bcfcaaa309a89f1e4808c434217e967a', '1b34095fb93a9bc3c58ef07a7b30a08a39ed4645cb9d56906807b690e82590bf']
+        # web2py ['ae752f72e3659aaa7c0b97a9535cf78ad47e4a75c6dda8b62626f914790e3551']
+        for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.strip().split("\n"):
+            container_info = containers[container_id]
+
+            t = threading.Thread(
+                target=follow_logs,
+                args=(
+                    ctx,
+                    container_id,
+                    container_info["Project"],
+                    longest_name,
+                    next(colors),
+                    since,
+                    verbose,
+                    timestamps,
+                    stream,
+                    filter_pattern,
+                ),
+                daemon=True,
+            )
+            t.start()
+            futures.append(t)
+
+    # now let's print all containers until their state = exited
+    # use the full container name (ontwikkelstraat-py4web-1)
+    # use colors = rainbow(); next(colors) to give each container a unique color
+    # use `docker logs --follow` in multiple threads
+    join_all(futures)
 
 
 @task(

@@ -28,9 +28,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+
 dependencies = [
     # versions pinned at major to prevent accidentally updating into breaking changes
-
     "anyio < 5", # for async log reading
     "click < 9", # for interactive select box (e.g. in `ew setup`)
     "diceware < 2", # for generating random, safe passhprases

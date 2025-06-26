@@ -9,11 +9,19 @@ This file exposes some functions so this tool can be used as a library.
 import warnings
 
 from cryptography.utils import CryptographyDeprecationWarning
+from ewok import Task, task
 
 # warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
-
 from . import tasks
 from .constants import DOCKER_COMPOSE
+from .health import (
+    HealthLevel,
+    HealthStatus,
+    find_container_ids,
+    find_containers_ids,
+    get_healths,
+    inspect,
+)
 from .helpers import (
     KEY_ARROWDOWN,
     KEY_ARROWUP,
@@ -44,14 +52,6 @@ from .helpers import (
     yaml_loads,
 )
 from .meta import is_installed
-from .health import (
-    HealthLevel,
-    get_healths,
-    find_container_ids,
-    find_containers_ids,
-    HealthStatus,
-    inspect,
-)
 from .tasks import (
     TomlConfig,
     check_env,
@@ -61,7 +61,6 @@ from .tasks import (
     set_env_value,
     task_for_namespace,
 )
-from ewok import Task, task
 
 ImprovedTask = Task
 improved_task = task

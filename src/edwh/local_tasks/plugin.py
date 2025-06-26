@@ -13,13 +13,15 @@ from typing import Optional
 
 import dateutil.parser
 import yayarl as yarl
-from invoke import Context  # type: ignore
+from ewok import (
+    Context,  # type: ignore
+    task,
+)
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
-from ewok import task
 from ..meta import (  # type: ignore
     Version,
     _gather_package_metadata_threaded,
@@ -45,7 +47,7 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
 
     # filter out comments and editable (local) installs:
     regular_installs = [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
-    local_installs = [_.split('/')[-1] for _ in packages if _.startswith('-e')]
+    local_installs = [_.split("/")[-1] for _ in packages if _.startswith("-e")]
 
     return regular_installs + local_installs
 
@@ -96,9 +98,7 @@ class Plugin:
             )
         elif self.is_installed and not self.installed_version:
             if verbose:
-                plugin_details = (
-                    f"• {self.clean_name} (unknown) - {self.github_url} - Python {self.requires_python}"
-                )
+                plugin_details = f"• {self.clean_name} (unknown) - {self.github_url} - Python {self.requires_python}"
             else:
                 plugin_details = f"• {self.clean_name} - {self.github_url}"
 

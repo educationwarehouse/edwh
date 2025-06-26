@@ -1,12 +1,8 @@
 import sys
 
-from .__about__ import __version__
-
 import ewok
 
-
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
-
 # class App(ewok.App):
 #     # = invoke.Program
 #
@@ -33,15 +29,13 @@ import ewok
 #         argv = [f"--{flag}" for flag in self.CUSTOM_FLAGS] + argv
 #
 #         return super().run(argv, exit)
-
-
-from . import tasks
-from . import local_tasks
+from . import local_tasks, tasks
+from .__about__ import __version__
 
 program = ewok.App(
     "edwh",
     version=__version__,
     core_module=tasks,
-    extra_modules=(local_tasks, ),
+    extra_modules=(local_tasks,),
     plugin_entrypoint=("edwh", "edwh.tasks"),
 )
