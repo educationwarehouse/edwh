@@ -7,28 +7,28 @@ import os
 import pathlib
 import re
 import shutil
-import subprocess
 import sys
 import time
 import typing
 import warnings
-from asyncio import CancelledError
 from collections import Counter
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
-import anyio
+import ewok
 import invoke
 import tabulate
-import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
+import tomlkit  # has more features than tomllib
 import yaml
+from dotenv import dotenv_values
+from ewok import Task, task
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
-from typing_extensions import Never, deprecated
+from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
@@ -41,7 +41,6 @@ from .constants import (
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
 from .health import find_container_ids, find_containers_ids, get_healths, inspect  # noqa F401 - import for export
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
@@ -63,9 +62,6 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
 )
 from .helpers import generate_password as _generate_password
-from ewok import Task, task
-from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
-
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import is_installed, plugins, self_update  # noqa
@@ -170,28 +166,27 @@ def calculate_schema_hash(quiet: bool = False) -> str:
     return hasher.hexdigest()
 
 
-def task_for_namespace(namespace: str, task_name: str) -> Task | None:
+def task_for_namespace(ctx:Context,namespace: str, task_name: str) -> Task | None:
     """
     Get a task by namespace + task_name.
 
     Example:
         namespace: local, task_name: setup
     """
-    from .cli import collection
 
-    if ns := collection.collections.get(namespace):
+    if ns := ewok.find_namespace(ctx, namespace):
         return typing.cast(Task, ns.tasks.get(task_name))
 
     return None
 
 
-def task_for_identifier(identifier: str) -> Task | None:
-    from .cli import collection
+def task_for_identifier(ctx: Context, identifier: str) -> Task | None:
+    collection = ewok.tasks(ctx)
 
     return collection.tasks.get(identifier)
 
 
-def get_task(identifier: str) -> Task | None:
+def get_task(ctx: Context, identifier: str) -> Task | None:
     """
     Get a task by the identifier you would use in the terminal.
 
@@ -200,40 +195,9 @@ def get_task(identifier: str) -> Task | None:
     """
 
     if "." in identifier:
-        return task_for_namespace(*identifier.split("."))
+        return task_for_namespace(ctx, *identifier.split("."))
     else:
-        return task_for_identifier(identifier)
-
-
-@deprecated("This functionality was replaced by @task(hookable=True)")
-def exec_setup_in_other_task(c: Context, run_setup: bool, **kw: typing.Any) -> bool:
-    """
-    Run a setup function in another task.py.
-    """
-    if local_setup := task_for_namespace("local", "setup"):
-        if run_setup:
-            local_setup(c, **kw)
-
-        return True
-    else:
-        print("No (local) setup function found in your nearest tasks.py", file=sys.stderr)
-
-    return False
-
-
-@deprecated("This functionality was replaced by @task(hookable=True)")
-def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
-    """
-    Run a setup function in another task.py.
-    """
-    if local_up := task_for_namespace("local", "up"):
-        local_up(c, services)
-
-        return True
-    else:
-        print("No (local) up function found in your nearest tasks.py", file=sys.stderr)
-
-    return False
+        return task_for_identifier(ctx, identifier)
 
 
 _dotenv_settings: dict[str, dict[str, str]] = {}
@@ -439,26 +403,10 @@ class TomlConfig:
 
 
 def process_env_file(env_path: Path) -> dict[str, str]:
-    items: dict[str, str] = {}
     if not env_path.exists():
-        return items
+        return {}
 
-    with env_path.open(mode="r") as env_file:
-        for line in env_file:
-            # remove comments and redundant whitespace
-            line = line.split("#", 1)[0].strip()
-            if not line or "=" not in line:
-                # just a comment, skip
-                # or key without value? invalid, prevent crash:
-                continue
-
-            # convert to tuples
-            k, v = line.split("=", 1)
-
-            # clean the tuples and add to dict
-            items[k.strip()] = v.strip()
-    return items
-
+    return dict(dotenv_values())
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
@@ -1412,100 +1360,6 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
 
     return result
 
-
-async def logs_improved_async(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    new: bool = False,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
-) -> None:
-    if new:
-        since = "now"
-
-    if since:
-        since = parse_timedelta(since)
-
-    re_filter_fn = parse_regex(re_filter) if re_filter else None
-
-    services = service_names(service, default="logs")
-    containers = get_docker_info(c, services)
-
-    if not containers:
-        cprint(f"No running containers found for services {services}", color="red")
-        exit(1)
-    elif len(containers) != len(services):
-        cprint("Amount of requested services does not match the amount of running containers!", color="yellow")
-
-    # for adjusting the | location
-    longest_name = max([len(_["Service"]) for _ in containers.values()])
-
-    colors = rainbow()
-
-    print("---", file=sys.stderr)
-    async with anyio.create_task_group() as task_group:
-        for container, container_info in containers.items():
-            # ontwikkelstraat-py4web-1 -> py4web-1
-            # this is slightly different from the original 'service' which is just e.g. 'py4web'
-            container_name = (
-                container_info["Name"].removeprefix(container_info["Project"] + "-").ljust(longest_name + 3, " ")
-            )
-
-            file = f"/var/lib/docker/containers/{container}/{container}-json.log"
-            task_group.start_soon(
-                tail,  # type: ignore
-                {
-                    "filename": file,
-                    "human_name": container_name,
-                    "container_id": container,
-                    "stream": stream,
-                    "since": since,
-                    "re_filter": re_filter_fn,
-                    "color": next(colors),
-                    "timestamps": timestamps,
-                    "verbose": verbose,
-                    "state": container_info["State"],
-                },
-            )
-
-
-def elevate(target_command: str) -> None:
-    if os.geteuid() == 0:
-        return
-
-    # not root, try again with sudo:
-    split_idx = sys.argv.index(target_command)
-    relevant_args = sys.argv[split_idx:]
-    subprocess.call(["sudo", sys.argv[0], *relevant_args])
-    exit(0)
-
-
-def logs_improved(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
-) -> None:
-    with contextlib.suppress(CancelledError, KeyboardInterrupt):
-        anyio.run(
-            lambda *_: logs_improved_async(
-                c,
-                service=service,
-                since=since,
-                stream=stream,
-                re_filter=re_filter,
-                timestamps=timestamps,
-                verbose=verbose,
-            )
-        )
-
-
 @task(
     aliases=("log",),
     iterable=["service"],
@@ -1540,43 +1394,7 @@ def logs(
 ) -> None:
     """Smart docker logging"""
 
-    cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
-    if sort or timestamps:
-        # add timestamps
-        cmdline.append("-t")
-
-    if new:
-        since = "1s"
-
-    if since:
-        cmdline.extend(["--since", since])
-
-    if all:
-        # -s "*" is the same but `-s *` triggers bash expansion so that's annoying.
-        cmdline.extend(service_names([], default="all"))
-    else:
-        cmdline.extend(service_names(service, default="logs"))
-
-    if sort:
-        cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
-    elif limit:
-        # nothing special, just here to prevent follow
-        ...
-    elif follow:
-        # rerun `ew logs` with sudo:
-        elevate("logs")
-        # only allow follow if not sorting and no limit (tail):
-        return logs_improved(
-            ctx,
-            service="*" if all else service,
-            since=since,
-            stream=stream,
-            re_filter=filter,
-            timestamps=timestamps,
-            verbose=verbose,
-        )
-
-    ctx.run(" ".join(cmdline), echo=verbose, pty=True)
+    raise NotImplementedError("improved_logging is under construction")
 
 
 @task(
@@ -1636,7 +1454,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     # Path.cwd() uses absolute paths, Path() is the same but relative
     reqs = list(Path().rglob("*/*.in"))
 
-    if pip_compile := get_task("pip.compile"):
+    if pip_compile := get_task(ctx, "pip.compile"):
         with_compile = not skip_compile
     else:
         with_compile = False
@@ -1798,10 +1616,7 @@ def show_help(ctx: Context, about: str) -> None:
     Similar to `edwh {about} --help` but that does not work for whole plugins/namespaces.
     """
     # first check if 'about' is a plugin/namespace:
-    from .cli import collection
-
-    ns: invoke.collection.Collection
-    if ns := collection.collections.get(about):  # type: ignore
+    if ns := ewok.find_namespace(ctx, about):
         info = ns.serialized()
 
         print("--- namespace", ns.name, "---")
@@ -1819,7 +1634,7 @@ def show_help(ctx: Context, about: str) -> None:
 
             plugin_commands.append(" ".join([cmd, aliases, "\t", subtask["help"] or ""]))
 
-        return print_aligned(plugin_commands)
+        print_aligned(plugin_commands)
     else:
         # just run edwh --help <subcommand>:
         ctx.run(f"edwh --help {about}")

@@ -34,13 +34,14 @@ dependencies = [
     "anyio < 5", # for async log reading
     "click < 9", # for interactive select box (e.g. in `ew setup`)
     "diceware < 2", # for generating random, safe passhprases
-    "ewok < 2", # base cli tool based on invoke and fabric
+    "ewok > 0.3.0, < 2", # base cli tool based on invoke and fabric
     "humanize < 5", # for making raw sizes huam nreadable
     "more-itertools < 11", # improved 'flatten' function (among others)
     "docstring_parser < 1", # better help
     "packaging < 25", # parsing package versions (for plugin subcommand)
     "plumbum < 2", # running bash commands more nicely than with invoke
     "python-dateutil < 3", # improved date parsing
+    "python-dotenv < 2", # for .env
     "pyyaml < 7", # yaml parser (for docker-compose.yml)
     "rapidfuzz < 4",  # levenshtein my beloved
     "requests < 3", # better than urllib no?
