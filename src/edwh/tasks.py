@@ -3,7 +3,6 @@ import datetime as dt
 import fnmatch
 import hashlib
 import io
-import itertools
 import json
 import os
 import pathlib
@@ -16,7 +15,6 @@ import time
 import typing
 import warnings
 from collections import Counter
-from concurrent.futures import Future
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
@@ -25,12 +23,11 @@ from typing import Optional
 import ewok
 import invoke
 import tabulate
-import termcolor
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
 from ewok import Task, task
-from invoke import Promise, StreamWatcher
+from invoke import Promise
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
@@ -53,6 +50,10 @@ from .health import find_container_ids, find_containers_ids, get_healths, inspec
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
     AnyDict,
+    ColorFn,
+    LineBufferHandler,
+    NoopHandler,
+    TypedThread,
     confirm,
     dc_config,
     dump_set_as_list,
@@ -63,8 +64,11 @@ from .helpers import (  # noqa F401 - import for export
     flatten,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
+    join_all,
     noop,
+    parse_regex,
     print_aligned,
+    rainbow,
     run_pty,
     run_pty_ok,
     shorten,
@@ -1371,96 +1375,6 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
-ColorFn = typing.Callable[[str], str]
-FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
-
-
-class NoopHandler:
-    def process(self, chunk: str):
-        return
-
-
-class LineBufferHandler:
-    def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
-        self.buffer = ""
-        self.prefix = prefix
-        self.output_stream = output_stream
-        self.filter_fn = filter_fn
-
-    def process(self, chunk: str):
-        if not chunk:
-            return
-
-        filter_fn = self.filter_fn
-        self.buffer += chunk
-
-        if "\n" in self.buffer:
-            lines = self.buffer.splitlines(True)
-
-            if not self.buffer.endswith("\n"):
-                # last line wasn't finished yet, save it to buffer instead of printing
-                self.buffer = lines.pop()
-            else:
-                # all lines complete, clean buffer
-                self.buffer = ""
-
-            for line in lines:
-                if filter_fn and not filter_fn(line):
-                    continue
-
-                print(f"{self.prefix}{line}", end="", flush=True, file=self.output_stream)
-
-
-POSSIBLE_FLAGS = {
-    # https://docs.python.org/3/library/re.html
-    "a": re.ASCII,
-    "d": re.DEBUG,
-    "i": re.IGNORECASE,
-    "l": re.LOCALE,
-    "m": None,  # re.MULTILINE but the logger works line-by-line so this isn't really possible
-    "s": re.DOTALL,
-    "u": re.UNICODE,
-    "x": re.VERBOSE,
-    # custom: 'v' to invert
-}
-
-
-def parse_regex(raw: str) -> FilterFn:
-    """
-    Turn `/pattern/flags` into a Regex object.
-
-    Uses the grep style flags (i for case insensitive, v for invert)
-    """
-
-    # zero slashes: just a pattern, no flags.
-    # one slash: search term with / in it
-    # two slashes (+ starts with /): regex with flags
-    # more slashes: flags AND / in filter itself
-
-    if raw.startswith("/") and raw.count("/") > 1:
-        # flag-mode
-        _, *rest, flags_str = raw.split("/")
-        flags = set(flags_str.lower())
-        pattern = "/".join(rest)
-    else:
-        # normal search mode, no flags
-        flags = set()
-        pattern = raw
-
-    flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
-
-    for flag in flags:
-        flags_bin |= POSSIBLE_FLAGS.get(flag) or 0  # re.NOFLAG
-
-    re_compiled = re.compile(pattern, flags_bin)
-
-    if "v" in flags:
-        # v for inverse like `grep -v`
-        return lambda text: not re_compiled.search(text)
-    else:
-        return lambda text: bool(re_compiled.search(text))
-
-
 def follow_logs(
     ctx: Context,
     container_id: str,
@@ -1562,79 +1476,6 @@ def follow_logs(
             break
 
 
-T = typing.TypeVar("T")
-
-
-# def join_all[T](futures: list[Future[T]]) -> list[T]:
-def join_all(futures: list[Future[T]]) -> list[T]:
-    return [f.join() for f in futures]
-
-
-def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
-    res = "\033["
-    for c in format_opts:
-        res += f"{c};"
-    return f"{res}{code}m"
-
-
-def make_color_func(code: str) -> ColorFn:
-    return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
-
-
-def build_rainbow() -> tuple[ColorFn, ...]:
-    names = (
-        "grey",
-        "red",
-        "green",
-        "yellow",
-        "blue",
-        "magenta",
-        "cyan",
-        "white",
-    )
-
-    colors = {}
-    for i, name in enumerate(names):
-        colors[name] = make_color_func(str(30 + i))
-        colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
-
-    return (
-        colors["cyan"],
-        colors["yellow"],
-        colors["green"],
-        colors["magenta"],
-        colors["blue"],
-        colors["intense_cyan"],
-        colors["intense_yellow"],
-        colors["intense_green"],
-        colors["intense_magenta"],
-        colors["intense_blue"],
-    )
-
-
-termcolor.COLORS
-
-
-def rainbow() -> typing.Generator[str, None, None]:
-    """
-    rainbow = []colorFunc{
-                colors["cyan"],
-                colors["yellow"],
-                colors["green"],
-                colors["magenta"],
-                colors["blue"],
-                colors["intense_cyan"],
-                colors["intense_yellow"],
-                colors["intense_green"],
-                colors["intense_magenta"],
-                colors["intense_blue"],
-        }
-
-    Yield colors from the docker compose rainbow map in a cyclic way.
-    """
-    yield from itertools.cycle(build_rainbow())
-
-
 @task(
     aliases=("log",),
     iterable=["service"],
@@ -1708,7 +1549,7 @@ def logs(
 
     # now find containers for these services:
     # -> `py4web` can map to `py4web-1, py4web-2` etc
-    futures = []
+    futures: list[TypedThread[None]] = []
     colors = rainbow()
     containers = get_docker_info(ctx, services)
 
@@ -1744,13 +1585,14 @@ def logs(
                 daemon=True,
             )
             t.start()
-            futures.append(t)
+            futures.append(typing.cast(TypedThread[None], t))
 
     # now let's print all containers until their state = exited
     # use the full container name (ontwikkelstraat-py4web-1)
     # use colors = rainbow(); next(colors) to give each container a unique color
     # use `docker logs --follow` in multiple threads
     join_all(futures)
+    return None
 
 
 @task(

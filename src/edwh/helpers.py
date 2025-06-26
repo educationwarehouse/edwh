@@ -6,9 +6,12 @@ import abc
 import datetime as dt
 import functools
 import io
+import itertools
+import re
 import sys
 import typing
 from pathlib import Path
+from threading import Thread
 from typing import Optional
 
 import click
@@ -548,3 +551,163 @@ def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
 
     for alias in aliases:
         _add_alias(sometask, alias)
+
+
+ColorFn = typing.Callable[[str], str]
+FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
+
+
+class NoopHandler:
+    def process(self, chunk: str):
+        return
+
+
+class LineBufferHandler:
+    def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
+        self.buffer = ""
+        self.prefix = prefix
+        self.output_stream = output_stream
+        self.filter_fn = filter_fn
+
+    def process(self, chunk: str):
+        if not chunk:
+            return
+
+        filter_fn = self.filter_fn
+        self.buffer += chunk
+
+        if "\n" in self.buffer:
+            lines = self.buffer.splitlines(True)
+
+            if not self.buffer.endswith("\n"):
+                # last line wasn't finished yet, save it to buffer instead of printing
+                self.buffer = lines.pop()
+            else:
+                # all lines complete, clean buffer
+                self.buffer = ""
+
+            for line in lines:
+                if filter_fn and not filter_fn(line):
+                    continue
+
+                print(f"{self.prefix}{line}", end="", flush=True, file=self.output_stream)
+
+
+POSSIBLE_FLAGS = {
+    # https://docs.python.org/3/library/re.html
+    "a": re.ASCII,
+    "d": re.DEBUG,
+    "i": re.IGNORECASE,
+    "l": re.LOCALE,
+    "m": None,  # re.MULTILINE but the logger works line-by-line so this isn't really possible
+    "s": re.DOTALL,
+    "u": re.UNICODE,
+    "x": re.VERBOSE,
+    # custom: 'v' to invert
+}
+
+
+def parse_regex(raw: str) -> FilterFn:
+    """
+    Turn `/pattern/flags` into a Regex object.
+
+    Uses the grep style flags (i for case insensitive, v for invert)
+    """
+
+    # zero slashes: just a pattern, no flags.
+    # one slash: search term with / in it
+    # two slashes (+ starts with /): regex with flags
+    # more slashes: flags AND / in filter itself
+
+    if raw.startswith("/") and raw.count("/") > 1:
+        # flag-mode
+        _, *rest, flags_str = raw.split("/")
+        flags = set(flags_str.lower())
+        pattern = "/".join(rest)
+    else:
+        # normal search mode, no flags
+        flags = set()
+        pattern = raw
+
+    flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
+
+    for flag in flags:
+        flags_bin |= POSSIBLE_FLAGS.get(flag) or 0  # re.NOFLAG
+
+    re_compiled = re.compile(pattern, flags_bin)
+
+    if "v" in flags:
+        # v for inverse like `grep -v`
+        return lambda text: not re_compiled.search(text)
+    else:
+        return lambda text: bool(re_compiled.search(text))
+
+
+class TypedThread(typing.Generic[T], Thread): ...
+
+
+# def join_all[T](futures: list[Future[T]]) -> list[T]:
+def join_all(futures: list[TypedThread[T]]) -> list[T]:
+    return [f.join() for f in futures]
+
+
+def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
+    res = "\033["
+    for c in format_opts:
+        res += f"{c};"
+    return f"{res}{code}m"
+
+
+def make_color_func(code: str) -> ColorFn:
+    return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
+
+
+def build_rainbow() -> tuple[ColorFn, ...]:
+    names = (
+        "grey",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+    )
+
+    colors = {}
+    for i, name in enumerate(names):
+        colors[name] = make_color_func(str(30 + i))
+        colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
+
+    return (
+        colors["cyan"],
+        colors["yellow"],
+        colors["green"],
+        colors["magenta"],
+        colors["blue"],
+        colors["intense_cyan"],
+        colors["intense_yellow"],
+        colors["intense_green"],
+        colors["intense_magenta"],
+        colors["intense_blue"],
+    )
+
+
+def rainbow() -> typing.Generator[str, None, None]:
+    """
+    rainbow = []colorFunc{
+                colors["cyan"],
+                colors["yellow"],
+                colors["green"],
+                colors["magenta"],
+                colors["blue"],
+                colors["intense_cyan"],
+                colors["intense_yellow"],
+                colors["intense_green"],
+                colors["intense_magenta"],
+                colors["intense_blue"],
+        }
+
+    Yield colors from the docker compose rainbow map in a cyclic way.
+    """
+    yield from itertools.cycle(build_rainbow())
