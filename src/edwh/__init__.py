@@ -6,12 +6,11 @@ This file exposes some functions so this tool can be used as a library.
 #
 # SPDX-License-Identifier: MIT
 
-import warnings
-
-from cryptography.utils import CryptographyDeprecationWarning
 from ewok import Task, task
+from ewok.monkey import monkeypatch_invoke
 
-# warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+monkeypatch_invoke("edwh")
+
 from . import tasks
 from .constants import DOCKER_COMPOSE
 from .health import (

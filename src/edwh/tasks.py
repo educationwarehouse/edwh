@@ -27,7 +27,7 @@ import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
-from ewok import Task, task
+from ewok import Task, format_frame, task
 from invoke import Promise, Runner
 from invoke.context import Context
 from rapidfuzz import fuzz
@@ -201,21 +201,6 @@ def task_for_identifier(ctx: Context, identifier: str) -> Task | None:
     collection = ewok.tasks(ctx)
 
     return collection.tasks.get(identifier)
-
-
-def format_frame(frame: traceback.FrameSummary):
-    """
-    Formats and prints details of a traceback frame.
-
-    This function takes a traceback frame and prints its details including the file name,
-    line number, function name, and the actual line of code. The output is styled with
-    colored text for better readability.
-
-    Args:
-        frame (traceback.FrameSummary): The traceback frame to format and print.
-    """
-    cprint(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}', color="blue")
-    cprint(f"    {frame.line}", color="blue")  # actual code
 
 
 def get_task(ctx: Context, identifier: str = "") -> Task | None:
