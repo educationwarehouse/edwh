@@ -12,4 +12,4 @@ FALLBACK_TOML_NAME = "default.toml"
 LEGACY_TOML_NAME = "config.toml"  # set to None when no longer supported
 DEFAULT_DOTENV_PATH = Path(".env")
 
-AnyDict: t.TypeAlias = dict[str, t.Any]
+type AnyDict = dict[str, t.Any]

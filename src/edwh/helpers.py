@@ -80,9 +80,6 @@ def generate_password(silent: bool = True, dice: int = 6) -> str:
     return password
 
 
-# T = typing.TypeVar("T", str, bool)
-
-
 def _add_dash(flag: str) -> str:
     if flag.startswith("-"):
         # don't change
@@ -170,24 +167,21 @@ def noop(*_: typing.Any, **__: typing.Any) -> None:
     return None
 
 
-T = typing.TypeVar("T")
-
-
 @typing.overload
-def dump_set_as_list(data: set[T]) -> list[T]:
+def dump_set_as_list[T](data: set[T]) -> list[T]:
     """
     Sets are converted to lists.
     """
 
 
 @typing.overload
-def dump_set_as_list(data: T) -> T:
+def dump_set_as_list[T](data: T) -> T:
     """
     Other datatypes remain untouched.
     """
 
 
-def dump_set_as_list(data: set[T] | T) -> list[T] | T:  # type: ignore
+def dump_set_as_list[T](data: set[T] | T) -> list[T] | T:  # type: ignore
     if isinstance(data, set):
         return list(data)
     else:
@@ -198,8 +192,6 @@ KEY_ENTER = "\r"
 KEY_ARROWUP = "\033[A"
 KEY_ARROWDOWN = "\033[B"
 
-T_Key = typing.TypeVar("T_Key", bound=typing.Hashable)
-
 
 def print_box(label: str, selected: bool, current: bool, number: int, fmt: str = "[%s]", filler: str = "x") -> None:
     box = fmt % (filler if selected else " ")
@@ -207,10 +199,10 @@ def print_box(label: str, selected: bool, current: bool, number: int, fmt: str =
     click.echo(f"{indicator}{number}. {box} {label}")
 
 
-def interactive_selected_checkbox_values(
-    options: list[str] | dict[T_Key, str],
+def interactive_selected_checkbox_values[H: typing.Hashable](
+    options: list[str] | dict[H, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: typing.Collection[T_Key] = (),
+    selected: typing.Collection[H] = (),
     allow_empty: bool = False,
 ) -> list[str] | None:
     """
@@ -225,7 +217,8 @@ def interactive_selected_checkbox_values(
         allow_empty (bool, optional): If True, adds an extra option "(none)" to deselect all other options.
         selected: a set (/other iterable) of pre-selected options (set is preferred).
 
-            T_Key means the values have to be the same type as the keys of options.
+            `H: Hashable` means the values have to be the same type as the keys of options
+                          and they should be hashable (via `hash()`).
             Example:
                 options = {1: "something", "two": "else"}
                 selected = [2, "three"] # valid type (int and str are keys of options)
@@ -301,10 +294,10 @@ def interactive_selected_checkbox_values(
     return list(checked_indices.values())
 
 
-def interactive_selected_radio_value(
-    options: list[str] | dict[T_Key, str],
+def interactive_selected_radio_value[H: typing.Hashable](
+    options: list[str] | dict[H, str],
     prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: Optional[T_Key] = None,
+    selected: Optional[H] = None,
     allow_empty: bool = False,
 ) -> str | None:
     """
@@ -318,7 +311,8 @@ def interactive_selected_radio_value(
         prompt (str, optional): A string that is displayed as a prompt for the user.
         allow_empty (bool, optional): If True, adds an extra option "(none)" to allow deselecting all options.
         selected: a pre-selected option.
-            T_Key means the value has to be the same type as the keys of options.
+            `H: Hashable` means the values have to be the same type as the keys of options
+                          and they should be hashable (via `hash()`).
             Example:
                 options = {1: "something", "two": "else"}
                 selected = 2 # valid type (int is a key of options)
@@ -431,7 +425,7 @@ def print_aligned(plugin_commands: list[str]) -> None:
         print("\t", before.ljust(max_l, " "), "\t\t", after)
 
 
-def flatten(something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
+def flatten[T](something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
     """
     Like itertools.flatten but eager
     """
@@ -502,7 +496,7 @@ def _read_bytes_local(_: Context, path: str) -> bytes:
     return Path(path).read_bytes()
 
 
-ReadBytesFn: typing.TypeAlias = typing.Callable[[Connection | Context, str], bytes]
+type ReadBytesFn = typing.Callable[[Connection | Context, str], bytes]
 
 
 def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
@@ -553,8 +547,8 @@ def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
         _add_alias(sometask, alias)
 
 
-ColorFn = typing.Callable[[str], str]
-FilterFn: typing.TypeAlias = Optional[typing.Callable[[str], bool]]
+type ColorFn = typing.Callable[[str], str]
+type FilterFn = Optional[typing.Callable[[str], bool]]
 
 
 class NoopHandler:
@@ -641,14 +635,6 @@ def parse_regex(raw: str) -> FilterFn:
         return lambda text: not re_compiled.search(text)
     else:
         return lambda text: bool(re_compiled.search(text))
-
-
-class TypedThread(typing.Generic[T], Thread): ...
-
-
-# def join_all[T](futures: list[Future[T]]) -> list[T]:
-def join_all(futures: list[TypedThread[T]]) -> list[T]:
-    return [f.join() for f in futures]
 
 
 def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:

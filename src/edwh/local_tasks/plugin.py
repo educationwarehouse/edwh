@@ -406,10 +406,10 @@ def sort_versions(key_value: tuple[str, typing.Any]) -> Version:
         return Version("0.0.0")
 
 
-T_Changelog: typing.TypeAlias = dict[str, dict[str, list[str]]]
-T_OrderedChangelog: typing.TypeAlias = OrderedDict[str, dict[str, list[str]]]
-T_OrderedChangelogs: typing.TypeAlias = dict[str, T_OrderedChangelog]
-T_Changelogs: typing.TypeAlias = dict[str, T_Changelog]
+type T_Changelog = dict[str, dict[str, list[str]]]
+type T_OrderedChangelog = OrderedDict[str, dict[str, list[str]]]
+type T_OrderedChangelogs = dict[str, T_OrderedChangelog]
+type T_Changelogs = dict[str, T_Changelog]
 
 
 def parse_changelog(markdown: str) -> T_Changelog:

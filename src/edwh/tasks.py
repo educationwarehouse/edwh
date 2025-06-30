@@ -2,7 +2,6 @@ import contextlib
 import datetime as dt
 import fnmatch
 import hashlib
-import inspect
 import io
 import json
 import os
@@ -11,12 +10,12 @@ import re
 import shlex
 import shutil
 import sys
-import threading
 import time
 import traceback
 import typing
 import warnings
 from collections import Counter
+from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
@@ -60,7 +59,6 @@ from .helpers import (  # noqa F401 - import for export
     ColorFn,
     LineBufferHandler,
     NoopHandler,
-    TypedThread,
     confirm,
     dc_config,
     dump_set_as_list,
@@ -71,7 +69,6 @@ from .helpers import (  # noqa F401 - import for export
     flatten,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
-    join_all,
     noop,
     parse_regex,
     print_aligned,
@@ -496,7 +493,7 @@ def warn_once(
     )
 
 
-DefaultFn: typing.TypeAlias = typing.Callable[[], Optional[str]]
+type DefaultFn = typing.Callable[[], Optional[str]]
 
 
 def check_env(
@@ -1602,7 +1599,7 @@ def logs(
 
     # now find containers for these services:
     # -> `py4web` can map to `py4web-1, py4web-2` etc
-    futures: list[TypedThread[bool]] = []
+    promises: list[futures.Future[bool]] = []
     colors = rainbow()
     containers = get_docker_info(ctx, services)
 
@@ -1615,17 +1612,15 @@ def logs(
     # for adjusting the | location
     longest_name = max([len(_["Service"]) for _ in containers.values()])
 
-    for service in services:
-        # py4web ['84e1ba25a0060f73010a076ab1ff37cd59d8eb4fe6689e0a30f2c84065da3078', '81300df087b05a4130de75aad8e85528bcfcaaa309a89f1e4808c434217e967a', '1b34095fb93a9bc3c58ef07a7b30a08a39ed4645cb9d56906807b690e82590bf']
-        # web2py ['ae752f72e3659aaa7c0b97a9535cf78ad47e4a75c6dda8b62626f914790e3551']
-        for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.split("\n"):
-            if not (container_info := containers.get(container_id)):
-                # empty or whitespace only
-                continue
+    with futures.ThreadPoolExecutor() as executor:
+        for service in services:
+            for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.split("\n"):
+                if not (container_info := containers.get(container_id)):
+                    # empty or whitespace only
+                    continue
 
-            t = threading.Thread(
-                target=follow_logs,
-                args=(
+                future = executor.submit(
+                    follow_logs,
                     ctx,
                     container_id,
                     container_info["Project"],
@@ -1636,17 +1631,12 @@ def logs(
                     timestamps,
                     stream,
                     filter_pattern,
-                ),
-                daemon=True,
-            )
-            t.start()
-            futures.append(typing.cast(TypedThread[bool], t))
+                )
+                promises.append(future)
 
-    # now let's print all containers until their state = exited
-    # use the full container name (ontwikkelstraat-py4web-1)
-    # use colors = rainbow(); next(colors) to give each container a unique color
-    # use `docker logs --follow` in multiple threads
-    return join_all(futures)
+        # Wait for all futures to complete
+        # This mimics the original join_all behavior to return the list of results
+        return [promise.result() for promise in promises]
 
 
 def start_logs(c: Context, service: typing.Collection[str] = None):
