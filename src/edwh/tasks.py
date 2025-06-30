@@ -2,6 +2,7 @@ import contextlib
 import datetime as dt
 import fnmatch
 import hashlib
+import inspect
 import io
 import json
 import os
@@ -12,6 +13,7 @@ import shutil
 import sys
 import threading
 import time
+import traceback
 import typing
 import warnings
 from collections import Counter
@@ -27,7 +29,7 @@ import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
 from ewok import Task, task
-from invoke import Promise
+from invoke import Promise, Runner
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
@@ -44,7 +46,12 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
-from .health import find_container_ids, find_containers_ids, get_healths, inspect  # noqa F401 - import for export
+from .health import (  # noqa F401 - import for export
+    docker_inspect,
+    find_container_ids,
+    find_containers_ids,
+    get_healths,
+)
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
@@ -199,13 +206,35 @@ def task_for_identifier(ctx: Context, identifier: str) -> Task | None:
     return collection.tasks.get(identifier)
 
 
-def get_task(ctx: Context, identifier: str) -> Task | None:
+def format_frame(frame: traceback.FrameSummary):
+    """
+    Formats and prints details of a traceback frame.
+
+    This function takes a traceback frame and prints its details including the file name,
+    line number, function name, and the actual line of code. The output is styled with
+    colored text for better readability.
+
+    Args:
+        frame (traceback.FrameSummary): The traceback frame to format and print.
+    """
+    cprint(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}', color="blue")
+    cprint(f"    {frame.line}", color="blue")  # actual code
+
+
+def get_task(ctx: Context, identifier: str = "") -> Task | None:
     """
     Get a task by the identifier you would use in the terminal.
 
     Example:
         local.setup
     """
+    if not identifier:
+        stack = traceback.extract_stack(limit=2)
+        cprint(
+            "WARN: get_task(identifier) is deprecated in favor of get_task(invoke.Context, identifier)", color="yellow"
+        )
+        format_frame(stack[0])
+        return None
 
     if "." in identifier:
         return task_for_namespace(ctx, *identifier.split("."))
@@ -419,7 +448,8 @@ def process_env_file(env_path: Path) -> dict[str, str]:
     if not env_path.exists():
         return {}
 
-    return dict(dotenv_values())
+    values = dotenv_values(env_path)
+    return dict(values)
 
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
@@ -1099,7 +1129,7 @@ def volumes(ctx: Context) -> None:
     stdout = ran.stdout if ran else ""
     for container_id in stdout.strip().split("\n"):
         with contextlib.suppress(EnvironmentError):
-            info = inspect(ctx, container_id)[0]
+            info = docker_inspect(ctx, container_id)[0]
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1174,7 +1204,7 @@ def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
         container_ids = find_container_ids(ctx, container) or [container]
 
         for container_id in container_ids:
-            result[container_id] = inspect(ctx, container_id, '--format "{{json .State.Health }}"')
+            result[container_id] = docker_inspect(ctx, container_id, '--format "{{json .State.Health }}"')
 
     if result and not quiet:
         print(tab + yaml.dump(result, allow_unicode=True).replace("\n", f"\n{tab}"))
@@ -1414,24 +1444,26 @@ def follow_logs(
     )
 
     # Loop until container state is 'exited'
+    process: Optional[Promise] = None
+    runner: Optional[Runner] = None
     while True:
-        # Check container state
-        result = ctx.run(
-            "docker inspect --format='{{.State.Status}}' %(container)s" % {"container": container_id},
-            hide=True,
-            warn=True,
-        )
-
-        if result.failed:
-            return
-
-        state = result.stdout.strip()
-
-        if state == "exited":
-            break
-
-        # Follow logs with timestamps, starting from last_timestamp if available
         try:
+            # Check container state
+            result = ctx.run(
+                "docker inspect --format='{{.State.Status}}' %(container)s" % {"container": container_id},
+                hide=True,
+                warn=True,
+            )
+
+            if result.failed:
+                break
+
+            state = result.stdout.strip()
+
+            if state == "exited":
+                break
+
+            # Follow logs with timestamps, starting from last_timestamp if available
             args = ["docker", "logs", "--follow", container_id]
             if timestamps:
                 args.append("--timestamps")
@@ -1442,20 +1474,11 @@ def follow_logs(
 
             # Run the docker logs command with our watcher
             cmd = shlex.join(args)
-            process: Promise = ctx.run(cmd, pty=True, warn=True, asynchronous=True)
+            process = ctx.run(cmd, pty=True, warn=True, asynchronous=True)
             runner = process.runner
 
             try:
                 while not runner.process_is_finished:
-                    # fixme:
-                    # initial 'buffer' (e.g. runner.stdout) can start with multiple lines, where the last could be incomplete. Example:
-                    # eb2py-1  | out | 25-06-26T14:42:16.491850531Z [2025-06-26 14:42:16 +0000] [12] [INFO] Worker exiting (pid: 12)
-                    # 2025-06-26T14:42:17.718001537Z [2025-06-26 14:42:17 +0000] [13] [INFO] Booting worker with pid: 13
-                    # 2025-06-26T14:42:17.733072258Z [2025-06-26 14:42:17 +0000] [14] [INFO] Booting worker with pid: 14
-                    # 2025-06-26T14:42:17.818149344Z [2025-06-26 14:42:17 +0000] [15] [INFO] Booting worker with pid: 15
-                    # 2025-06-26T14:42:21.335637993Z Cache hit "core-b
-                    # web2py-1  | out | ackend-tag-load-19682a99-50a3-4fc0-bb67-e0f6eff5da55", None, 1228, 1efe4abb90f73d60c55b660ea814bb4e806b46d0
-
                     while runner.stdout:
                         stdout_handler.process(runner.stdout.pop(0))
 
@@ -1471,8 +1494,9 @@ def follow_logs(
 
         except KeyboardInterrupt:
             # Cancel the process if it's still running
-            if process and not process.is_finished:
-                process.close()
+            if runner and not runner.process_is_finished:
+                runner.stop()
+                runner.kill()
             break
 
 
@@ -1793,7 +1817,10 @@ def version(ctx: Context) -> None:
     """
     Show edwh app version and docker + compose version.
     """
+    from ewok.__about__ import __version__ as ewok_version
+
     print("edwh version", edwh_version)
+    print("ewok version", ewok_version)
     print("Python version", sys.version.split(" ")[0])
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
@@ -1954,7 +1981,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             continue
 
         for container_id in container_ids:
-            info = inspect(ctx, container_id)[0]
+            info = docker_inspect(ctx, container_id)[0]
             pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes

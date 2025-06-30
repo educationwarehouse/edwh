@@ -17,10 +17,10 @@ from .constants import DOCKER_COMPOSE
 from .health import (
     HealthLevel,
     HealthStatus,
+    docker_inspect,
     find_container_ids,
     find_containers_ids,
     get_healths,
-    inspect,
 )
 from .helpers import (
     KEY_ARROWDOWN,
@@ -112,5 +112,5 @@ __all__ = [
     "find_container_ids",
     "find_containers_ids",
     "HealthStatus",
-    "inspect",
+    "docker_inspect",
 ]
