@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.60.0 (2025-06-23)
+
+### Feature
+
+* `restart` command do force restart within a container by killing pid 1 ([`79286dc`](https://github.com/educationwarehouse/edwh/commit/79286dcc3bbffcd9176e6a2424f802b7a9286d2e))
+
 ## v0.59.1 (2025-06-19)
 
 ### Fix

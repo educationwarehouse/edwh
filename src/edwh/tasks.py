@@ -1617,8 +1617,17 @@ def logs(
     # use the full container name (ontwikkelstraat-py4web-1)
     # use colors = rainbow(); next(colors) to give each container a unique color
     # use `docker logs --follow` in multiple threads
-    join_all(futures)
-    return None
+    return join_all(futures)
+
+
+def start_logs(c: Context, service: typing.Collection[str] = None):
+    """
+    Normal edwh logs can't just be called with `edwh.tasks.logs` so this wrapper makes it easier.
+
+    (otherwise `logs` will try to elevate permissions and get confused due to not being called directly)
+    """
+    service = service_names(service or ())
+    return c.run("edwh logs " + " ".join(f"-s {s}" for s in service), pty=True)
 
 
 @task(
@@ -1646,6 +1655,45 @@ def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     service = service_names(service or []) if service else []
 
     ctx.run(f"{DOCKER_COMPOSE} down {' '.join(service)}", pty=True)
+
+
+@task(
+    iterable=["service"],
+)
+def restart(c: Context, service: typing.Collection[str] = None, quiet: bool = False, force: bool = False):
+    """
+    Restart Docker services by sending termination signals (ctrl-c/SIGINT; if force: SIGKILL, SIGTERM).
+
+    Defaults to 'py4web' if no services specified.
+    Shows logs unless 'quiet' flag is enabled.
+
+    Arguments:
+        c (Context): The execution context.
+        service (Collection[str], optional): A collection of service names to restart. Defaults to restarting
+            the 'py4web' service.
+        quiet (bool): A flag indicating whether to suppress logs display after restarting services.
+        force: send SIGKILL + SIGTERM instead of SIGINT
+
+    Raises:
+        Executes a system command to restart the desired services. Should be used within an environment that supports this
+        functionality.
+
+    Returns:
+        None
+    """
+    service = service_names(service or ["py4web"])
+
+    service_filter = "|".join(service)
+    kill = "kill -15 1 || kill -9 1" if force else "kill -2 1"
+    command = (
+        'docker ps --filter "name=%(name)s" --format "{{.Names}}" | '
+        'xargs -I {} docker exec {} sh -c "%(kill)s"' % dict(name=service_filter, kill=kill)
+    )
+
+    c.run(command)
+
+    if not quiet:
+        start_logs(c, service)
 
 
 @task(
