@@ -1416,10 +1416,36 @@ def follow_logs(
     timestamps: bool,
     stream: typing.Literal["stdout", "stderr", "out", "err", ""] = "",
     filter_pattern: str = "",
-):
+) -> bool:
     """
-    Follow logs of a container until it exits
+    Follows logs of a specified Docker container while optionally filtering and formatting output.
+
+    This function actively monitors the logs of a given container, allowing for custom filtering
+    through a regular expression pattern and handling streams like `stdout` or `stderr`. It is
+    designed to handle specific options such as including timestamps or verbose prefixes, and it
+    can restart the log retrieval process in case of certain interruptions.
+
+    Parameters:
+        ctx (Context): Execution context used to run commands.
+        container_id (str): ID of the container whose logs are being followed.
+        project (str): Project or prefix name associated with the container.
+        longest_name (int): Length of the longest name used for alignment in output.
+        color (ColorFn): Function to apply color formatting to output, typically the container name.
+        since (str | None): Initial timestamp or date from which logs should be retrieved, if available.
+        verbose (bool): Whether to include verbose prefixes (e.g., stream type) in output.
+        timestamps (bool): Whether to include timestamps from the logs in the output.
+        stream (Literal["stdout", "stderr", "out", "err", ""]): Stream type to handle in the output.
+            An empty string ("") implies both streams will be followed.
+        filter_pattern (str): Regular expression pattern used to filter log entries. Defaults to an
+            empty string, meaning no filtering is applied.
+
+    Returns:
+        bool: True if the log following process terminates validly, False otherwise.
+
+    Raises:
+        None explicitly defined, but will handle `KeyboardInterrupt` gracefully during execution.
     """
+
     # Get container name for prefix
     name_result = ctx.run(
         "docker inspect --format='{{.Name}}' %(container)s" % {"container": container_id}, hide=True, warn=True
@@ -1456,12 +1482,12 @@ def follow_logs(
             )
 
             if result.failed:
-                break
+                return False
 
             state = result.stdout.strip()
 
             if state == "exited":
-                break
+                return True
 
             # Follow logs with timestamps, starting from last_timestamp if available
             args = ["docker", "logs", "--follow", container_id]
@@ -1497,7 +1523,10 @@ def follow_logs(
             if runner and not runner.process_is_finished:
                 runner.stop()
                 runner.kill()
-            break
+            return True
+
+    # idk how we got here
+    return False
 
 
 @task(
@@ -1535,7 +1564,7 @@ def logs(
     new: bool = False,
     stream: str = "",
     filter_pattern: str = "",
-) -> None:
+) -> list[bool]:
     """Smart docker logging"""
 
     if new and since:
@@ -1567,13 +1596,13 @@ def logs(
         if since:
             cmdline.extend(["--since", since])
 
-        return ctx.run(" ".join(cmdline), echo=verbose, pty=True)
+        return [ctx.run(" ".join(cmdline), echo=verbose, pty=True).ok]
 
     # else use fancy logs
 
     # now find containers for these services:
     # -> `py4web` can map to `py4web-1, py4web-2` etc
-    futures: list[TypedThread[None]] = []
+    futures: list[TypedThread[bool]] = []
     colors = rainbow()
     containers = get_docker_info(ctx, services)
 
@@ -1611,7 +1640,7 @@ def logs(
                 daemon=True,
             )
             t.start()
-            futures.append(typing.cast(TypedThread[None], t))
+            futures.append(typing.cast(TypedThread[bool], t))
 
     # now let's print all containers until their state = exited
     # use the full container name (ontwikkelstraat-py4web-1)
