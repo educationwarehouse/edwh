@@ -679,7 +679,7 @@ def build_rainbow() -> tuple[ColorFn, ...]:
     )
 
 
-def rainbow() -> typing.Generator[str, None, None]:
+def rainbow() -> typing.Generator[ColorFn, None, None]:
     """
     rainbow = []colorFunc{
                 colors["cyan"],

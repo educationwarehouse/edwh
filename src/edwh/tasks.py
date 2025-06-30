@@ -1402,6 +1402,9 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
+type T_Stream = typing.Literal["stdout", "stderr", "out", "err", ""]
+
+
 def follow_logs(
     ctx: Context,
     container_id: str,
@@ -1411,7 +1414,7 @@ def follow_logs(
     since: str | None,
     verbose: bool,
     timestamps: bool,
-    stream: typing.Literal["stdout", "stderr", "out", "err", ""] = "",
+    stream: T_Stream = "",
     filter_pattern: str = "",
 ) -> bool:
     """
@@ -1442,6 +1445,9 @@ def follow_logs(
     Raises:
         None explicitly defined, but will handle `KeyboardInterrupt` gracefully during execution.
     """
+
+    if stream not in typing.get_args(T_Stream):
+        raise ValueError(f"Invalid stream value: {stream}.")
 
     # Get container name for prefix
     name_result = ctx.run(
@@ -1559,7 +1565,7 @@ def logs(
     timestamps: bool = True,
     since: Optional[str] = None,
     new: bool = False,
-    stream: str = "",
+    stream: T_Stream = "",
     filter_pattern: str = "",
 ) -> list[bool]:
     """Smart docker logging"""
@@ -2192,7 +2198,7 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
     if fix:
         command.append("--fix")
 
-    color = "green" if run_pty(ctx, *command) else "red"
+    color: Color = "green" if run_pty(ctx, *command) else "red"
     cprint("⬤ ruff", color=color)
 
 
@@ -2219,6 +2225,8 @@ def fmt(
     target = directory or file or "."
 
     ruff = find_ruff()
+
+    color: Color
 
     if isort:
         color = "green" if run_pty_ok(ctx, ruff, f"check --select I --fix {target} --quiet") else "red"
