@@ -1402,7 +1402,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
-type T_Stream = typing.Literal["stdout", "stderr", "out", "err", ""]
+T_Stream = typing.Literal["stdout", "stderr", "out", "err", ""]
 
 
 def follow_logs(
@@ -1445,9 +1445,8 @@ def follow_logs(
     Raises:
         None explicitly defined, but will handle `KeyboardInterrupt` gracefully during execution.
     """
-
     if stream not in typing.get_args(T_Stream):
-        raise ValueError(f"Invalid stream value: {stream}.")
+        raise ValueError(f"Invalid stream value: '{stream}'.")
 
     # Get container name for prefix
     name_result = ctx.run(
