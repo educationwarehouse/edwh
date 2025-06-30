@@ -1565,8 +1565,10 @@ def logs(
     for service in services:
         # py4web ['84e1ba25a0060f73010a076ab1ff37cd59d8eb4fe6689e0a30f2c84065da3078', '81300df087b05a4130de75aad8e85528bcfcaaa309a89f1e4808c434217e967a', '1b34095fb93a9bc3c58ef07a7b30a08a39ed4645cb9d56906807b690e82590bf']
         # web2py ['ae752f72e3659aaa7c0b97a9535cf78ad47e4a75c6dda8b62626f914790e3551']
-        for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.strip().split("\n"):
-            container_info = containers[container_id]
+        for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.split("\n"):
+            if not (container_info := containers.get(container_id)):
+                # empty or whitespace only
+                continue
 
             t = threading.Thread(
                 target=follow_logs,
