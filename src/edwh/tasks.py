@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import sys
+import threading
 import time
 import traceback
 import typing
@@ -1401,6 +1402,7 @@ def follow_logs(
     timestamps: bool,
     stream: T_Stream = "",
     filter_pattern: str = "",
+    stop_event: threading.Event = None,
 ) -> bool:
     """
     Follows logs of a specified Docker container while optionally filtering and formatting output.
@@ -1469,12 +1471,8 @@ def follow_logs(
             )
 
             if result.failed:
+                # machine is dead
                 return False
-
-            state = result.stdout.strip()
-
-            if state == "exited":
-                return True
 
             # Follow logs with timestamps, starting from last_timestamp if available
             args = ["docker", "logs", "--follow", container_id]
@@ -1492,6 +1490,10 @@ def follow_logs(
 
             try:
                 while not runner.process_is_finished:
+                    # start loop - check for stop event
+                    if stop_event and stop_event.is_set():
+                        return True
+
                     while runner.stdout:
                         stdout_handler.process(runner.stdout.pop(0))
 
@@ -1603,6 +1605,8 @@ def logs(
     longest_name = max([len(_["Service"]) for _ in containers.values()])
 
     with futures.ThreadPoolExecutor() as executor:
+        stop_event = threading.Event()
+
         for service in services:
             for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.split("\n"):
                 if not (container_info := containers.get(container_id)):
@@ -1621,12 +1625,18 @@ def logs(
                     timestamps,
                     stream,
                     filter_pattern,
+                    stop_event,
                 )
                 promises.append(future)
 
         # Wait for all futures to complete
         # This mimics the original join_all behavior to return the list of results
-        return [promise.result() for promise in promises]
+        try:
+            return [promise.result() for promise in promises]
+        except KeyboardInterrupt:
+            print("Ctrl-C pressed, stopping log threads...")
+            stop_event.set()
+            return []
 
 
 def start_logs(c: Context, service: typing.Collection[str] = None):
