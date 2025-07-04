@@ -13,13 +13,15 @@ from typing import Optional
 
 import dateutil.parser
 import yayarl as yarl
-from invoke import Context  # type: ignore
+from ewok import (
+    Context,  # type: ignore
+    task,
+)
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
-from ..improved_invoke import improved_task as task
 from ..meta import (  # type: ignore
     Version,
     _gather_package_metadata_threaded,
@@ -44,7 +46,10 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
         packages = []
 
     # filter out comments and editable (local) installs:
-    return [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
+    regular_installs = [_ for _ in packages if not (_.startswith("#") or _.startswith("-e"))]
+    local_installs = [_.split("/")[-1] for _ in packages if _.startswith("-e")]
+
+    return regular_installs + local_installs
 
 
 @dataclass
@@ -86,6 +91,16 @@ class Plugin:
                 plugin_details = (
                     f"• {self.clean_name} ({self.installed_version} < {self.latest_version}) - {self.github_url}"
                 )
+
+            cprint(
+                plugin_details,
+                "yellow",
+            )
+        elif self.is_installed and not self.installed_version:
+            if verbose:
+                plugin_details = f"• {self.clean_name} (unknown) - {self.github_url} - Python {self.requires_python}"
+            else:
+                plugin_details = f"• {self.clean_name} - {self.github_url}"
 
             cprint(
                 plugin_details,
@@ -391,10 +406,10 @@ def sort_versions(key_value: tuple[str, typing.Any]) -> Version:
         return Version("0.0.0")
 
 
-T_Changelog: typing.TypeAlias = dict[str, dict[str, list[str]]]
-T_OrderedChangelog: typing.TypeAlias = OrderedDict[str, dict[str, list[str]]]
-T_OrderedChangelogs: typing.TypeAlias = dict[str, T_OrderedChangelog]
-T_Changelogs: typing.TypeAlias = dict[str, T_Changelog]
+type T_Changelog = dict[str, dict[str, list[str]]]
+type T_OrderedChangelog = OrderedDict[str, dict[str, list[str]]]
+type T_OrderedChangelogs = dict[str, T_OrderedChangelog]
+type T_Changelogs = dict[str, T_Changelog]
 
 
 def parse_changelog(markdown: str) -> T_Changelog:

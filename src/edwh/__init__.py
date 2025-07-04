@@ -6,15 +6,22 @@ This file exposes some functions so this tool can be used as a library.
 #
 # SPDX-License-Identifier: MIT
 
-import warnings
+from ewok import Task, task
+from ewok.monkey import monkeypatch_invoke
 
-from cryptography.utils import CryptographyDeprecationWarning
+monkeypatch_invoke("edwh")
 
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
-
-from . import tasks  # noqa E402 - import has to come after warning filter
-from .constants import DOCKER_COMPOSE  # noqa E402  - import has to come after warning filter
-from .helpers import (  # noqa E402  - import has to come after warning filter
+from . import tasks
+from .constants import DOCKER_COMPOSE
+from .health import (
+    HealthLevel,
+    HealthStatus,
+    docker_inspect,
+    find_container_ids,
+    find_containers_ids,
+    get_healths,
+)
+from .helpers import (
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
@@ -43,17 +50,8 @@ from .helpers import (  # noqa E402  - import has to come after warning filter
     shorten,
     yaml_loads,
 )
-from .meta import is_installed  # noqa E402  - import has to come after warning filter
-from .health import (
-    HealthLevel,
-    get_healths,
-    find_container_ids,
-    find_containers_ids,
-    HealthStatus,
-    inspect,
-)  # noqa E402  - import has to come after warning filter
-from .improved_invoke import ImprovedTask, improved_task  # noqa E402  - import has to come after warning filter
-from .tasks import (  # noqa E402  - import has to come after warning filter
+from .meta import is_installed
+from .tasks import (
     TomlConfig,
     check_env,
     get_env_value,
@@ -63,8 +61,8 @@ from .tasks import (  # noqa E402  - import has to come after warning filter
     task_for_namespace,
 )
 
-Task = ImprovedTask
-task = improved_task
+ImprovedTask = Task
+improved_task = task
 
 __all__ = [
     "DOCKER_COMPOSE",
@@ -113,5 +111,5 @@ __all__ = [
     "find_container_ids",
     "find_containers_ids",
     "HealthStatus",
-    "inspect",
+    "docker_inspect",
 ]

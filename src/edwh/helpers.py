@@ -6,9 +6,12 @@ import abc
 import datetime as dt
 import functools
 import io
+import itertools
+import re
 import sys
 import typing
 from pathlib import Path
+from threading import Thread
 from typing import Optional
 
 import click
@@ -75,9 +78,6 @@ def generate_password(silent: bool = True, dice: int = 6) -> str:
     if not silent:
         print("Password:", password)
     return password
-
-
-# T = typing.TypeVar("T", str, bool)
 
 
 def _add_dash(flag: str) -> str:
@@ -167,24 +167,21 @@ def noop(*_: typing.Any, **__: typing.Any) -> None:
     return None
 
 
-T = typing.TypeVar("T")
-
-
 @typing.overload
-def dump_set_as_list(data: set[T]) -> list[T]:
+def dump_set_as_list[T](data: set[T]) -> list[T]:
     """
     Sets are converted to lists.
     """
 
 
 @typing.overload
-def dump_set_as_list(data: T) -> T:
+def dump_set_as_list[T](data: T) -> T:
     """
     Other datatypes remain untouched.
     """
 
 
-def dump_set_as_list(data: set[T] | T) -> list[T] | T:  # type: ignore
+def dump_set_as_list[T](data: set[T] | T) -> list[T] | T:  # type: ignore
     if isinstance(data, set):
         return list(data)
     else:
@@ -195,8 +192,6 @@ KEY_ENTER = "\r"
 KEY_ARROWUP = "\033[A"
 KEY_ARROWDOWN = "\033[B"
 
-T_Key = typing.TypeVar("T_Key", bound=typing.Hashable)
-
 
 def print_box(label: str, selected: bool, current: bool, number: int, fmt: str = "[%s]", filler: str = "x") -> None:
     box = fmt % (filler if selected else " ")
@@ -204,10 +199,10 @@ def print_box(label: str, selected: bool, current: bool, number: int, fmt: str =
     click.echo(f"{indicator}{number}. {box} {label}")
 
 
-def interactive_selected_checkbox_values(
-    options: list[str] | dict[T_Key, str],
+def interactive_selected_checkbox_values[H: typing.Hashable](
+    options: list[str] | dict[H, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: typing.Collection[T_Key] = (),
+    selected: typing.Collection[H] = (),
     allow_empty: bool = False,
 ) -> list[str] | None:
     """
@@ -222,7 +217,8 @@ def interactive_selected_checkbox_values(
         allow_empty (bool, optional): If True, adds an extra option "(none)" to deselect all other options.
         selected: a set (/other iterable) of pre-selected options (set is preferred).
 
-            T_Key means the values have to be the same type as the keys of options.
+            `H: Hashable` means the values have to be the same type as the keys of options
+                          and they should be hashable (via `hash()`).
             Example:
                 options = {1: "something", "two": "else"}
                 selected = [2, "three"] # valid type (int and str are keys of options)
@@ -298,10 +294,10 @@ def interactive_selected_checkbox_values(
     return list(checked_indices.values())
 
 
-def interactive_selected_radio_value(
-    options: list[str] | dict[T_Key, str],
+def interactive_selected_radio_value[H: typing.Hashable](
+    options: list[str] | dict[H, str],
     prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: Optional[T_Key] = None,
+    selected: Optional[H] = None,
     allow_empty: bool = False,
 ) -> str | None:
     """
@@ -315,7 +311,8 @@ def interactive_selected_radio_value(
         prompt (str, optional): A string that is displayed as a prompt for the user.
         allow_empty (bool, optional): If True, adds an extra option "(none)" to allow deselecting all options.
         selected: a pre-selected option.
-            T_Key means the value has to be the same type as the keys of options.
+            `H: Hashable` means the values have to be the same type as the keys of options
+                          and they should be hashable (via `hash()`).
             Example:
                 options = {1: "something", "two": "else"}
                 selected = 2 # valid type (int is a key of options)
@@ -428,7 +425,7 @@ def print_aligned(plugin_commands: list[str]) -> None:
         print("\t", before.ljust(max_l, " "), "\t\t", after)
 
 
-def flatten(something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
+def flatten[T](something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
     """
     Like itertools.flatten but eager
     """
@@ -499,7 +496,7 @@ def _read_bytes_local(_: Context, path: str) -> bytes:
     return Path(path).read_bytes()
 
 
-ReadBytesFn: typing.TypeAlias = typing.Callable[[Connection | Context, str], bytes]
+type ReadBytesFn = typing.Callable[[Connection | Context, str], bytes]
 
 
 def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
@@ -548,3 +545,155 @@ def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
 
     for alias in aliases:
         _add_alias(sometask, alias)
+
+
+type ColorFn = typing.Callable[[str], str]
+type FilterFn = Optional[typing.Callable[[str], bool]]
+
+
+class NoopHandler:
+    def process(self, chunk: str):
+        return
+
+
+class LineBufferHandler:
+    def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
+        self.buffer = ""
+        self.prefix = prefix
+        self.output_stream = output_stream
+        self.filter_fn = filter_fn
+
+    def process(self, chunk: str):
+        if not chunk:
+            return
+
+        filter_fn = self.filter_fn
+        self.buffer += chunk
+
+        if "\n" in self.buffer:
+            lines = self.buffer.splitlines(True)
+
+            if not self.buffer.endswith("\n"):
+                # last line wasn't finished yet, save it to buffer instead of printing
+                self.buffer = lines.pop()
+            else:
+                # all lines complete, clean buffer
+                self.buffer = ""
+
+            for line in lines:
+                if filter_fn and not filter_fn(line):
+                    continue
+
+                print(f"{self.prefix}{line}", end="", flush=True, file=self.output_stream)
+
+
+POSSIBLE_FLAGS = {
+    # https://docs.python.org/3/library/re.html
+    "a": re.ASCII,
+    "d": re.DEBUG,
+    "i": re.IGNORECASE,
+    "l": re.LOCALE,
+    "m": None,  # re.MULTILINE but the logger works line-by-line so this isn't really possible
+    "s": re.DOTALL,
+    "u": re.UNICODE,
+    "x": re.VERBOSE,
+    # custom: 'v' to invert
+}
+
+
+def parse_regex(raw: str) -> FilterFn:
+    """
+    Turn `/pattern/flags` into a Regex object.
+
+    Uses the grep style flags (i for case insensitive, v for invert)
+    """
+
+    # zero slashes: just a pattern, no flags.
+    # one slash: search term with / in it
+    # two slashes (+ starts with /): regex with flags
+    # more slashes: flags AND / in filter itself
+
+    if raw.startswith("/") and raw.count("/") > 1:
+        # flag-mode
+        _, *rest, flags_str = raw.split("/")
+        flags = set(flags_str.lower())
+        pattern = "/".join(rest)
+    else:
+        # normal search mode, no flags
+        flags = set()
+        pattern = raw
+
+    flags_bin = 0  # re.NOFLAG doesn't exist in 3.10 yet
+
+    for flag in flags:
+        flags_bin |= POSSIBLE_FLAGS.get(flag) or 0  # re.NOFLAG
+
+    re_compiled = re.compile(pattern, flags_bin)
+
+    if "v" in flags:
+        # v for inverse like `grep -v`
+        return lambda text: not re_compiled.search(text)
+    else:
+        return lambda text: bool(re_compiled.search(text))
+
+
+def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
+    res = "\033["
+    for c in format_opts:
+        res += f"{c};"
+    return f"{res}{code}m"
+
+
+def make_color_func(code: str) -> ColorFn:
+    return lambda s: f"{ansi_color_code(code)}{s}{ansi_color_code('0')}"
+
+
+def build_rainbow() -> tuple[ColorFn, ...]:
+    names = (
+        "grey",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+    )
+
+    colors = {}
+    for i, name in enumerate(names):
+        colors[name] = make_color_func(str(30 + i))
+        colors[f"intense_{name}"] = make_color_func(f"{30 + i};1")
+
+    return (
+        colors["cyan"],
+        colors["yellow"],
+        colors["green"],
+        colors["magenta"],
+        colors["blue"],
+        colors["intense_cyan"],
+        colors["intense_yellow"],
+        colors["intense_green"],
+        colors["intense_magenta"],
+        colors["intense_blue"],
+    )
+
+
+def rainbow() -> typing.Generator[ColorFn, None, None]:
+    """
+    rainbow = []colorFunc{
+                colors["cyan"],
+                colors["yellow"],
+                colors["green"],
+                colors["magenta"],
+                colors["blue"],
+                colors["intense_cyan"],
+                colors["intense_yellow"],
+                colors["intense_green"],
+                colors["intense_magenta"],
+                colors["intense_blue"],
+        }
+
+    Yield colors from the docker compose rainbow map in a cyclic way.
+    """
+    yield from itertools.cycle(build_rainbow())

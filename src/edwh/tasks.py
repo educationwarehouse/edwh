@@ -1,4 +1,5 @@
 import contextlib
+import datetime as dt
 import fnmatch
 import hashlib
 import io
@@ -6,29 +7,34 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
-import subprocess
 import sys
+import threading
 import time
+import traceback
 import typing
 import warnings
-from asyncio import CancelledError
 from collections import Counter
+from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
-import anyio
+import ewok
 import invoke
 import tabulate
-import tomlkit  # can be replaced with tomllib when 3.10 is deprecated
+import tomlkit  # has more features than tomllib
 import yaml
+from dotenv import dotenv_values
+from ewok import Task, format_frame, task
+from invoke import Promise, Runner
 from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
-from typing_extensions import Never, deprecated
+from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
@@ -40,12 +46,20 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
-from .health import find_container_ids, find_containers_ids, get_healths, inspect  # noqa F401 - import for export
+from .health import (  # noqa F401 - import for export
+    docker_inspect,
+    find_container_ids,
+    find_containers_ids,
+    get_healths,
+)
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for backwards compatibility (e.g. `from edwh.tasks import executes_correctly`)
 from .helpers import (  # noqa F401 - import for export
     AnyDict,
+    ColorFn,
+    LineBufferHandler,
+    NoopHandler,
     confirm,
     dc_config,
     dump_set_as_list,
@@ -57,15 +71,14 @@ from .helpers import (  # noqa F401 - import for export
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     noop,
+    parse_regex,
     print_aligned,
+    rainbow,
     run_pty,
     run_pty_ok,
     shorten,
 )
 from .helpers import generate_password as _generate_password
-from .improved_invoke import ImprovedTask as Task
-from .improved_invoke import improved_task as task
-from .improved_logging import parse_regex, parse_timedelta, rainbow, tail
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -171,70 +184,45 @@ def calculate_schema_hash(quiet: bool = False) -> str:
     return hasher.hexdigest()
 
 
-def task_for_namespace(namespace: str, task_name: str) -> Task | None:
+def task_for_namespace(ctx: Context, namespace: str, task_name: str) -> Task | None:
     """
     Get a task by namespace + task_name.
 
     Example:
         namespace: local, task_name: setup
     """
-    from .cli import collection
 
-    if ns := collection.collections.get(namespace):
+    if ns := ewok.find_namespace(ctx, namespace):
         return typing.cast(Task, ns.tasks.get(task_name))
 
     return None
 
 
-def task_for_identifier(identifier: str) -> Task | None:
-    from .cli import collection
+def task_for_identifier(ctx: Context, identifier: str) -> Task | None:
+    collection = ewok.tasks(ctx)
 
     return collection.tasks.get(identifier)
 
 
-def get_task(identifier: str) -> Task | None:
+def get_task(ctx: Context, identifier: str = "") -> Task | None:
     """
     Get a task by the identifier you would use in the terminal.
 
     Example:
         local.setup
     """
+    if not identifier:
+        stack = traceback.extract_stack(limit=2)
+        cprint(
+            "WARN: get_task(identifier) is deprecated in favor of get_task(invoke.Context, identifier)", color="yellow"
+        )
+        format_frame(stack[0])
+        return None
 
     if "." in identifier:
-        return task_for_namespace(*identifier.split("."))
+        return task_for_namespace(ctx, *identifier.split("."))
     else:
-        return task_for_identifier(identifier)
-
-
-@deprecated("This functionality was replaced by @task(hookable=True)")
-def exec_setup_in_other_task(c: Context, run_setup: bool, **kw: typing.Any) -> bool:
-    """
-    Run a setup function in another task.py.
-    """
-    if local_setup := task_for_namespace("local", "setup"):
-        if run_setup:
-            local_setup(c, **kw)
-
-        return True
-    else:
-        print("No (local) setup function found in your nearest tasks.py", file=sys.stderr)
-
-    return False
-
-
-@deprecated("This functionality was replaced by @task(hookable=True)")
-def exec_up_in_other_task(c: Context, services: list[str]) -> bool:
-    """
-    Run a setup function in another task.py.
-    """
-    if local_up := task_for_namespace("local", "up"):
-        local_up(c, services)
-
-        return True
-    else:
-        print("No (local) up function found in your nearest tasks.py", file=sys.stderr)
-
-    return False
+        return task_for_identifier(ctx, identifier)
 
 
 _dotenv_settings: dict[str, dict[str, str]] = {}
@@ -440,25 +428,11 @@ class TomlConfig:
 
 
 def process_env_file(env_path: Path) -> dict[str, str]:
-    items: dict[str, str] = {}
     if not env_path.exists():
-        return items
+        return {}
 
-    with env_path.open(mode="r") as env_file:
-        for line in env_file:
-            # remove comments and redundant whitespace
-            line = line.split("#", 1)[0].strip()
-            if not line or "=" not in line:
-                # just a comment, skip
-                # or key without value? invalid, prevent crash:
-                continue
-
-            # convert to tuples
-            k, v = line.split("=", 1)
-
-            # clean the tuples and add to dict
-            items[k.strip()] = v.strip()
-    return items
+    values = dotenv_values(env_path)
+    return dict(values)
 
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
@@ -505,7 +479,7 @@ def warn_once(
     )
 
 
-DefaultFn: typing.TypeAlias = typing.Callable[[], Optional[str]]
+type DefaultFn = typing.Callable[[], Optional[str]]
 
 
 def check_env(
@@ -1138,7 +1112,7 @@ def volumes(ctx: Context) -> None:
     stdout = ran.stdout if ran else ""
     for container_id in stdout.strip().split("\n"):
         with contextlib.suppress(EnvironmentError):
-            info = inspect(ctx, container_id)[0]
+            info = docker_inspect(ctx, container_id)[0]
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1213,7 +1187,7 @@ def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
         container_ids = find_container_ids(ctx, container) or [container]
 
         for container_id in container_ids:
-            result[container_id] = inspect(ctx, container_id, '--format "{{json .State.Health }}"')
+            result[container_id] = docker_inspect(ctx, container_id, '--format "{{json .State.Health }}"')
 
     if result and not quiet:
         print(tab + yaml.dump(result, allow_unicode=True).replace("\n", f"\n{tab}"))
@@ -1414,26 +1388,212 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
-async def logs_improved_async(
-    c: Context,
+T_Stream = typing.Literal["stdout", "stderr", "out", "err", ""]
+
+
+def follow_logs(
+    ctx: Context,
+    container_id: str,
+    project: str,
+    longest_name: int,
+    color: ColorFn,
+    since: str | None,
+    verbose: bool,
+    timestamps: bool,
+    stream: T_Stream = "",
+    filter_pattern: str = "",
+    stop_event: threading.Event = None,
+) -> bool:
+    """
+    Follows logs of a specified Docker container while optionally filtering and formatting output.
+
+    This function actively monitors the logs of a given container, allowing for custom filtering
+    through a regular expression pattern and handling streams like `stdout` or `stderr`. It is
+    designed to handle specific options such as including timestamps or verbose prefixes, and it
+    can restart the log retrieval process in case of certain interruptions.
+
+    Parameters:
+        ctx (Context): Execution context used to run commands.
+        container_id (str): ID of the container whose logs are being followed.
+        project (str): Project or prefix name associated with the container.
+        longest_name (int): Length of the longest name used for alignment in output.
+        color (ColorFn): Function to apply color formatting to output, typically the container name.
+        since (str | None): Initial timestamp or date from which logs should be retrieved, if available.
+        verbose (bool): Whether to include verbose prefixes (e.g., stream type) in output.
+        timestamps (bool): Whether to include timestamps from the logs in the output.
+        stream (Literal["stdout", "stderr", "out", "err", ""]): Stream type to handle in the output.
+            An empty string ("") implies both streams will be followed.
+        filter_pattern (str): Regular expression pattern used to filter log entries. Defaults to an
+            empty string, meaning no filtering is applied.
+
+    Returns:
+        bool: True if the log following process terminates validly, False otherwise.
+
+    Raises:
+        None explicitly defined, but will handle `KeyboardInterrupt` gracefully during execution.
+    """
+    if stream not in typing.get_args(T_Stream):
+        raise ValueError(f"Invalid stream value: '{stream}'.")
+
+    # Get container name for prefix
+    name_result = ctx.run(
+        "docker inspect --format='{{.Name}}' %(container)s" % {"container": container_id}, hide=True, warn=True
+    )
+
+    container_name = name_result.stdout.strip().lstrip("/")
+    container_name = container_name.removeprefix(f"{project}-").ljust(longest_name + 3, " ")
+
+    prefix = color(f"{container_name} | ")
+
+    re_filter_fn = parse_regex(filter_pattern) if filter_pattern else None
+
+    stdout_handler = (
+        LineBufferHandler(f"{prefix}out | " if verbose else prefix, sys.stdout, filter_fn=re_filter_fn)
+        if stream in ("out", "stdout", "")
+        else NoopHandler()
+    )
+    stderr_handler = (
+        LineBufferHandler(f"{prefix}err | " if verbose else prefix, sys.stderr, filter_fn=re_filter_fn)
+        if stream in ("out", "stdout", "")
+        else NoopHandler()
+    )
+
+    # Loop until container state is 'exited'
+    process: Optional[Promise] = None
+    runner: Optional[Runner] = None
+    while True:
+        try:
+            # Check container state
+            result = ctx.run(
+                "docker inspect --format='{{.State.Status}}' %(container)s" % {"container": container_id},
+                hide=True,
+                warn=True,
+            )
+
+            if result.failed:
+                # machine is dead
+                return False
+
+            # Follow logs with timestamps, starting from last_timestamp if available
+            args = ["docker", "logs", "--follow", container_id]
+            if timestamps:
+                args.append("--timestamps")
+
+            # If we have a last timestamp, use it to start from where we left off
+            if since:
+                args.extend(("--since", since))
+
+            # Run the docker logs command with our watcher
+            cmd = shlex.join(args)
+            process = ctx.run(cmd, pty=True, warn=True, asynchronous=True)
+            runner = process.runner
+
+            try:
+                while not runner.process_is_finished:
+                    # start loop - check for stop event
+                    if stop_event and stop_event.is_set():
+                        return True
+
+                    while runner.stdout:
+                        stdout_handler.process(runner.stdout.pop(0))
+
+                    while runner.stderr:
+                        stderr_handler.process(runner.stderr.pop(0))
+
+                    time.sleep(0.1)
+            except ChildProcessError:
+                # --since <datetime> includes rows at that datetime so `dt.timedelta(microseconds=1)` is added:
+                since = (dt.datetime.now() + dt.timedelta(microseconds=1)).isoformat()
+                time.sleep(0.1)
+                continue
+
+        except KeyboardInterrupt:
+            # Cancel the process if it's still running
+            if runner and not runner.process_is_finished:
+                runner.stop()
+                runner.kill()
+            return True
+
+    # idk how we got here
+    return False
+
+
+@task(
+    aliases=("log",),
+    iterable=["service"],
+    flags={
+        "show_all": ("all", "a"),
+        "filter_pattern": ("filter", "p"),  # -p for pattern, -f is already for follow
+    },
+    help={
+        "service": "What services to follow. "
+        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
+        "show_all": "Ignore --service and show all service logs (same as `-s '*'`).",
+        "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
+        "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
+        "limit": "Start with how many lines of history, don't follow.",
+        "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
+        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now); in UTC",
+        "new": "Don't show old entries (conflicts with since, same as --since now)",
+        "stream": "Filter by stdout/stderr (defaults to both), only used when following",
+        "filter_pattern": "Search by term or regex, only used when following",
+        "verbose": "Show slightly more info, like full timestamps.",
+    },
+)
+def logs(
+    ctx: Context,
     service: typing.Collection[str] | None = None,
+    follow: bool = True,
+    limit: Optional[int] = None,
+    sort: bool = False,
+    show_all: bool = False,
+    verbose: bool = False,
+    timestamps: bool = True,
     since: Optional[str] = None,
     new: bool = False,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
-) -> None:
+    stream: T_Stream = "",
+    filter_pattern: str = "",
+) -> list[bool]:
+    """Smart docker logging"""
+
+    if new and since:
+        raise ValueError("Cannot use --new and --since together")
     if new:
-        since = "now"
+        since = "1s"
 
-    if since:
-        since = parse_timedelta(since)
+    if sort and follow:
+        raise ValueError("--sort is mutually exclusive with following logs")
 
-    re_filter_fn = parse_regex(re_filter) if re_filter else None
+    if show_all:
+        services = service_names([], default="all")
+    else:
+        services = service_names(service or [], default="logs")
 
-    services = service_names(service, default="logs")
-    containers = get_docker_info(c, services)
+    if limit or not follow or sort:
+        if filter:
+            raise ValueError("--filter is exclusive with --limit, --no-follow and --sort")
+        # use basic logs
+        cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
+        cmdline.extend(services)
+        if sort or timestamps:
+            # add timestamps
+            cmdline.append("-t")
+
+        if sort:
+            cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
+
+        if since:
+            cmdline.extend(["--since", since])
+
+        return [ctx.run(" ".join(cmdline), echo=verbose, pty=True).ok]
+
+    # else use fancy logs
+
+    # now find containers for these services:
+    # -> `py4web` can map to `py4web-1, py4web-2` etc
+    promises: list[futures.Future[bool]] = []
+    colors = rainbow()
+    containers = get_docker_info(ctx, services)
 
     if not containers:
         cprint(f"No running containers found for services {services}", color="red")
@@ -1444,140 +1604,39 @@ async def logs_improved_async(
     # for adjusting the | location
     longest_name = max([len(_["Service"]) for _ in containers.values()])
 
-    colors = rainbow()
+    with futures.ThreadPoolExecutor() as executor:
+        stop_event = threading.Event()
 
-    print("---", file=sys.stderr)
-    async with anyio.create_task_group() as task_group:
-        for container, container_info in containers.items():
-            # ontwikkelstraat-py4web-1 -> py4web-1
-            # this is slightly different from the original 'service' which is just e.g. 'py4web'
-            container_name = (
-                container_info["Name"].removeprefix(container_info["Project"] + "-").ljust(longest_name + 3, " ")
-            )
+        for service in services:
+            for container_id in ctx.run(f"{DOCKER_COMPOSE} ps -aq {service}", hide=True).stdout.split("\n"):
+                if not (container_info := containers.get(container_id)):
+                    # empty or whitespace only
+                    continue
 
-            file = f"/var/lib/docker/containers/{container}/{container}-json.log"
-            task_group.start_soon(
-                tail,  # type: ignore
-                {
-                    "filename": file,
-                    "human_name": container_name,
-                    "container_id": container,
-                    "stream": stream,
-                    "since": since,
-                    "re_filter": re_filter_fn,
-                    "color": next(colors),
-                    "timestamps": timestamps,
-                    "verbose": verbose,
-                    "state": container_info["State"],
-                },
-            )
+                future = executor.submit(
+                    follow_logs,
+                    ctx,
+                    container_id,
+                    container_info["Project"],
+                    longest_name,
+                    next(colors),
+                    since,
+                    verbose,
+                    timestamps,
+                    stream,
+                    filter_pattern,
+                    stop_event,
+                )
+                promises.append(future)
 
-
-def elevate(target_command: str) -> None:
-    if os.geteuid() == 0:
-        return
-
-    # not root, try again with sudo:
-    split_idx = sys.argv.index(target_command)
-    relevant_args = sys.argv[split_idx:]
-    subprocess.call(["sudo", sys.argv[0], *relevant_args])
-    exit(0)
-
-
-def logs_improved(
-    c: Context,
-    service: typing.Collection[str] | None = None,
-    since: Optional[str] = None,
-    stream: Optional[str] = None,
-    re_filter: Optional[str] = None,
-    timestamps: bool = True,
-    verbose: bool = False,
-) -> None:
-    with contextlib.suppress(CancelledError, KeyboardInterrupt):
-        anyio.run(
-            lambda *_: logs_improved_async(
-                c,
-                service=service,
-                since=since,
-                stream=stream,
-                re_filter=re_filter,
-                timestamps=timestamps,
-                verbose=verbose,
-            )
-        )
-
-
-@task(
-    aliases=("log",),
-    iterable=["service"],
-    help={
-        "service": "What services to follow. "
-        "Defaults to services in the `log` section of `.toml`, can be applied multiple times. ",
-        "all": "Ignore --service and show all service logs (same as `-s '*'`).",
-        "follow": "Keep scrolling with the output (default, use --no-follow or --limit <n> or --sort to disable).",
-        "timestamps": "Add timestamps (on by default, use --no-timestamps to disable)",
-        "limit": "Start with how many lines of history, don't follow.",
-        "sort": "Sort the output by timestamp: forced timestamp and mutual exclusive with follow.",
-        "since": "Filter by age (2024-05-03T12:00:00, 1 hour, now); in UTC",
-        "new": "Don't show old entries (conflicts with since, same as --since now)",
-        "stream": "Filter by stdout/stderr (defaults to both), only used when following",
-        "filter": "Search by term or regex, only used when following",
-        "verbose": "Show slightly more info, like full timestamps.",
-    },
-)
-def logs(
-    ctx: Context,
-    service: typing.Collection[str] | None = None,
-    follow: bool = True,
-    limit: Optional[int] = None,
-    sort: bool = False,
-    all: bool = False,  # noqa A002
-    verbose: bool = False,
-    timestamps: bool = True,
-    since: Optional[str] = None,
-    new: bool = False,
-    stream: Optional[str] = None,
-    filter: Optional[str] = None,  # noqa A002
-) -> None:
-    """Smart docker logging"""
-
-    cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
-    if sort or timestamps:
-        # add timestamps
-        cmdline.append("-t")
-
-    if new:
-        since = "1s"
-
-    if since:
-        cmdline.extend(["--since", since])
-
-    if all:
-        # -s "*" is the same but `-s *` triggers bash expansion so that's annoying.
-        cmdline.extend(service_names([], default="all"))
-    else:
-        cmdline.extend(service_names(service, default="logs"))
-
-    if sort:
-        cmdline.append(r'| sed -E "s/^([^|]*)\|([^Z]*Z)(.*)$/\2|\1|\3/" | sort')
-    elif limit:
-        # nothing special, just here to prevent follow
-        ...
-    elif follow:
-        # rerun `ew logs` with sudo:
-        elevate("logs")
-        # only allow follow if not sorting and no limit (tail):
-        return logs_improved(
-            ctx,
-            service="*" if all else service,
-            since=since,
-            stream=stream,
-            re_filter=filter,
-            timestamps=timestamps,
-            verbose=verbose,
-        )
-
-    return ctx.run(" ".join(cmdline), echo=verbose, pty=True)
+        # Wait for all futures to complete
+        # This mimics the original join_all behavior to return the list of results
+        try:
+            return [promise.result() for promise in promises]
+        except KeyboardInterrupt:
+            print("Ctrl-C pressed, stopping log threads...")
+            stop_event.set()
+            return []
 
 
 def start_logs(c: Context, service: typing.Collection[str] = None):
@@ -1686,7 +1745,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     # Path.cwd() uses absolute paths, Path() is the same but relative
     reqs = list(Path().rglob("*/*.in"))
 
-    if pip_compile := get_task("pip.compile"):
+    if pip_compile := get_task(ctx, "pip.compile"):
         with_compile = not skip_compile
     else:
         with_compile = False
@@ -1825,7 +1884,10 @@ def version(ctx: Context) -> None:
     """
     Show edwh app version and docker + compose version.
     """
+    from ewok.__about__ import __version__ as ewok_version
+
     print("edwh version", edwh_version)
+    print("ewok version", ewok_version)
     print("Python version", sys.version.split(" ")[0])
     ctx.run("docker --version")
     ctx.run(f"{DOCKER_COMPOSE} version")
@@ -1848,10 +1910,7 @@ def show_help(ctx: Context, about: str) -> None:
     Similar to `edwh {about} --help` but that does not work for whole plugins/namespaces.
     """
     # first check if 'about' is a plugin/namespace:
-    from .cli import collection
-
-    ns: invoke.collection.Collection
-    if ns := collection.collections.get(about):  # type: ignore
+    if ns := ewok.find_namespace(ctx, about):
         info = ns.serialized()
 
         print("--- namespace", ns.name, "---")
@@ -1869,7 +1928,7 @@ def show_help(ctx: Context, about: str) -> None:
 
             plugin_commands.append(" ".join([cmd, aliases, "\t", subtask["help"] or ""]))
 
-        return print_aligned(plugin_commands)
+        print_aligned(plugin_commands)
     else:
         # just run edwh --help <subcommand>:
         ctx.run(f"edwh --help {about}")
@@ -1989,7 +2048,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             continue
 
         for container_id in container_ids:
-            info = inspect(ctx, container_id)[0]
+            info = docker_inspect(ctx, container_id)[0]
             pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
@@ -2133,7 +2192,7 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
     if fix:
         command.append("--fix")
 
-    color = "green" if run_pty(ctx, *command) else "red"
+    color: Color = "green" if run_pty(ctx, *command) else "red"
     cprint("⬤ ruff", color=color)
 
 
@@ -2160,6 +2219,8 @@ def fmt(
     target = directory or file or "."
 
     ruff = find_ruff()
+
+    color: Color
 
     if isort:
         color = "green" if run_pty_ok(ctx, ruff, f"check --select I --fix {target} --quiet") else "red"

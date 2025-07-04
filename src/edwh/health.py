@@ -5,7 +5,7 @@ import typing as t
 import warnings
 from dataclasses import dataclass
 
-from invoke import Context
+from ewok import Context
 from termcolor import colored, cprint, termcolor
 from typing_extensions import deprecated
 
@@ -149,7 +149,7 @@ class HealthStatus:
         return colored(f"{self.container}: {status}", self.color)
 
 
-def inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDict]:
+def docker_inspect(ctx: Context, container_id: str, *args: str) -> AnyDict | list[AnyDict]:
     """
     Docker inspect a container by ID and get the first result.
 
@@ -200,7 +200,7 @@ def get_healths(ctx: Context, *container_names: str) -> list[HealthStatus]:
     #  when containers die between these two statements:
     #  info_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
     try:
-        info_by_id = {_["Id"]: _ for _ in inspect(ctx, "`docker compose ps -aq`")}
+        info_by_id = {_["Id"]: _ for _ in docker_inspect(ctx, "`docker compose ps -aq`")}
     except EnvironmentError:
         # probably everything down (warning is already shown by inspect() -> this can be safely ignored)
         info_by_id = {}

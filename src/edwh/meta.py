@@ -8,13 +8,13 @@ import typing
 from typing import Optional
 
 import yayarl as yarl
+from ewok import task
 from invoke.context import Context
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
 
 from .helpers import AnyDict
-from .improved_invoke import improved_task as task
 
 PYPI_URL_BASE = yarl.URL("https://pypi.python.org/pypi/")
 
