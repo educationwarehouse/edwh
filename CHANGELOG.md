@@ -2,6 +2,25 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.0 (2025-07-04)
+
+### Feature
+
+* Rewrote `logs` function so it doesn't require sudo file access anymore ([`5dc74d3`](https://github.com/educationwarehouse/edwh/commit/5dc74d33bf7874f7d21af83944cf279209077586))
+* Ported a lot of cli-framework functionality to `ewok` ([`7f993e0`](https://github.com/educationwarehouse/edwh/commit/7f993e0d4fb6ac69ebd07fe33531255033cb71c5))
+
+### Fix
+
+* Improved ctrl-c and docker restart handling ([`4525b57`](https://github.com/educationwarehouse/edwh/commit/4525b57823a704357c1decfc1caeba4430902f17))
+* **monkeypatch_invoke:** Add exception for `fabric` and `invoke` internals and show warning once per file ([`0ffb53a`](https://github.com/educationwarehouse/edwh/commit/0ffb53a005c91070597c20802e235d8ec0b90912))
+* Monkeypatch invoke to show warning if invoke.task is used instead of edwh.task or ewok.task ([`e6f60ff`](https://github.com/educationwarehouse/edwh/commit/e6f60ff99819c3ea3d3390f1e728ded16883b3f8))
+* It seems t.get_args doesn't work on a literal that uses the `type` keyword ([`9384310`](https://github.com/educationwarehouse/edwh/commit/9384310f4f43aafb8e3fb28d9b19e7ee3f4d2cf1))
+* Improved typing ([`ca5b16c`](https://github.com/educationwarehouse/edwh/commit/ca5b16cae9f66206b726ee77f0141ee30694dc0c))
+* Bump minimum supported Python version to 3.12; change `logs` from `threading` to `concurrent.futures` for higher-level api ([`271504d`](https://github.com/educationwarehouse/edwh/commit/271504d3604bde63a090a21f30b6c76b55ec4e5f))
+* **logs:** A bit more useful return type for `follow_logs` ([`55294be`](https://github.com/educationwarehouse/edwh/commit/55294bec9cc23943b8f05a7f4dcbba0124bbe3ee))
+* Show error if `get_task` is called with old signature ([`dd76f22`](https://github.com/educationwarehouse/edwh/commit/dd76f223c00142e1ea2b6036e3b6110b9587d820))
+* **logs:** Don't crash if container_id is empty (for some reason) ([`488612d`](https://github.com/educationwarehouse/edwh/commit/488612d81a8032e2eb0073fe0476c284967e2025))
+
 ## v0.60.0 (2025-06-23)
 
 ### Feature
