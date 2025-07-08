@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.2 (2025-07-08)
+
+### Fix
+
+* Also bump `ewok` even if no new `edwh` version was released ([`67e14e8`](https://github.com/educationwarehouse/edwh/commit/67e14e874a5e5c9eea8d09d04e942bded48705e9))
+
 ## v1.0.1 (2025-07-04)
 
 ### Fix
