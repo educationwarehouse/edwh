@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.3 (2025-07-08)
+
+### Fix
+
+* Mark dependency as '>=' instead of '>' ([`81f618b`](https://github.com/educationwarehouse/edwh/commit/81f618b06a1a8f5656e52b6c96e9153f3fc15ef5))
+
 ## v1.0.2 (2025-07-08)
 
 ### Fix
