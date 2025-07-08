@@ -40,7 +40,7 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
     if not pip_command:
         pip_command = _pip()
 
-    if result := c.run(f"{pip_command} freeze | grep edwh", hide=True, warn=True):
+    if result := c.run(f"{pip_command} freeze | grep -E 'edwh|ewok'", hide=True, warn=True):
         packages = result.stdout.strip().split("\n")
     else:
         packages = []
