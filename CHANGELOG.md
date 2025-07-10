@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.4 (2025-07-10)
+
+### Fix
+
+* Replace .exists with `exists_nonempty` which also checks the file actually has some bytes of content ([`9317ae6`](https://github.com/educationwarehouse/edwh/commit/9317ae638dc7e3e69a36d4cd6818a62b794e01b9))
+* Reorder checks in read_dotenv and remove redundant code ([`fe1af27`](https://github.com/educationwarehouse/edwh/commit/fe1af27fa47287f1e15c4aa56dd7019a360e6d8d))
+
 ## v1.0.3 (2025-07-08)
 
 ### Fix
