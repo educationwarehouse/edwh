@@ -79,7 +79,6 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
 )
 from .helpers import generate_password as _generate_password
-from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
@@ -466,12 +465,6 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
         current_dir = Path.cwd()
 
         while current_dir != current_dir.parent:  # Stop at filesystem root
-            # Check if we've reached a project root (docker-compose file exists)
-            if any(current_dir.glob("docker-compose.*")):
-                # Found project root, stop searching if we're not in the original directory
-                if current_dir != Path.cwd():
-                    break
-
             # Look for .env in current directory
             potential_env = current_dir / DEFAULT_DOTENV_PATH.name
             if potential_env.exists():
@@ -479,6 +472,11 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
                 _dotenv_settings[cache_key] = items
                 return items
 
+            # Check if we've reached a project root (docker-compose file exists)
+            if any(current_dir.glob("docker-compose.*")):
+                # Found project root, stop searching if we're not in the original directory
+                if current_dir != Path.cwd():
+                    break
             # Move up one directory
             current_dir = current_dir.parent
 
