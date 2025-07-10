@@ -440,7 +440,8 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
     Read .env file from env_path and return a dict of key/value pairs.
 
-    If env_path is not given, TomlConfig.load().dotenv_path is used.
+    If the .env file doesn't exist at env_path, traverse up the directory tree
+    looking for one, stopping when a docker-compose.* file is found (project root).
 
     :param env_path: optional path to .env file
     :return: dict of key/value pairs from the .env file
@@ -454,8 +455,35 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
         # 'cache'
         return existing
 
-    items = process_env_file(env_path)
+    # First try the exact path provided
+    if env_path.exists():
+        items = process_env_file(env_path)
+        _dotenv_settings[cache_key] = items
+        return items
 
+    # If not found and it's the default name, traverse up the tree
+    if env_path.name == DEFAULT_DOTENV_PATH.name:
+        current_dir = Path.cwd()
+
+        while current_dir != current_dir.parent:  # Stop at filesystem root
+            # Check if we've reached a project root (docker-compose file exists)
+            if any(current_dir.glob("docker-compose.*")):
+                # Found project root, stop searching if we're not in the original directory
+                if current_dir != Path.cwd():
+                    break
+
+            # Look for .env in current directory
+            potential_env = current_dir / DEFAULT_DOTENV_PATH.name
+            if potential_env.exists():
+                items = process_env_file(potential_env)
+                _dotenv_settings[cache_key] = items
+                return items
+
+            # Move up one directory
+            current_dir = current_dir.parent
+
+    # If still not found, return empty dict (existing behavior)
+    items = {}
     _dotenv_settings[cache_key] = items
     return items
 
