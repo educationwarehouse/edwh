@@ -434,6 +434,20 @@ def process_env_file(env_path: Path) -> dict[str, str]:
     values = dotenv_values(env_path)
     return dict(values)
 
+def exists_nonempty(path: Path) -> bool:
+    """
+    Checks whether a given file path exists and is non-empty.
+
+    This function determines if the specified path represents an existing
+    file and whether it contains any data (i.e., its size is greater than 0).
+
+    Args:
+        path (Path): A Path object representing the file path to check.
+
+    Returns:
+        bool: True if the file exists and is non-empty, otherwise False.
+    """
+    return path.exists() and path.stat().st_size > 0
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
@@ -455,7 +469,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
         return existing
 
     # First try the exact path provided
-    if env_path.exists():
+    if exists_nonempty(env_path):
         items = process_env_file(env_path)
         _dotenv_settings[cache_key] = items
         return items
@@ -467,7 +481,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
         while current_dir != current_dir.parent:  # Stop at filesystem root
             # Look for .env in current directory
             potential_env = current_dir / DEFAULT_DOTENV_PATH.name
-            if potential_env.exists():
+            if exists_nonempty(potential_env):
                 items = process_env_file(potential_env)
                 _dotenv_settings[cache_key] = items
                 return items
