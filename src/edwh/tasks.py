@@ -79,6 +79,7 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
 )
 from .helpers import generate_password as _generate_password
+from .helpers import generate_password as _generate_password
 
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
