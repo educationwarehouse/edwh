@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.5 (2025-07-11)
+
+### Fix
+
+* Re-introduce `run_fmt` function ([`dd90a83`](https://github.com/educationwarehouse/edwh/commit/dd90a83404fd0d0c3e56c6446f46c5292b67368d))
+
 ## v1.0.4 (2025-07-10)
 
 ### Fix
