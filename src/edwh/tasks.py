@@ -434,6 +434,7 @@ def process_env_file(env_path: Path) -> dict[str, str]:
     values = dotenv_values(env_path)
     return dict(values)
 
+
 def exists_nonempty(path: Path) -> bool:
     """
     Checks whether a given file path exists and is non-empty.
@@ -448,6 +449,7 @@ def exists_nonempty(path: Path) -> bool:
         bool: True if the file exists and is non-empty, otherwise False.
     """
     return path.exists() and path.stat().st_size > 0
+
 
 def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     """
