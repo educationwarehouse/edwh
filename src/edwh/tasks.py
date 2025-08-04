@@ -2095,7 +2095,7 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
-    stop_remove_containers(ctx, "pg-0", "pg-1", "pgpool", "pg-stats")
+    stop_remove_containers(ctx, *containers)
 
     # remove images after containers have been stopped and removed
     if pg_data_volumes:
