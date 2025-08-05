@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.6 (2025-08-05)
+
+### Fix
+
+* Replace hardcoded database names with discovered container names ([`c6f8513`](https://github.com/educationwarehouse/edwh/commit/c6f8513464fad77b3de289b45a4dbc33369925f6))
+
 ## v1.0.5 (2025-07-11)
 
 ### Fix
