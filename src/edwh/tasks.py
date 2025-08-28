@@ -1682,14 +1682,17 @@ def logs(
             return []
 
 
-def start_logs(c: Context, service: typing.Collection[str] = None):
+def start_logs(c: Context, service: typing.Collection[str] = None, args: str = ""):
     """
     Normal edwh logs can't just be called with `edwh.tasks.logs` so this wrapper makes it easier.
 
     (otherwise `logs` will try to elevate permissions and get confused due to not being called directly)
     """
     service = service_names(service or ())
-    return c.run("edwh logs " + " ".join(f"-s {s}" for s in service), pty=True)
+
+    args = " ".join(f"-s {s}" for s in service) + f" {args}"
+
+    return c.run(f"edwh logs {args}", pty=True)
 
 
 @task(
