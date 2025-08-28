@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.1.0 (2025-08-28)
+
+### Feature
+
+* `start_logs` supports extra args ([`330c9bf`](https://github.com/educationwarehouse/edwh/commit/330c9bff353ebfbacd758cf9c5c4dd121317350c))
+
 ## v1.0.6 (2025-08-05)
 
 ### Fix
