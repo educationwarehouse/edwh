@@ -62,15 +62,19 @@ def check_env_with_docker_compose_yaml_parsing(...):
 ### Module Structure
 ```
 src/edwh/
-├── __init__.py          # Public API exports
-├── __about__.py         # Version management
-├── cli.py               # CLI entry point
-├── tasks.py             # Core task definitions
-├── helpers.py           # Shared utilities
-├── constants.py         # Configuration constants
-├── local_tasks/         # Namespace-specific tasks
-│   └── plugin.py        # Plugin management tasks
-└── *.py                 # Feature-specific modules
+├── __init__.py                      # Public API exports
+├── __about__.py                     # Version management
+├── cli.py                           # CLI entry point
+├── tasks.py                         # Core task definitions
+├── helpers.py                       # Shared utilities
+├── constants.py                     # Configuration constants
+├── discover.py                      # Service discovery helpers
+├── health.py                        # Container/health inspection utilities
+├── docker_compose_yml_support.py    # docker-compose.yml parsing helpers
+├── meta.py                          # Meta tasks (plugins, self-update, etc.)
+├── local_tasks/                     # Namespace-specific tasks
+│   └── plugin.py                    # Plugin management tasks
+└── *.py                             # Other feature-specific modules
 ```
 
 ### Naming Conventions
@@ -90,12 +94,15 @@ def interactive_selected_checkbox_values(...) -> list[str]:
 DOCKER_COMPOSE = "docker --log-level error compose"
 
 # Type aliases: PascalCase with T_ prefix for complex types
-type T_Stream = Literal["stdout", "stderr", "out", "err", ""]
+from typing import Literal
+T_Stream = Literal["stdout", "stderr", "out", "err", ""]
 ```
+
+Note: In Python 3.12+, PEP 695 `type` aliases are also allowed. Choose one style per file and stay consistent; the assignment style above matches current usage in most modules.
 
 #### File Organization
 - **Single Responsibility**: Each file handles one domain (health.py, discover.py)
-- **Size Limits**: Files >500 lines should be split
+- **Size Guidance**: Aim to split files over ~500 lines. Exceptions: `src/edwh/tasks.py` and `src/edwh/helpers.py` may temporarily exceed this until planned refactors land.
 - **Import Order**:
   1. Standard library
   2. Third-party packages
