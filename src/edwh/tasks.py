@@ -1239,6 +1239,27 @@ def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
 
 
 @task(
+    iterable=("service",),
+)
+def wait_until_healthy(ctx: Context, services: list[str] = (), quiet: bool = False):
+    initial_length = 0
+    # for every container with a health check, wait for it to be either healthy or dead (not starting)
+    while missing := [_.container for _ in get_healths(ctx, *services) if _ and _.health == "starting"]:
+        if not quiet:
+            msg = f" Waiting for {missing}" + " " * 25
+            if not initial_length:
+                initial_length = len(msg)
+
+            print(msg, end="\r")
+
+    # wait is done, now print empty line to cleanup print traces:
+    if initial_length and not quiet:
+        print(" " * initial_length)
+
+    return 0
+
+
+@task(
     flags={
         "show_all": ("all", "a"),
     },
@@ -1280,25 +1301,11 @@ def health(
     else:
         services = []
 
-    healths = get_healths(ctx, *services)
-
     if wait:
-        initial_length = 0
-        # for every container with a health check, wait for it to be either healthy or dead (not starting)
-        while tracked := [_.container for _ in healths if _ and _.health == "starting"]:
-            if not quiet:
-                msg = f" Waiting for {tracked}" + " " * 25
-                if not initial_length:
-                    initial_length = len(msg)
+        return wait_until_healthy(ctx, services, quiet=quiet)
 
-                print(msg, end="\r")
-            healths = get_healths(ctx, *tracked)
-
-        # wait is done, now print empty line to cleanup print traces:
-        if initial_length and not quiet:
-            print(" " * initial_length)
-
-    elif not quiet:
+    healths = get_healths(ctx, *services)
+    if not quiet:
         for health_status in sorted((_ for _ in healths if _ is not None), key=lambda h: (h.level, h.container)):
             print(f"- {health_status}")
             if verbose and not health_status.ok and health_status.container_id:
