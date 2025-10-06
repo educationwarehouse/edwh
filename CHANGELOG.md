@@ -4,10 +4,6 @@
 
 ## v1.2.0 (2025-10-06)
 
-### Feature
-
-* Create comprehensive coding guidelines for EDWH project ([`0391c08`](https://github.com/educationwarehouse/edwh/commit/0391c0874fb0e860e0ec9fb316dd8fdc51dd54f9))
-
 ### Fix
 
 * Improvement in 'health --wait' so its more accurate ([`535c768`](https://github.com/educationwarehouse/edwh/commit/535c76836e3cda30813fdeca8774ebc0b8b5933c))
