@@ -24,6 +24,7 @@ from typing import Optional
 
 import ewok
 import invoke
+import keyring
 import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
@@ -901,6 +902,22 @@ def load_dockercompose_with_includes(
         return {}
 
 
+def prompt_validate_sudo_pass(c: Context):
+    sudo_pass = getpass("Please enter the sudo password: ")
+    c.config.sudo.password = sudo_pass
+
+    try:
+        result = c.sudo("echo ''", warn=True, hide=True)
+        if not (result and result.ok):
+            raise invoke.exceptions.AuthFailure(result, "sudo")
+
+        cprint("Sudo password accepted!", color="green", file=sys.stderr)
+        return sudo_pass
+    except invoke.exceptions.AuthFailure as e:
+        cprint(str(e), color="red", file=sys.stderr)
+        return None
+
+
 @task()
 def require_sudo(c: Context) -> bool:
     """
@@ -922,18 +939,14 @@ def require_sudo(c: Context) -> bool:
         # prima
         return True
 
-    sudo_pass = getpass("Please enter the sudo password: ")
-    c.config.sudo.password = sudo_pass
+    with contextlib.suppress(Exception):
+        if current := keyring.get_password("edwh", "sudo"):
+            c.config.sudo.password = current
+            return True
 
-    try:
-        result = c.sudo("echo ''", warn=True, hide=True)
-        if not (result and result.ok):
-            raise invoke.exceptions.AuthFailure(result, "sudo")
-
-        cprint("Sudo password accepted!", color="green", file=sys.stderr)
+    if prompt_validate_sudo_pass(c):
         return True
-    except invoke.exceptions.AuthFailure as e:
-        cprint(str(e), color="red", file=sys.stderr)
+    else:
         cprint("Stopping now.")
         exit(1)
 
@@ -947,6 +960,37 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 
     services: AnyDict = docker_compose["services"]
     return write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
+
+
+@task()
+def sudo(c: Context):
+    # 1.
+    # check current status in keyring
+    try:
+        current = keyring.get_password("edwh", "sudo")
+    except Exception:
+        current = None
+
+    # 2. change text based on current status (re-authorize)
+    if current:
+        allow = confirm(
+            "Would you like to re-authorize edwh to run sudo commands without password entry? [Yn]", default=True
+        )
+    else:
+        allow = confirm(
+            "Would you like to authorize edwh to run sudo commands without password entry? [yN]", default=False
+        )
+
+    if allow:
+        # if yes: add to keyring
+        if sudo_pass := prompt_validate_sudo_pass(c):
+            keyring.set_password("edwh", "sudo", sudo_pass)
+        else:
+            exit(1)
+
+    else:
+        # else: remove from keyring
+        keyring.delete_password("edwh", "sudo")
 
 
 @task(
