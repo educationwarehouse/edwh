@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.3.0 (2025-10-10)
+
+### Feature
+
+* `edwh sudo` command to store sudo in os keyring ([`9b1448f`](https://github.com/educationwarehouse/edwh/commit/9b1448f6322b15193840649d1d6159cb9cbe963a))
+
 ## v1.2.1 (2025-10-10)
 
 
