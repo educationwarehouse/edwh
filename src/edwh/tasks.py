@@ -15,7 +15,7 @@ import time
 import traceback
 import typing
 import warnings
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
@@ -1360,16 +1360,58 @@ def health(
 
 
 @task(aliases=("psa",))
-def ps_all(ctx: Context):
+def ps_all(ctx):
     """
-    Show all active (docker compose) environments.
+    Show Docker Compose projects with container counts and summarized status.
     """
-    dockers = ctx.run('docker ps --format "{{.Names}}"', hide=True).stdout
+    result = ctx.run("docker ps --format '{{json .}}'", hide=True)
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
-    projects = Counter(_.split("-")[0] for _ in dockers.split("\n") if _ and "-" in _)
-    projects = {k: str(v) for k, v in projects.items()}
+    projects = defaultdict(lambda: {"count": 0, "container_statuses": []})
 
-    print(tabulate.tabulate(projects.items(), headers=["Project", "Dockers"], tablefmt="pipe"))
+    for line in lines:
+        container_data = json.loads(line)
+        container_name = container_data["Names"]
+        container_state = container_data.get("State", "")
+        container_status_text = container_data.get("Status", "").lower()
+
+        project_name = container_name.split("-")[0]
+        projects[project_name]["count"] += 1
+
+        # Determine container status with priority: unhealthy > paused > healthy/ok > others
+        if "unhealthy" in container_status_text or "health: starting" in container_status_text:
+            container_status = "unhealthy"
+        elif "paused" in container_state:
+            container_status = "paused"
+        elif "healthy" in container_status_text:
+            container_status = "healthy"
+        elif container_state == "running":
+            container_status = "ok"
+        else:
+            container_status = container_state
+
+        projects[project_name]["container_statuses"].append(container_status)
+
+    table_rows = []
+    for project_name, info in sorted(projects.items()):
+        statuses_set = set(info["container_statuses"])
+
+        if "unhealthy" in statuses_set:
+            project_status = "unhealthy"
+        elif "paused" in statuses_set:
+            project_status = "paused"
+        # The <= operator for sets checks if statuses_set is a subset of {"healthy", "ok"}
+        # i.e., all containers are either healthy or ok
+        elif statuses_set <= {"healthy", "ok"}:
+            project_status = "ok"
+        elif len(statuses_set) > 1:
+            project_status = "mixed"
+        else:
+            project_status = list(statuses_set)[0]
+
+        table_rows.append((project_name, info["count"], project_status))
+
+    print(tabulate.tabulate(table_rows, headers=["Project", "Containers", "Status"], tablefmt="pipe"))
 
 
 @task(
