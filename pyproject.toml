@@ -74,7 +74,9 @@ plugins = [
     'edwh-b2-plugin',
     'edwh-bundler-plugin',
     'edwh-demo-plugin',
+    'edwh-devdb-plugin',
     'edwh-files-plugin',
+    'edwh-git-plugin',
     'edwh-locust-plugin',
     'edwh-multipass-plugin',
     'edwh-pipcompile-plugin',
@@ -84,79 +86,52 @@ plugins = [
     'edwh-sshkey-plugin',
     'edwh-uptime-plugin',
     'edwh-whitelabel-plugin',
-    'edwh-devdb-plugin',
 ]
 
 # plugins that are useful on a (production) server:
 server-plugins = [
     'edwh-b2-plugin',
     'edwh-bundler-plugin',
+    'edwh-devdb-plugin',
     'edwh-files-plugin',
     'edwh-pipcompile-plugin',
     'edwh-restic-plugin',
     'edwh-uptime-plugin',
-    'edwh-devdb-plugin',
 ]
 
-server-provisioning = [
-    "edwh-server-provisioning-plugin"
-]
 
-sshkey = [
-    "edwh-sshkey-plugin"
-]
 
-restic = [
-    'edwh-restic-plugin',
-]
+b2 = ["edwh-b2-plugin"]
 
-multipass = [
-    'edwh-multipass-plugin',
-]
+bundle = ["edwh-bundler-plugin"]
 
-pip = [
-    'edwh-pipcompile-plugin',
-]
+bundler = ["edwh-bundler-plugin"]
 
-pip-compile = [
-    'edwh-pipcompile-plugin',
-]
+devdb = ["edwh-devdb-plugin"]
 
-bundler = [
-    "edwh-bundler-plugin"
-]
+files = ["edwh-files-plugin"]
 
-bundle = [
-    "edwh-bundler-plugin"
-]
+git = ["edwh-git-plugin"]
 
-b2 = [
-    "edwh-b2-plugin"
-]
+locust = ["edwh-locust-plugin"]
 
-locust = [
-    "edwh-locust-plugin"
-]
+multipass = ["edwh-multipass-plugin"]
 
-sshfs = [
-    "edwh-sshfs-plugin"
-]
+pip = ["edwh-pipcompile-plugin"]
 
-files = [
-    'edwh-files-plugin'
-]
+pip-compile = ["edwh-pipcompile-plugin"]
 
-whitelabel = [
-    'edwh-whitelabel-plugin'
-]
+restic = ["edwh-restic-plugin"]
 
-uptime = [
-    'edwh-uptime-plugin'
-]
+server-provisioning = ["edwh-server-provisioning-plugin"]
 
-devdb = [
-    'edwh-devdb-plugin'
-]
+sshfs = ["edwh-sshfs-plugin"]
+
+sshkey = ["edwh-sshkey-plugin"]
+
+uptime = ["edwh-uptime-plugin"]
+
+whitelabel = ["edwh-whitelabel-plugin"]
 
 [project.scripts]
 edwh = "edwh.cli:program.run"
