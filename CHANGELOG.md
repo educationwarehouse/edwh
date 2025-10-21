@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.1 (2025-10-21)
+
+### Fix
+
+* Add 'git' as official plugin ([`f4cfc44`](https://github.com/educationwarehouse/edwh/commit/f4cfc4413446e778d8e351ce44f7b7af69da974c))
+
 ## v1.4.0 (2025-10-14)
 
 ### Feature
