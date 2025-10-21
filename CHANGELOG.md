@@ -2,6 +2,22 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.0 (2025-10-14)
+
+### Feature
+
+* **psa:** Add a column indicating the project's health (ok, unhealthy, paused, mixed) ([`2151db2`](https://github.com/educationwarehouse/edwh/commit/2151db23916eafc1a6d51cd5975d65198ce659c4))
+
+## v1.3.0 (2025-10-10)
+
+### Feature
+
+* `edwh sudo` command to store sudo in os keyring ([`9b1448f`](https://github.com/educationwarehouse/edwh/commit/9b1448f6322b15193840649d1d6159cb9cbe963a))
+
+## v1.2.1 (2025-10-10)
+
+
+
 ## v1.2.0 (2025-10-06)
 
 ### Fix

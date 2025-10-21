@@ -15,7 +15,7 @@ import time
 import traceback
 import typing
 import warnings
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
@@ -24,6 +24,7 @@ from typing import Optional
 
 import ewok
 import invoke
+import keyring
 import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
@@ -901,6 +902,22 @@ def load_dockercompose_with_includes(
         return {}
 
 
+def prompt_validate_sudo_pass(c: Context):
+    sudo_pass = getpass("Please enter the sudo password: ")
+    c.config.sudo.password = sudo_pass
+
+    try:
+        result = c.sudo("echo ''", warn=True, hide=True)
+        if not (result and result.ok):
+            raise invoke.exceptions.AuthFailure(result, "sudo")
+
+        cprint("Sudo password accepted!", color="green", file=sys.stderr)
+        return sudo_pass
+    except invoke.exceptions.AuthFailure as e:
+        cprint(str(e), color="red", file=sys.stderr)
+        return None
+
+
 @task()
 def require_sudo(c: Context) -> bool:
     """
@@ -922,18 +939,14 @@ def require_sudo(c: Context) -> bool:
         # prima
         return True
 
-    sudo_pass = getpass("Please enter the sudo password: ")
-    c.config.sudo.password = sudo_pass
+    with contextlib.suppress(Exception):
+        if current := keyring.get_password("edwh", "sudo"):
+            c.config.sudo.password = current
+            return True
 
-    try:
-        result = c.sudo("echo ''", warn=True, hide=True)
-        if not (result and result.ok):
-            raise invoke.exceptions.AuthFailure(result, "sudo")
-
-        cprint("Sudo password accepted!", color="green", file=sys.stderr)
+    if prompt_validate_sudo_pass(c):
         return True
-    except invoke.exceptions.AuthFailure as e:
-        cprint(str(e), color="red", file=sys.stderr)
+    else:
         cprint("Stopping now.")
         exit(1)
 
@@ -947,6 +960,37 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 
     services: AnyDict = docker_compose["services"]
     return write_user_input_to_config_toml(list(services.keys()), overwrite=overwrite)
+
+
+@task()
+def sudo(c: Context):
+    # 1.
+    # check current status in keyring
+    try:
+        current = keyring.get_password("edwh", "sudo")
+    except Exception:
+        current = None
+
+    # 2. change text based on current status (re-authorize)
+    if current:
+        allow = confirm(
+            "Would you like to re-authorize edwh to run sudo commands without password entry? [Yn]", default=True
+        )
+    else:
+        allow = confirm(
+            "Would you like to authorize edwh to run sudo commands without password entry? [yN]", default=False
+        )
+
+    if allow:
+        # if yes: add to keyring
+        if sudo_pass := prompt_validate_sudo_pass(c):
+            keyring.set_password("edwh", "sudo", sudo_pass)
+        else:
+            exit(1)
+
+    else:
+        # else: remove from keyring
+        keyring.delete_password("edwh", "sudo")
 
 
 @task(
@@ -1316,16 +1360,58 @@ def health(
 
 
 @task(aliases=("psa",))
-def ps_all(ctx: Context):
+def ps_all(ctx):
     """
-    Show all active (docker compose) environments.
+    Show Docker Compose projects with container counts and summarized status.
     """
-    dockers = ctx.run('docker ps --format "{{.Names}}"', hide=True).stdout
+    result = ctx.run("docker ps --format '{{json .}}'", hide=True)
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
-    projects = Counter(_.split("-")[0] for _ in dockers.split("\n") if _ and "-" in _)
-    projects = {k: str(v) for k, v in projects.items()}
+    projects = defaultdict(lambda: {"count": 0, "container_statuses": []})
 
-    print(tabulate.tabulate(projects.items(), headers=["Project", "Dockers"], tablefmt="pipe"))
+    for line in lines:
+        container_data = json.loads(line)
+        container_name = container_data["Names"]
+        container_state = container_data.get("State", "")
+        container_status_text = container_data.get("Status", "").lower()
+
+        project_name = container_name.split("-")[0]
+        projects[project_name]["count"] += 1
+
+        # Determine container status with priority: unhealthy > paused > healthy/ok > others
+        if "unhealthy" in container_status_text or "health: starting" in container_status_text:
+            container_status = "unhealthy"
+        elif "paused" in container_state:
+            container_status = "paused"
+        elif "healthy" in container_status_text:
+            container_status = "healthy"
+        elif container_state == "running":
+            container_status = "ok"
+        else:
+            container_status = container_state
+
+        projects[project_name]["container_statuses"].append(container_status)
+
+    table_rows = []
+    for project_name, info in sorted(projects.items()):
+        statuses_set = set(info["container_statuses"])
+
+        if "unhealthy" in statuses_set:
+            project_status = "unhealthy"
+        elif "paused" in statuses_set:
+            project_status = "paused"
+        # The <= operator for sets checks if statuses_set is a subset of {"healthy", "ok"}
+        # i.e., all containers are either healthy or ok
+        elif statuses_set <= {"healthy", "ok"}:
+            project_status = "ok"
+        elif len(statuses_set) > 1:
+            project_status = "mixed"
+        else:
+            project_status = list(statuses_set)[0]
+
+        table_rows.append((project_name, info["count"], project_status))
+
+    print(tabulate.tabulate(table_rows, headers=["Project", "Containers", "Status"], tablefmt="pipe"))
 
 
 @task(
