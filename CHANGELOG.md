@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.2 (2025-10-28)
+
+### Fix
+
+* Add terminal hyperlink support and improve compose file discovery ([`69fef80`](https://github.com/educationwarehouse/edwh/commit/69fef8032ef544231decbde6eb269fa8c3f268c6))
+
 ## v1.4.1 (2025-10-21)
 
 ### Fix
