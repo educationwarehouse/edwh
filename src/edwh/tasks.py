@@ -46,7 +46,7 @@ from .constants import (
     FILE_START,
     LEGACY_TOML_NAME,
 )
-from .discover import discover, get_hosts_for_service  # noqa F401 - import for export
+from .discover import discover # noqa F401 - import for export
 from .health import (  # noqa F401 - import for export
     docker_inspect,
     find_container_ids,
