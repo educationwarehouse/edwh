@@ -21,7 +21,7 @@ def dedent(text: str, prefix: str = "  ") -> str:
     return text.replace(prefix, "", 1)
 
 
-def terminal_link(url, text=None):
+def terminal_link(url: str, text: str = None) -> str:
     """
     Creëer een klikbare hyperlink voor de terminal met OSC 8 escape codes.
 
@@ -41,7 +41,7 @@ def terminal_link(url, text=None):
         text = url
 
     # OSC 8 formaat: \033]8;;{url}\033\\{text}\033]8;;\033\\
-    escape_mask = '\033]8;;{}\033\\{}\033]8;;\033\\'
+    escape_mask = "\033]8;;{}\033\\{}\033]8;;\033\\"
 
     return escape_mask.format(url, text)
 
@@ -221,7 +221,12 @@ class Discover:
             if self.host_labels and not self.short:
                 service["domains"] = get_hosts_for_service(docker_service)
                 for domain in service["domains"]:
-                    self.print(terminal_link('https://'+domain, domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey"))))
+                    self.print(
+                        terminal_link(
+                            f"https://{domain}",
+                            domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")),
+                        ),
+                    )
 
         if service["domains"]:
             self.print()
