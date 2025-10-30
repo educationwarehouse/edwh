@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.3 (2025-10-30)
+
+### Fix
+
+* Export get_hosts_for_service again ([`175a979`](https://github.com/educationwarehouse/edwh/commit/175a979c0a4866022b5058c26a0d7266d33194b5))
+
 ## v1.4.2 (2025-10-28)
 
 ### Fix
