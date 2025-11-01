@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2025-11-01)
+
+### Feature
+
+* Switch from hatch to uv for build and publish ([`0a0b2bc`](https://github.com/educationwarehouse/edwh/commit/0a0b2bcbd353c90c4cbd7fbeed534e96a2f26501))
+
 ## v1.4.3 (2025-10-30)
 
 ### Fix
