@@ -1209,7 +1209,63 @@ def volumes(ctx: Context) -> None:
     print(tabulate.tabulate(lines, headers="keys"))
 
 
+def check_paused(ctx: Context, service: str) -> bool:
+    """Check if a service container is paused."""
+    result = ctx.run(f"{DOCKER_COMPOSE} ps --format json {service}", hide=True, warn=True)
+    try:
+        container_info = json.loads(result.stdout.strip())
+        if isinstance(container_info, list):
+            container_info = container_info[0] if container_info else {}
+
+        state = container_info.get("State", "")
+        return state == "paused"
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        return False
+
+
+def get_service_dependencies(ctx: Context, service: str) -> list[str]:
+    """Get the dependencies (depends_on) for a service from docker-compose config."""
+    result = ctx.run(f"{DOCKER_COMPOSE} config --format json", hide=True, warn=True)
+    try:
+        config = json.loads(result.stdout.strip())
+        services = config.get("services", {})
+        service_config = services.get(service, {})
+        depends_on = service_config.get("depends_on", {})
+
+        # depends_on can be a list or a dict
+        if isinstance(depends_on, dict):
+            return list(depends_on.keys())
+        elif isinstance(depends_on, list):
+            return depends_on
+        return []
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"Could not get dependencies for {service}: {e}")
+        return []
+
+
+def get_paused_services_with_deps(ctx: Context, services: list[str]) -> list[str]:
+    """Get all paused services including their dependencies.
+
+    Args:
+        ctx: Invoke context
+        services: List of service names to check
+
+    Returns:
+        List of paused service names (including dependencies)
+    """
+    # Collect all services including dependencies
+    all_services = set(services)
+    for service in services:
+        dependencies = get_service_dependencies(ctx, service)
+        all_services.update(dependencies)
+
+    # Check which services are paused
+    return [svc for svc in all_services if check_paused(ctx, svc)]
+
+
 # noinspection PyShadowingNames
+
+
 @task(
     help=dict(
         service="Service to up, defaults to .toml's [services].minimal. Can be used multiple times, handles wildcards.",
@@ -1228,7 +1284,7 @@ def volumes(ctx: Context) -> None:
 def up(
     ctx: Context,
     service: typing.Collection[str] | None = None,
-    build: bool = False,
+    build: bool = True,
     quickest: bool = False,
     stop_timeout: int = 2,
     tail: bool = False,
@@ -1245,7 +1301,17 @@ def up(
     services_ls = " ".join(services)
 
     if build:
-        ctx.run(f"{DOCKER_COMPOSE} build {services_ls}")
+        # note: checking if build is required due to outdated versions seems undoable, docker has no api for it
+        ctx.run(f"{DOCKER_COMPOSE} build {services_ls}", pty=True)
+
+    # Check for paused containers and unpause them
+    if paused_services := get_paused_services_with_deps(ctx, services):
+        paused_ls = " ".join(paused_services)
+        cprint(f"Unpausing and stopping services: {paused_ls}", "blue")
+        ctx.run(f"{DOCKER_COMPOSE} unpause {paused_ls}", pty=True)
+        # unpaused containers often get unhealthy so also stop them:
+        ctx.run(f"{DOCKER_COMPOSE} stop {paused_ls}", pty=True)
+
     if quickest:
         ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
