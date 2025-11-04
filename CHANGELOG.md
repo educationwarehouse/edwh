@@ -2,6 +2,30 @@
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2025-11-01)
+
+### Feature
+
+* Switch from hatch to uv for build and publish ([`0a0b2bc`](https://github.com/educationwarehouse/edwh/commit/0a0b2bcbd353c90c4cbd7fbeed534e96a2f26501))
+
+## v1.4.3 (2025-10-30)
+
+### Fix
+
+* Export get_hosts_for_service again ([`175a979`](https://github.com/educationwarehouse/edwh/commit/175a979c0a4866022b5058c26a0d7266d33194b5))
+
+## v1.4.2 (2025-10-28)
+
+### Fix
+
+* Add terminal hyperlink support and improve compose file discovery ([`69fef80`](https://github.com/educationwarehouse/edwh/commit/69fef8032ef544231decbde6eb269fa8c3f268c6))
+
+## v1.4.1 (2025-10-21)
+
+### Fix
+
+* Add 'git' as official plugin ([`f4cfc44`](https://github.com/educationwarehouse/edwh/commit/f4cfc4413446e778d8e351ce44f7b7af69da974c))
+
 ## v1.4.0 (2025-10-14)
 
 ### Feature

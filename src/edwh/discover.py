@@ -21,6 +21,31 @@ def dedent(text: str, prefix: str = "  ") -> str:
     return text.replace(prefix, "", 1)
 
 
+def terminal_link(url: str, text: str = None) -> str:
+    """
+    Creëer een klikbare hyperlink voor de terminal met OSC 8 escape codes.
+
+    Args:
+        url (str): De URL waarnaar de link moet verwijzen
+        text (str, optional): De tekst die getoond moet worden.
+                             Als None, wordt de URL zelf getoond.
+
+    Returns:
+        str: Een string met embedded ANSI escape codes voor een klikbare link
+
+    Voorbeeld:
+        print(terminal_link('https://github.com', 'Naar GitHub'))
+        print(terminal_link('https://example.com'))
+    """
+    if text is None:
+        text = url
+
+    # OSC 8 formaat: \033]8;;{url}\033\\{text}\033]8;;\033\\
+    escape_mask = "\033]8;;{}\033\\{}\033]8;;\033\\"
+
+    return escape_mask.format(url, text)
+
+
 HOST_RE = re.compile(r"`(.*?)`")
 
 
@@ -130,7 +155,7 @@ class Discover:
     def find_compose_files(self) -> list[str]:
         try:
             ran = self.ctx.run(
-                "find */docker-compose.yaml */docker-compose.yml",
+                "find ./docker-compose.yaml ./docker-compose.yml */docker-compose.yaml */docker-compose.yml",
                 echo=False,
                 hide=True,
                 warn=True,
@@ -196,7 +221,12 @@ class Discover:
             if self.host_labels and not self.short:
                 service["domains"] = get_hosts_for_service(docker_service)
                 for domain in service["domains"]:
-                    self.print(domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")))
+                    self.print(
+                        terminal_link(
+                            f"https://{domain}",
+                            domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")),
+                        ),
+                    )
 
         if service["domains"]:
             self.print()
@@ -228,8 +258,8 @@ class Discover:
                 project["settings"] = settings
 
             project["services"] = []
-            if not self.short:
-                print(config.get("services", {}).items())
+            # if not self.short:
+            #     print(config.get("services", {}).items())
             for name, docker_service in config.get("services", {}).items():
                 project["services"].append(self.process_docker_service(name, docker_service, hosting_domain))
 

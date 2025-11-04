@@ -9,9 +9,11 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
+from getpass import getpass
 from typing import Optional
 
 import dateutil.parser
+import keyring
 import yayarl as yarl
 from ewok import (
     Context,  # type: ignore
@@ -706,6 +708,42 @@ def git_pull(c: Context, yes: bool) -> None:
             raise GitException(git_pull.stderr)
 
 
+def build(c: Context, hatch: bool = False) -> list[str]:
+    if hatch:
+        hatch_build = c.run("hatch build -c")
+    else:
+        c.run("rm -r dist/ || true", hide=True)
+        hatch_build = c.run("uv build")
+
+    # not compiled since this isn't used a lot
+    return re.findall(r"dist/(.+)-\d+\.\d+\.\d+.+tar\.gz", hatch_build.stderr if hatch_build else "")
+
+
+@task()
+def authenticate(_: Context):
+    if pypi_token := input("Enter your token (starting with pypi-): ").strip():
+        keyring.set_password("edwh", "pypi", pypi_token)
+        return pypi_token
+    else:
+        cprint("No token specified, exiting", "red")
+        exit(1)
+
+
+def publish(c: Context, hatch: bool = False):
+    if hatch:
+        c.run("hatch publish")
+    else:
+        pypi_token = keyring.get_password("edwh", "pypi")
+        if not pypi_token:
+            pypi_token = authenticate(c)
+
+        result = c.run("uv publish", env=dict(UV_PUBLISH_TOKEN=pypi_token), pty=True, warn=True)
+
+        if not result.ok and "403" in result.stdout + result.stderr:
+            # currently this message is printed to stdout but check both in case it changes (in uv)
+            cprint("Hint: you may want to enter a new token via `edwh plugin.authenticate`", "blue")
+
+
 @task(aliases=("publish",), pre=[require_semantic_release, require_hatch])
 def release(
     c: Context,
@@ -716,6 +754,7 @@ def release(
     prerelease: bool = False,
     yes: bool = False,
     pull: bool = True,
+    hatch: bool = False,
 ) -> None:
     """
     Release a new version of a plugin.
@@ -730,6 +769,7 @@ def release(
         pull: it's recommended to do a git pull before trying to bump the version;
                 otherwise the git tags could get messed up
         yes: don't ask for confirmation
+        hatch: backwards-compatibility for when 'uv' doesn't work.
     """
     if pull:
         try:
@@ -774,13 +814,12 @@ def release(
         return
 
     cprint("Starting build", "blue")
-    hatch_build = c.run("hatch build -c")
 
-    pkg = re.findall(r"dist/(.+)-\d+\.\d+\.\d+.+tar\.gz", hatch_build.stderr if hatch_build else "")
+    pkg = build(c, hatch=hatch)
 
     if not noop:
         cprint("Starting release", "blue")
-        c.run("hatch publish")
+        publish(c, hatch=hatch)
         cprint(f"{pkg} {new_version} released!", "green")
     else:
         cprint(f"Not publishing {pkg} {new_version} due to --noop", "yellow")
