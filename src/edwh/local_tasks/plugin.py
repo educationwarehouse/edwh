@@ -744,6 +744,29 @@ def publish(c: Context, hatch: bool = False):
             cprint("Hint: you may want to enter a new token via `edwh plugin.authenticate`", "blue")
 
 
+@task()
+def bump(
+    c: Context,
+    major: bool = False,
+    minor: bool = False,
+    patch: bool = False,
+    prerelease: bool = False,
+    noop: bool = False,
+    hide: bool = False,
+):
+    return _semantic_release_publish(
+        c,
+        {
+            "noop": noop,
+            "major": major,
+            "minor": minor,
+            "patch": patch,
+            "prerelease": prerelease,
+        },
+        hide=hide,
+    )
+
+
 @task(aliases=("publish",), pre=[require_semantic_release, require_hatch])
 def release(
     c: Context,
@@ -781,15 +804,13 @@ def release(
     cprint("bumping version", "blue")
 
     if not (yes or noop):
-        new_version = _semantic_release_publish(
+        new_version = bump(
             c,
-            {
-                "noop": True,
-                "major": major,
-                "minor": minor,
-                "patch": patch,
-                "prerelease": prerelease,
-            },
+            major=major,
+            minor=minor,
+            patch=patch,
+            prerelease=prerelease,
+            noop=True,
             hide=True,
         )
 
@@ -799,15 +820,14 @@ def release(
             print("bye!")
             return
 
-    new_version = _semantic_release_publish(
+    new_version = bump(
         c,
-        {
-            "noop": noop,
-            "major": major,
-            "minor": minor,
-            "patch": patch,
-            "prerelease": prerelease,
-        },
+        major=major,
+        minor=minor,
+        patch=patch,
+        prerelease=prerelease,
+        noop=noop,
+        hide=False,
     )
 
     if not new_version:
