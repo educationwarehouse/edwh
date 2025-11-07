@@ -744,7 +744,7 @@ def publish(c: Context, hatch: bool = False):
             cprint("Hint: you may want to enter a new token via `edwh plugin.authenticate`", "blue")
 
 
-@task()
+@task(pre=[require_semantic_release])
 def bump(
     c: Context,
     major: bool = False,
@@ -767,7 +767,7 @@ def bump(
     )
 
 
-@task(aliases=("publish",), pre=[require_semantic_release, require_hatch])
+@task(aliases=("publish",), pre=[require_semantic_release])
 def release(
     c: Context,
     noop: bool = False,
@@ -794,6 +794,9 @@ def release(
         yes: don't ask for confirmation
         hatch: backwards-compatibility for when 'uv' doesn't work.
     """
+    if hatch:
+        require_hatch(c)
+
     if pull:
         try:
             git_pull(c, yes=yes)
