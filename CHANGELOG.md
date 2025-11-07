@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.0 (2025-11-07)
+
+### Feature
+
+* **up:** Deal with paused containers (unpause+stop incl deps) and always build before up since cache is fast anyway ([`9612823`](https://github.com/educationwarehouse/edwh/commit/96128234900a29c808ef481bf62d9109e65256f3))
+
+### Fix
+
+* Only require hatch when using publish with `--hatch` ([`e9e6f05`](https://github.com/educationwarehouse/edwh/commit/e9e6f05f3028b3973d0ce29f99aa618edc8fe6ae))
+
 ## v1.5.0 (2025-11-01)
 
 ### Feature
