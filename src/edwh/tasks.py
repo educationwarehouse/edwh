@@ -1970,9 +1970,11 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: boo
     if not (state_of_development := get_env_value("STATE_OF_DEVELOPMENT", "")):
         cprint("Warning: No SOD found. Add STATE_OF_DEVELOPMENT to the .env file", "yellow")
 
+    is_dev = state_of_development == "ONT"
+
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
-    elif with_compile and pip_compile is not None and state_of_development == "ONT":
+    elif with_compile and pip_compile is not None and is_dev:
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"
             cprint(
@@ -1996,11 +1998,13 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: boo
     else:
         print("Compilation of requirements.in files skipped.")
 
-    if pull:
-        ctx.run(f"{DOCKER_COMPOSE} pull --ignore-buildable", pty=True)
-
     print()
-    if yes or confirm("Build docker images? [yN]", default=False):
+    prompt = "Pull and build docker images? [yN]" if pull else "Build docker images? [yN]"
+
+    if yes or is_dev or confirm(prompt, default=False):
+        if pull:
+            ctx.run(f"{DOCKER_COMPOSE} pull --ignore-buildable", pty=True)
+
         ctx.run(f"{DOCKER_COMPOSE} build", pty=True, env=dict(COMPOSE_BAKE="true"))
 
 
