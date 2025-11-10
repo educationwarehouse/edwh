@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.2 (2025-11-10)
+
+### Fix
+
+* **build:** Don't prompt user when state of development indicates development; include 'pull' in confirmation prompt ([`5f85e70`](https://github.com/educationwarehouse/edwh/commit/5f85e707e92872b6cd66e98e3865a6a17577749d))
+
 ## v1.6.1 (2025-11-10)
 
 ### Fix
