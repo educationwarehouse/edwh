@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.1 (2025-11-10)
+
+### Fix
+
+* Merge `dc build` into `dc up --build` to speed it up; include `dc pull` in `ew build` ([`5af381d`](https://github.com/educationwarehouse/edwh/commit/5af381dfcd9c8044cb1821ffb43fe550601f7df3))
+
 ## v1.6.0 (2025-11-07)
 
 ### Feature
