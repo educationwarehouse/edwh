@@ -1283,10 +1283,6 @@ def up(
     services = service_names(service or (config.services_minimal if config else []))
     services_ls = " ".join(services)
 
-    if build:
-        # note: checking if build is required due to outdated versions seems undoable, docker has no api for it
-        ctx.run(f"{DOCKER_COMPOSE} build {services_ls}", pty=True)
-
     # Check for paused containers and unpause them
     if paused_services := get_paused_services_with_deps(ctx, services):
         paused_ls = " ".join(paused_services)
@@ -1299,7 +1295,16 @@ def up(
         ctx.run(f"{DOCKER_COMPOSE} restart {services_ls}")
     else:
         ctx.run(f"{DOCKER_COMPOSE} stop -t {stop_timeout}  {services_ls}")
-        ctx.run(f"{DOCKER_COMPOSE} up {'--renew-anon-volumes --build' if clean else ''} -d {services_ls}", pty=True)
+        # note: checking if build is required due to outdated versions seems undoable, docker has no api for it
+        #       so we're just adding --build. There also is no --pull, so you need to run ew build or dc pull manually
+
+        ctx.run(
+            f"{DOCKER_COMPOSE} up "
+            f"{'--renew-anon-volumes' if clean else ''} "
+            f"{'--build' if build else ''} "
+            f"-d {services_ls}",
+            pty=True,
+        )
 
     if show_settings:
         show_related_settings(ctx, services)
@@ -1923,7 +1928,7 @@ def upgrade(ctx: Context, build: bool = False) -> None:
     ),
     hookable=True,
 )
-def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
+def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: bool = True) -> None:
     """
     Build all services.
 
@@ -1948,9 +1953,11 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
     if not (state_of_development := get_env_value("STATE_OF_DEVELOPMENT", "")):
         cprint("Warning: No SOD found. Add STATE_OF_DEVELOPMENT to the .env file", "yellow")
 
+    is_dev = state_of_development == "ONT"
+
     if not reqs:
         cprint("No .in files found to compile!", "yellow")
-    elif with_compile and pip_compile is not None and state_of_development == "ONT":
+    elif with_compile and pip_compile is not None and is_dev:
         for idx, req in enumerate(reqs, 1):
             reqtxt = req.parent / "requirements.txt"
             cprint(
@@ -1975,7 +1982,12 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False) -> None:
         print("Compilation of requirements.in files skipped.")
 
     print()
-    if yes or confirm("Build docker images? [yN]", default=False):
+    prompt = "Pull and build docker images? [yN]" if pull else "Build docker images? [yN]"
+
+    if yes or is_dev or confirm(prompt, default=False):
+        if pull:
+            ctx.run(f"{DOCKER_COMPOSE} pull --ignore-buildable", pty=True)
+
         ctx.run(f"{DOCKER_COMPOSE} build", pty=True, env=dict(COMPOSE_BAKE="true"))
 
 

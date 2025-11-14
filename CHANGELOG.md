@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.2 (2025-11-10)
+
+### Fix
+
+* **build:** Don't prompt user when state of development indicates development; include 'pull' in confirmation prompt ([`5f85e70`](https://github.com/educationwarehouse/edwh/commit/5f85e707e92872b6cd66e98e3865a6a17577749d))
+
+## v1.6.1 (2025-11-10)
+
+### Fix
+
+* Merge `dc build` into `dc up --build` to speed it up; include `dc pull` in `ew build` ([`5af381d`](https://github.com/educationwarehouse/edwh/commit/5af381dfcd9c8044cb1821ffb43fe550601f7df3))
+
 ## v1.6.0 (2025-11-07)
 
 ### Feature
