@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.6.3 (2025-11-14)
+
+### Fix
+
+* **set_env_value:** Allow setting value to None to remove the env key ([`82284ca`](https://github.com/educationwarehouse/edwh/commit/82284ca8104d1319a13e463528a7e41f849277b8))
+
 ## v1.6.2 (2025-11-10)
 
 ### Fix
