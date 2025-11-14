@@ -15,7 +15,7 @@ import time
 import traceback
 import typing
 import warnings
-from collections import Counter, defaultdict
+from collections import defaultdict
 from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
@@ -636,7 +636,7 @@ def get_env_value(key: str, default: str | type[Exception] = KeyError) -> str:
     return default
 
 
-def set_env_value(path: Path, target: str, value: str) -> None:
+def set_env_value(path: Path, target: str, value: str | None) -> None:
     """
     Update/set environment variables in the .env file, keeping comments intact.
 
@@ -645,7 +645,8 @@ def set_env_value(path: Path, target: str, value: str) -> None:
     Args:
         path: pathlib.Path designating the .env file
         target: key to write, probably best to use UPPERCASE
-        value: string value to write, or anything that converts to a string using str()
+        value: string value to write (or anything that converts to a string using str()).
+               If None, the key will be removed from the file (if present) and not added.
     """
     path.touch(exist_ok=True)
 
@@ -670,41 +671,23 @@ def set_env_value(path: Path, target: str, value: str) -> None:
         # clean the key and value
         key = key.strip()
         if key == target:
+            if value is None:
+                # Remove this key by not adding it to outlines
+                geschreven = True
+                continue
             # add the new tuple to the lines
             outlines.append(f"{key}={value}")
             geschreven = True
         else:
             # or leave it as it is
             outlines.append(line)
-    if not geschreven:
+
+    if not geschreven and value is not None:
         outlines.append(f"{target.strip().upper()}={value.strip()}")
+
     with path.open(mode="w") as env_file:
         env_file.write("\n".join(outlines))
         env_file.write("\n")
-
-
-# def print_services(services: list, selected_services: list = None, warn: str = None):
-#     """
-#     print all the services that are in the docker-compose.yml
-#
-#     :param services: docker services that are in the docker-compose.yml
-#     :return: a list of all services in the docker-compose.yml
-#     """
-#     if warn is not None:
-#         print(warn)
-#
-#     print("\nservices:")
-#     for index in range(len(services)):
-#         if services[index] == "":
-#             continue
-#         print(f"{index + 1}: {services[index]}")
-#
-#     if selected_services is None:
-#         return
-#
-#     print("\nselected services:")
-#     for index in range(len(selected_services)):
-#         print(f"{index + 1}:", selected_services[index])
 
 
 def write_content_to_toml_file(
