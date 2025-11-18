@@ -9,7 +9,6 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
-from getpass import getpass
 from typing import Optional
 
 import dateutil.parser

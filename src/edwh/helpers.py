@@ -11,7 +11,6 @@ import re
 import sys
 import typing
 from pathlib import Path
-from threading import Thread
 from typing import Optional
 
 import click

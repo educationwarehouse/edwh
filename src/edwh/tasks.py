@@ -15,7 +15,7 @@ import time
 import traceback
 import typing
 import warnings
-from collections import Counter, defaultdict
+from collections import defaultdict
 from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
@@ -215,7 +215,8 @@ def get_task(ctx: Context, identifier: str = "") -> Task | None:
     if not identifier:
         stack = traceback.extract_stack(limit=2)
         cprint(
-            "WARN: get_task(identifier) is deprecated in favor of get_task(invoke.Context, identifier)", color="yellow"
+            "WARN: get_task(identifier) is deprecated in favor of get_task(invoke.Context, identifier)",
+            color="yellow",
         )
         format_frame(stack[0])
         return None
@@ -505,7 +506,10 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
 
 # noinspection PyDefaultArgument
 def warn_once(
-    warning: str, previously_shown: list[str] = [], color: Optional[Color] = None, **print_kwargs: typing.Any
+    warning: str,
+    previously_shown: list[str] = [],
+    color: Optional[Color] = None,
+    **print_kwargs: typing.Any,
 ) -> None:
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
@@ -792,7 +796,9 @@ def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
 
 
 def write_user_input_to_config_toml(
-    all_services: list[str], filename: str | Path = DEFAULT_TOML_NAME, overwrite: bool = False
+    all_services: list[str],
+    filename: str | Path = DEFAULT_TOML_NAME,
+    overwrite: bool = False,
 ) -> TomlConfig | None:
     """
     write chosen user dockers to config.toml
@@ -878,7 +884,8 @@ def write_user_input_to_config_toml(
 
 
 def load_dockercompose_with_includes(
-    c: Optional[Context] = None, dc_path: str | Path = "docker-compose.yml"
+    c: Optional[Context] = None,
+    dc_path: str | Path = "docker-compose.yml",
 ) -> AnyDict:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
@@ -974,11 +981,13 @@ def sudo(c: Context):
     # 2. change text based on current status (re-authorize)
     if current:
         allow = confirm(
-            "Would you like to re-authorize edwh to run sudo commands without password entry? [Yn]", default=True
+            "Would you like to re-authorize edwh to run sudo commands without password entry? [Yn]",
+            default=True,
         )
     else:
         allow = confirm(
-            "Would you like to authorize edwh to run sudo commands without password entry? [yN]", default=False
+            "Would you like to authorize edwh to run sudo commands without password entry? [yN]",
+            default=False,
         )
 
     if allow:
@@ -1644,7 +1653,9 @@ def follow_logs(
 
     # Get container name for prefix
     name_result = ctx.run(
-        "docker inspect --format='{{.Name}}' %(container)s" % {"container": container_id}, hide=True, warn=True
+        "docker inspect --format='{{.Name}}' %(container)s" % {"container": container_id},
+        hide=True,
+        warn=True,
     )
 
     container_name = name_result.stdout.strip().lstrip("/")
@@ -2421,6 +2432,7 @@ def fmt(
     reformat: bool = True,
     directory: Optional[str] = None,
     file: Optional[str] = None,
+    quiet: bool = False,
 ):
     """
     Format your Python code with `ruff`, including import sorting (isort).
@@ -2448,8 +2460,29 @@ def fmt(
         color = "green" if run_pty_ok(ctx, ruff, f"format {target} > /dev/null") else "red"
         cprint("● reformat", color=color)
 
-    if ioptimize:
-        # F401 = unused-import
-        # `--fix F401` currently does nothing, so no --ioptimize for now. Do print out unused imports:
-        color = "green" if run_pty_ok(ctx, ruff, f"check --select F401 {target} --quiet") else "red"
+    if not quiet and not ioptimize:
+        # print out unused imports:
+        try:
+            # grep remove the --fix suggestion since we have other cli args;
+            # grep piping removes the nice coloring unless we force it;
+            # pipefall would forward ruff's exit code but if grep has no output, it exits with 1.
+            # so we do this fuckery:
+            ctx.run(
+                f"""
+                    ruff_output=$(FORCE_COLOR=1 {ruff} check --select F401 {target})
+                    ruff_exit=$?
+                    echo "$ruff_output" | grep -v -E '(`--fix`|^All checks passed!$)' || true
+                    exit $ruff_exit""",
+                pty=True,
+            )
+        except invoke.exceptions.UnexpectedExit as e:
+            print(e.result.return_code)
+            cprint(
+                "Hint: unused imports can be removed with --ioptimize; this check can be skipped with --quiet",
+                "blue",
+            )
+
+    elif ioptimize:
+        # else, autofix F401 = unused-import
+        color = "green" if run_pty_ok(ctx, ruff, f"check --select F401 {target} --fix --quiet") else "red"
         cprint("⬤ ioptimize", color=color)
