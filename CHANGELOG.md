@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.0 (2025-11-18)
+
+### Feature
+
+* Make `ew fmt` show unused imports and fix `--ioptimize` to remove these ([`36676cd`](https://github.com/educationwarehouse/edwh/commit/36676cd6e74f9ee5c56dbb413acaccca6a030df3))
+
 ## v1.6.3 (2025-11-14)
 
 ### Fix
