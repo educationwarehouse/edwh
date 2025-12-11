@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.2 (2025-12-11)
+
+### Fix
+
+* Corruption hook on `run` instead of `__call__` so it's applied more consistently ([`46b7157`](https://github.com/educationwarehouse/edwh/commit/46b71570eeddd4cd6dabe397ba4c149d35ca93fb))
+
 ## v1.7.1 (2025-12-11)
 
 ### Fix
