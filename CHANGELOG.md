@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.1 (2025-12-11)
+
+### Fix
+
+* Invoke terminal corruption ([#13](https://github.com/educationwarehouse/edwh/issues/13)) ([`63247b4`](https://github.com/educationwarehouse/edwh/commit/63247b4b661cceda03ce1672690ea7031564132b))
+
 ## v1.7.0 (2025-11-18)
 
 ### Feature
