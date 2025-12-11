@@ -1,5 +1,4 @@
 import atexit
-import contextlib
 import signal
 import sys
 import termios
@@ -29,8 +28,8 @@ class EddieApp(ewok.App):
 
         def restore_terminal_state(*_: t.Any) -> None:
             """Safely restore the previously captured TTY settings."""
-            with contextlib.suppress(Exception):
-                termios.tcsetattr(tty_fd, termios.TCSADRAIN, orig_termios)
+            sys.stdout.write('\033[?25h')
+            sys.stdout.flush()
 
         atexit.register(restore_terminal_state)
 
