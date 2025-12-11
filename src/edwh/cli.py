@@ -1,7 +1,6 @@
 import atexit
 import signal
 import sys
-import termios
 import typing as t
 
 import ewok
@@ -23,12 +22,10 @@ class EddieApp(ewok.App):
         handlers that always restore the original termios mode, even on
         Ctrl‑C or unexpected exceptions.
         """
-        tty_fd = sys.stdin.fileno()
-        orig_termios = termios.tcgetattr(tty_fd)
 
         def restore_terminal_state(*_: t.Any) -> None:
             """Safely restore the previously captured TTY settings."""
-            sys.stdout.write('\033[?25h')
+            sys.stdout.write("\033[?25h")
             sys.stdout.flush()
 
         atexit.register(restore_terminal_state)
