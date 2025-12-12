@@ -387,6 +387,19 @@ def yaml_loads(text: str) -> AnyDict:
 
 
 def dc_config(ctx: Context) -> AnyDict:
+    """
+    Get merged docker-compose configuration.
+
+    Runs `docker compose config` to retrieve the complete docker-compose
+    configuration with all includes and variable substitution applied.
+
+    Args:
+        ctx: Invoke context for running commands.
+
+    Returns:
+        Dictionary containing the docker-compose configuration.
+        Returns empty dict if the command fails.
+    """
     if ran := ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True):
         return (
             yaml_loads(

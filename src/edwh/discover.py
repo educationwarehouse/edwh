@@ -1,7 +1,8 @@
+import contextlib
 import json
 import re
 import sys
-import typing
+import typing as t
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TypedDict
@@ -95,7 +96,7 @@ def get_hosts_for_service(docker_service: AnyDict) -> set[str]:
 
 
 class Discover:
-    i: str
+    current_indent: str
     data: DataDict
 
     def __init__(
@@ -120,61 +121,93 @@ class Discover:
 
         print_fn = noop if as_json else cprint
 
-        self.print_fn = typing.cast(typing.Callable[..., None], print_fn)
+        self.print_fn = t.cast(t.Callable[..., None], print_fn)
         self.reset()
 
     def reset(self) -> None:
         hostname = self.find_hostname()
 
-        self.i = ""
+        self.current_indent = ""
         self.data = {
             "server": hostname,
             "projects": [],
         }
 
     @contextmanager
-    def indent(self, prefix: str = "  ") -> typing.Generator[None, None, None]:
-        # context manager
-        self.i = indent(self.i, prefix)
+    def indent(self, prefix: str = "  ") -> t.Generator[None, None, None]:
+        self.current_indent = indent(self.current_indent, prefix)
         yield
-        self.i = dedent(self.i, prefix)
+        self.current_indent = dedent(self.current_indent, prefix)
 
-    def print(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+    def print(self, *args: t.Any, **kwargs: t.Any) -> None:
         sep = kwargs.pop("sep", " ")
-        msg = sep.join([self.i, *args])
+        msg = sep.join([self.current_indent, *args])
         self.print_fn(msg, **kwargs)
 
     def get_hostingdomain_from_env(self) -> str:
-        if ran := self.ctx.run("cat .env | grep HOSTINGDOMAIN", echo=False, hide=True, warn=True):
-            hosting_domain = ran.stdout.strip()
-        else:
-            hosting_domain = None
-
-        return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
-
-    def find_compose_files(self) -> list[str]:
-        try:
-            ran = self.ctx.run(
-                "find ./docker-compose.yaml ./docker-compose.yml */docker-compose.yaml */docker-compose.yml",
-                echo=False,
-                hide=True,
-                warn=True,
-            )
-            return ran.stdout.strip().split("\n")
-        except Exception:
-            return []
-
-    def find_hostname(self) -> str:
-        if ran := self.ctx.run("hostname", hide=True):
-            return ran.stdout.strip()
+        if result := self.ctx.run(
+            "grep HOSTINGDOMAIN .env",
+            echo=False,
+            hide=True,
+            warn=True,
+        ):
+            hosting_domain = result.stdout.strip()
+            return hosting_domain.strip().split("=")[-1]
         else:
             return ""
 
+    def find_hostname(self) -> str:
+        if result := self.ctx.run("hostname", hide=True):
+            return result.stdout.strip()
+        else:
+            return ""
+
+    def get_compose_config(self) -> AnyDict:
+        """Get merged docker compose config."""
+        return dc_config(self.ctx) or None
+
+    def find_project_folders(self) -> t.Generator[Path, None, None]:
+        """
+        Find folders containing docker-compose projects.
+
+        Searches for directories up to 2 levels deep and tests each one
+        by running `docker compose config` to detect valid projects.
+        Works regardless of docker-compose file naming conventions since
+        it relies on the docker-compose command itself rather than file patterns.
+
+        Yields:
+            Path objects for directories with valid docker-compose projects.
+        """
+        # Find all directories at the current level (usually home)
+        result = self.ctx.run(
+            "find . -maxdepth 1 -type d",
+            echo=False,
+            hide=True,
+            warn=True,
+        )
+        candidates = (
+            Path(candidate) for candidate in result.stdout.strip().split("\n") if candidate and candidate != "."
+        )
+
+        # Test each directory to see if it has a docker-compose project
+        for candidate in candidates:
+            with contextlib.suppress(Exception), self.ctx.cd(candidate):
+                if self.get_compose_config():
+                    yield candidate
+
     def get_disk_usage(self) -> tuple[str, int]:
-        if ran := self.ctx.run("du -sh . --block-size=1", echo=False, hide=True):
-            usage_raw = ran.stdout.strip().split("\t")[0]
+        if result := self.ctx.run(
+            "du -sh . --block-size=1",
+            echo=False,
+            hide=True,
+        ):
+            usage_raw = result.stdout.strip().split("\t")[0]
             usage = humanize.naturalsize(usage_raw, binary=True)
-            self.print(f"Disk usage: {usage}", color="red", attrs=["bold"])
+            self.print(
+                f"Disk usage: {usage}",
+                color="red",
+                attrs=["bold"],
+            )
 
             return usage, int(usage_raw)
         else:
@@ -182,16 +215,26 @@ class Discover:
 
     def get_settings(self, folder: str) -> AnyDict | None:
         json_flag = "--json" if self.as_json else ""
-        if ran := self.ctx.run(f"~/.local/bin/edwh settings {json_flag}", echo=False, hide=True):
-            settings_output = ran.stdout.strip()
+        if result := self.ctx.run(
+            f"~/.local/bin/edwh settings {json_flag}",
+            echo=False,
+            hide=True,
+        ):
+            settings_output = result.stdout.strip()
         else:
             settings_output = ""
 
         if self.as_json:
             try:
-                return typing.cast(AnyDict, json.loads(settings_output))
+                return t.cast(
+                    AnyDict,
+                    json.loads(settings_output),
+                )
             except json.JSONDecodeError:
-                print(f"Error loading settings for {self.data['server']}/{folder}", file=sys.stderr)
+                print(
+                    f"Error loading settings for {self.data['server']}/{folder}",
+                    file=sys.stderr,
+                )
         else:
             self.print("Settings:", color="red", attrs=["bold"])
             with self.indent():
@@ -199,23 +242,32 @@ class Discover:
                     self.print(line)
         return None
 
-    def process_docker_service(self, name: str, docker_service: AnyDict, hosting_domain: str) -> ServiceDict:
+    def process_docker_service(
+        self,
+        name: str,
+        docker_service: AnyDict,
+        hosting_domain: str,
+    ) -> ServiceDict:
         service: ServiceDict = {"name": name}
         if not self.short:
             self.print(name, color="green")
         with self.indent():
             if self.exposes and not self.short:
-                if _exposes := docker_service.get("expose", []):
-                    self.print(f"Exposes: {', '.join([str(port) for port in _exposes])}", color="red", attrs=["bold"])
-                service["exposes"] = _exposes
-            if self.ports:
-                if _ports := docker_service.get("ports", []):
+                if exposed_ports := docker_service.get("expose", []):
                     self.print(
-                        f"Ports: {', '.join([str(port) for port in _ports]) if _ports else ''}",
+                        f"Exposes: {', '.join([str(port) for port in exposed_ports])}",
                         color="red",
                         attrs=["bold"],
                     )
-                service["ports"] = _ports
+                service["exposes"] = exposed_ports
+            if self.ports:
+                if port_list := docker_service.get("ports", []):
+                    self.print(
+                        f"Ports: {', '.join([str(port) for port in port_list]) if port_list else ''}",
+                        color="red",
+                        attrs=["bold"],
+                    )
+                service["ports"] = port_list
 
             service["domains"] = set()
             if self.host_labels and not self.short:
@@ -224,7 +276,13 @@ class Discover:
                     self.print(
                         terminal_link(
                             f"https://{domain}",
-                            domain.replace(hosting_domain, colored(hosting_domain, color="dark_grey")),
+                            domain.replace(
+                                hosting_domain,
+                                colored(
+                                    hosting_domain,
+                                    color="dark_grey",
+                                ),
+                            ),
                         ),
                     )
 
@@ -237,16 +295,16 @@ class Discover:
         project: ProjectDict = {}
         hosting_domain = self.get_hostingdomain_from_env()
         self.print(
-            colored(f"{folder}", color="light_blue"),
-            colored(f"{hosting_domain}", color="light_yellow"),
+            colored(folder, color="light_blue"),
+            colored(hosting_domain, color="light_yellow"),
         )
 
         project["name"] = folder
         project["hostingdomain"] = hosting_domain
 
         with self.indent():
-            config = dc_config(self.ctx)
-            if config is None:
+            compose_config = self.get_compose_config()
+            if not compose_config:
                 return None
 
             if self.du and not self.short:
@@ -258,31 +316,38 @@ class Discover:
                 project["settings"] = settings
 
             project["services"] = []
-            # if not self.short:
-            #     print(config.get("services", {}).items())
-            for name, docker_service in config.get("services", {}).items():
-                project["services"].append(self.process_docker_service(name, docker_service, hosting_domain))
+            for name, docker_service in compose_config.get(
+                "services",
+                {},
+            ).items():
+                project["services"].append(
+                    self.process_docker_service(
+                        name,
+                        docker_service,
+                        hosting_domain,
+                    )
+                )
 
         return project
-
-    def process_compose_file(self, compose_file_path: Path) -> None:
-        folder = compose_file_path.parent
-        with self.ctx.cd(folder):
-            if project := self.process_omgeving(str(folder)):
-                self.data["projects"].append(project)
 
     def discover(self) -> None:
         self.reset()
 
         self.print(self.data["server"], attrs=["bold"])
 
-        compose_file_paths = self.find_compose_files()
-
-        for compose_file in compose_file_paths:
-            self.process_compose_file(Path(compose_file))
+        for folder in self.find_project_folders():
+            with self.ctx.cd(folder):
+                if project := self.process_omgeving(str(folder)):
+                    self.data["projects"].append(project)
 
         if self.as_json:
-            print(json.dumps({"data": self.data}, indent=2, default=dump_set_as_list))
+            print(
+                json.dumps(
+                    {"data": self.data},
+                    indent=2,
+                    default=dump_set_as_list,
+                )
+            )
 
 
 def discover(

@@ -2,7 +2,6 @@ import contextlib
 import datetime as dt
 import fnmatch
 import hashlib
-import io
 import json
 import os
 import pathlib
@@ -350,7 +349,6 @@ class TomlConfig:
     services_health: list[str]
 
     dotenv_path: Path
-
     # __loaded was replaced with tomlconfig_singletons
 
     @classmethod
@@ -363,7 +361,6 @@ class TomlConfig:
         """
         Load config toml file, raising an error if it does not exist.
 
-        Since this file should be in .git error suppression is not needed.
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
@@ -372,12 +369,13 @@ class TomlConfig:
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
 
-        config_path = Path(fname)  # probably config.toml
-        dc_path = Path("docker-compose.yml")
+        config_path = Path(fname)
 
-        if not dc_path.exists():
+        # Check if docker-compose is available
+        compose = dc_config(ctx)
+        if not compose:
             cprint(
-                "docker-compose.yml file is missing, toml config could not be loaded. Functionality may be limited.",
+                "docker-compose config returned empty, toml config could not be loaded. Functionality may be limited.",
                 color="yellow",
             )
             return None
@@ -386,7 +384,6 @@ class TomlConfig:
             setup(ctx)
 
         config = read_toml_config(config_path)
-        # todo: if setup runs, reload config
 
         if "services" not in config:
             setup(ctx)
@@ -404,11 +401,9 @@ class TomlConfig:
             config = read_toml_config(config_path)
 
         if config["services"].get("services", "discover") == "discover":
-            compose = load_dockercompose_with_includes(dc_path=dc_path)
-
             all_services = list(compose["services"].keys())
         else:
-            all_services = typing.cast(list[str], config["services"]["services"])
+            all_services = t.cast(list[str], config["services"]["services"])
 
         celeries = [s for s in all_services if "celery" in s.lower()]
 
@@ -424,7 +419,12 @@ class TomlConfig:
             services_log=config["services"]["log"],
             services_db=config["services"]["db"],
             services_health=config["services"].get("health", []),
-            dotenv_path=Path(config.get("dotenv", {}).get("path", dotenv_path or DEFAULT_DOTENV_PATH)),
+            dotenv_path=Path(
+                config.get("dotenv", {}).get(
+                    "path",
+                    dotenv_path or DEFAULT_DOTENV_PATH,
+                )
+            ),
         )
         return instance
 
@@ -458,7 +458,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
     Read .env file from env_path and return a dict of key/value pairs.
 
     If the .env file doesn't exist at env_path, traverse up the directory tree
-    looking for one, stopping when a docker-compose.* file is found (project root).
+    looking for one.
 
     :param env_path: optional path to .env file
     :return: dict of key/value pairs from the .env file
@@ -490,11 +490,6 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
                 _dotenv_settings[cache_key] = items
                 return items
 
-            # Check if we've reached a project root (docker-compose file exists)
-            if any(current_dir.glob("docker-compose.*")):
-                # Found project root, stop searching if we're not in the original directory
-                if current_dir != Path.cwd():
-                    break
             # Move up one directory
             current_dir = current_dir.parent
 
@@ -786,7 +781,7 @@ def write_user_input_to_config_toml(
     """
     write chosen user dockers to config.toml
 
-    :param all_services: list of all docker services that are in the docker-compose.yml
+    :param all_services: list of all docker services that are in the docker-compose yaml.
     :param filename: which toml file to write to (default = .toml)
     :param overwrite: by default, skip keys that already have a value
     :return:
@@ -868,28 +863,16 @@ def write_user_input_to_config_toml(
 
 def load_dockercompose_with_includes(
     c: Optional[Context] = None,
-    dc_path: str | Path = "docker-compose.yml",
 ) -> AnyDict:
     """
-    Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
+    Load docker-compose config with all includes and variable substitution.
 
-    This function uses the `docker compose config` command to properly load the entire config with all enabled services.
+    Uses `docker compose config` to properly merge everything.
     """
     if not c:
         c = Context()
-    if not isinstance(dc_path, Path):
-        dc_path = Path(dc_path)
 
-    if not dc_path.exists():
-        raise FileNotFoundError(dc_path)
-
-    if ran := c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
-        processed_config = ran.stdout.strip()
-        # mimic a file to load the yaml from
-        fake_file = io.StringIO(processed_config)
-        return typing.cast(AnyDict, yaml.safe_load(fake_file))
-    else:
-        return {}
+    return dc_config(c)
 
 
 def prompt_validate_sudo_pass(c: Context):
@@ -945,7 +928,7 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
     try:
         docker_compose = load_dockercompose_with_includes(c)
     except FileNotFoundError:
-        cprint("docker-compose.yml file is missing, setup could not be completed!", color="red")
+        cprint("docker-compose file is missing, setup could not be completed!", color="red")
         return None
 
     services: AnyDict = docker_compose["services"]
@@ -1002,13 +985,15 @@ def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> di
 
     """
     config_toml = Path(DEFAULT_TOML_NAME)
-    dc_path = Path("docker-compose.yml")
 
     if (
         new_config_toml
         and config_toml.exists()
         and confirm(
-            colored(f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]", "red"),
+            colored(
+                f"Are you sure you want to remove the {DEFAULT_TOML_NAME}? [yN]",
+                "red",
+            ),
             default=False,
         )
     ):
@@ -1016,20 +1001,19 @@ def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> di
 
     copy_fallback_toml(force=False)  # only if .toml is missing, try to copy default.toml
 
-    if dc_path.exists():
-        print("getting services...")
+    print("getting services...")
 
-        try:
-            # run `docker compose config` to build a yaml with all processing done, include statements included.
-            build_toml(c)
-        except Exception as e:
+    try:
+        if not build_toml(c):
             cprint(
-                f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose.yml ({e})",
+                f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose config",
                 color="red",
             )
-            # this could be because 'include' requires a variable that's setup in local task, so still run that:
-    else:
-        cprint("docker-compose file is missing, setup might not be completed properly!", color="yellow")
+    except Exception as e:
+        cprint(
+            f"Something went wrong trying to create a {DEFAULT_TOML_NAME} from docker-compose ({e})",
+            color="red",
+        )
 
     # local/plugin setup happens here because of `hookable`
     return {}
@@ -1216,23 +1200,27 @@ def check_paused(ctx: Context, service: str) -> bool:
 
 
 def get_service_dependencies(ctx: Context, service: str) -> list[str]:
-    """Get the dependencies (depends_on) for a service from docker-compose config."""
-    result = ctx.run(f"{DOCKER_COMPOSE} config --format json", hide=True, warn=True)
-    try:
-        config = json.loads(result.stdout.strip())
-        services = config.get("services", {})
-        service_config = services.get(service, {})
-        depends_on = service_config.get("depends_on", {})
+    """
+    Get the dependencies (depends_on) for a service from docker-compose config.
 
-        # depends_on can be a list or a dict
-        if isinstance(depends_on, dict):
-            return list(depends_on.keys())
-        elif isinstance(depends_on, list):
-            return depends_on
-        return []
-    except (json.JSONDecodeError, KeyError) as e:
-        print(f"Could not get dependencies for {service}: {e}")
-        return []
+    Args:
+        ctx: Invoke context.
+        service: Name of the service to get dependencies for.
+
+    Returns:
+        List of service names that this service depends on.
+    """
+    config = dc_config(ctx)
+    services = config.get("services", {})
+    service_config = services.get(service, {})
+    depends_on = service_config.get("depends_on", {})
+
+    # depends_on can be a list or a dict
+    if isinstance(depends_on, dict):
+        return list(depends_on.keys())
+    elif isinstance(depends_on, list):
+        return depends_on
+    return []
 
 
 def get_paused_services_with_deps(ctx: Context, services: list[str]) -> list[str]:
@@ -1501,11 +1489,6 @@ def ps(
     Show process status of services.
     """
     trunc_after = 30
-    if not Path("docker-compose.yml").exists():
-        cprint("You're not in a docker compose environment.", color="red")
-        if confirm("Would you like to see all running environments? [Yn]", default=True):
-            ps_all(ctx)
-        return
 
     flags = []
 
@@ -1516,7 +1499,6 @@ def ps(
 
     # we may trunc it ourselves:
     flags.append("--no-trunc")
-
     flags.extend(service_names(service or []))
 
     args_str = " ".join(flags)
@@ -1526,12 +1508,27 @@ def ps(
         warn=True,
         hide=True,
     )
-    ps_output = ran.stdout.strip() if ran else ""
 
+    if not ran or not ran.ok:
+        cprint("You're not in a docker compose environment.", color="red")
+        if confirm(
+            "Would you like to see all running environments? [Yn]",
+            default=True,
+        ):
+            ps_all(ctx)
+        return
+
+    ps_output = ran.stdout.strip()
     services = []
 
-    # list because it's ordered
-    selected_columns = list(columns or []) or ["Name", "Command", "Image", "State", "Health", "Ports"]
+    selected_columns = list(columns or []) or [
+        "Name",
+        "Command",
+        "Image",
+        "State",
+        "Health",
+        "Ports",
+    ]
 
     for service_json in ps_output.split("\n"):
         if not service_json:
@@ -1541,10 +1538,21 @@ def ps(
         service_dict = json.loads(service_json)
         service_dict = {k: v for k, v in service_dict.items() if k in selected_columns}
         if not full:
-            service_dict["Command"] = shorten(service_dict["Command"], trunc_after)
-            service_dict["Image"] = shorten(service_dict["Image"], trunc_after)
+            service_dict["Command"] = shorten(
+                service_dict["Command"],
+                trunc_after,
+            )
+            service_dict["Image"] = shorten(
+                service_dict["Image"],
+                trunc_after,
+            )
 
-        service_dict = dict(sorted(service_dict.items(), key=lambda x: selected_columns.index(x[0])))
+        service_dict = dict(
+            sorted(
+                service_dict.items(),
+                key=lambda x: selected_columns.index(x[0]),
+            )
+        )
         services.append(service_dict)
 
     print(tabulate.tabulate(services, headers="keys"))
