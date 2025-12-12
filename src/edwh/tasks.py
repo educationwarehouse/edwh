@@ -2455,11 +2455,11 @@ def fmt(
                     ruff_output=$(FORCE_COLOR=1 {ruff} check --select F401 {target})
                     ruff_exit=$?
                     echo "$ruff_output" | grep -v -E '(`--fix`|^All checks passed!$)' || true
-                    exit $ruff_exit""",
+                    exit $ruff_exit
+                """,
                 pty=True,
             )
         except invoke.exceptions.UnexpectedExit as e:
-            print(e.result.return_code)
             cprint(
                 "Hint: unused imports can be removed with --ioptimize; this check can be skipped with --quiet",
                 "blue",
