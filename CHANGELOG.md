@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.3 (2025-12-12)
+
+### Fix
+
+* Remove debug print return code on `ew fmt` ([`0450416`](https://github.com/educationwarehouse/edwh/commit/045041656862e482b3ab1688396f440e26255446))
+
 ## v1.7.2 (2025-12-11)
 
 ### Fix
