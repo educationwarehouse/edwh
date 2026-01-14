@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.4 (2026-01-14)
+
+### Documentation
+
+* Mark python 3.14 support ([`7de7bf2`](https://github.com/educationwarehouse/edwh/commit/7de7bf25eea6d48317e297535dd9934b9b1c371b))
+
 ## v1.7.3 (2025-12-12)
 
 ### Fix
