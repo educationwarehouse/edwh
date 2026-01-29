@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.0 (2026-01-29)
+
+### Feature
+
+* `setup --non-interactive/--from-env` modes for more auto magic ✨ ([`dcfdfba`](https://github.com/educationwarehouse/edwh/commit/dcfdfba3806687916f04e3ec9fb0b5b69a7c2baf))
+
 ## v1.7.4 (2026-01-14)
 
 ### Documentation
