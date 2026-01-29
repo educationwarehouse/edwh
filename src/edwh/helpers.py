@@ -7,6 +7,7 @@ import datetime as dt
 import functools
 import io
 import itertools
+import os
 import re
 import sys
 import typing
@@ -29,6 +30,12 @@ def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = No
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
     """
+    if os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1":
+        if strict:
+            raise RuntimeError(f"Prevented strict `confirm({prompt})` in --non-interactive mode")
+        else:
+            return default
+
     allowed = allowed or {"y", "t", "1"}
     if default:
         allowed.add(" ")

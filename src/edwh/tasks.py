@@ -603,8 +603,17 @@ def check_env(
     if callable(default):
         default = default()
 
+    non_interactive = os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
+    from_env = os.environ.get("EDWH_FROM_ENV", "0") == "1"
+
     if force_default:
         value = default or ""
+    elif from_env:
+        value = os.environ.get(key, default or "")
+        if not value:
+            raise RuntimeError(f"Environment variable {key} not found and no default provided (--from-env mode)")
+    elif non_interactive:
+        raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
     else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default or ""
@@ -988,21 +997,30 @@ def sudo(c: Context):
 @task(
     pre=[require_sudo],
     help={
-        "new_config_toml": "will REMOVE and create a new config.toml file",
+        "new_config_toml": "Remove existing config.toml and create a fresh one",
+        "from_env": "Read configuration values from environment variables instead of prompting (forces non-interactive mode)",
+        "non_interactive": "Skip all interactive prompts; fail if required configuration values are missing",
     },
     hookable=True,
 )
-def setup(c: Context, new_config_toml: bool = False, _retry: bool = False) -> dict:
+def setup(
+    c: Context,
+    new_config_toml: bool = False,
+    _retry: bool = False,
+    from_env: bool = False,
+    non_interactive: bool = False,
+) -> dict:
     """
-    sets up config.toml and tries to run setup in local tasks.py if it exists
-
-    while configuring the config.toml the program will ask you to select a service by id.
-    All service can be found by the print that is done above.
-    While giving up id's please only give 1 id at the time, this goes for the services and the minimal services
-
+    Sets up config.toml and tries to run setup in local tasks.py if it exists
     """
     config_toml = Path(DEFAULT_TOML_NAME)
     dc_path = Path("docker-compose.yml")
+
+    if from_env:
+        os.environ["EDWH_NON_INTERACTIVE"] = "1"
+        os.environ["EDWH_FROM_ENV"] = "1"
+    elif non_interactive:
+        os.environ["EDWH_NON_INTERACTIVE"] = "1"
 
     if (
         new_config_toml
