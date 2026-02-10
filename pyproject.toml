@@ -81,6 +81,7 @@ plugins = [
     'edwh-git-plugin',
     'edwh-locust-plugin',
     'edwh-multipass-plugin',
+    'edwh-passbolt-plugin',
     'edwh-pipcompile-plugin',
     'edwh-restic-plugin',
     'edwh-server-provisioning-plugin',
@@ -118,6 +119,8 @@ git = ["edwh-git-plugin"]
 locust = ["edwh-locust-plugin"]
 
 multipass = ["edwh-multipass-plugin"]
+
+passbolt = ["edwh-passbolt-plugin"]
 
 pip = ["edwh-pipcompile-plugin"]
 
