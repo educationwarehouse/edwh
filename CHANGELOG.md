@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.1 (2026-02-10)
+
+### Fix
+
+* Mark 'passbolt' as official plugin ([`86915f0`](https://github.com/educationwarehouse/edwh/commit/86915f06652bad23be03410d61196ec21fca3484))
+
 ## v1.8.0 (2026-01-29)
 
 ### Feature
