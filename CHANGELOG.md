@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.1 (2026-02-10)
+
+### Fix
+
+* Mark 'passbolt' as official plugin ([`86915f0`](https://github.com/educationwarehouse/edwh/commit/86915f06652bad23be03410d61196ec21fca3484))
+
+## v1.8.0 (2026-01-29)
+
+### Feature
+
+* `setup --non-interactive/--from-env` modes for more auto magic ✨ ([`dcfdfba`](https://github.com/educationwarehouse/edwh/commit/dcfdfba3806687916f04e3ec9fb0b5b69a7c2baf))
+
 ## v1.7.4 (2026-01-14)
 
 ### Documentation
