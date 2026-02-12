@@ -23,10 +23,16 @@ class EddieApp(ewok.App):
         Ctrl‑C or unexpected exceptions.
         """
 
+        def is_tty():
+            # detect if we're in a terminal
+            return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+
         def restore_terminal_state(*_: t.Any) -> None:
             """Safely restore the previously captured TTY settings."""
-            sys.stdout.write("\033[?25h")
-            sys.stdout.flush()
+            if is_tty():
+                # send ANSI clear but not if we're in a pipe
+                sys.stdout.write("\033[?25h")
+                sys.stdout.flush()
 
         atexit.register(restore_terminal_state)
 
