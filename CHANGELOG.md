@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.2 (2026-02-12)
+
+### Fix
+
+* Only send ansi clear if we're a TTY ([`2ab24ef`](https://github.com/educationwarehouse/edwh/commit/2ab24ef3934532bc73879cc3bd54404e886b96b0))
+
 ## v1.8.1 (2026-02-10)
 
 ### Fix
