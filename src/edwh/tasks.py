@@ -1346,7 +1346,7 @@ def up(
     }
 
 
-@task()
+@task(aliases=("health-inspect",))
 def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
     tab = " " * 2
     result = {}
