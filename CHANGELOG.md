@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.3 (2026-03-05)
+
+### Fix
+
+* Add `health-inspect` as alias for `inspect-health` ([`bf6a8c2`](https://github.com/educationwarehouse/edwh/commit/bf6a8c2bf2a265fdd8669488246064bd15c2aeaa))
+
 ## v1.8.2 (2026-02-12)
 
 ### Fix
