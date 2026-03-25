@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.4 (2026-03-25)
+
+### Fix
+
+* Make fmt and lint hookable ([`8f64742`](https://github.com/educationwarehouse/edwh/commit/8f64742469f5e516995f570576d9f9e375829ac8))
+
 ## v1.8.3 (2026-03-05)
 
 ### Fix
