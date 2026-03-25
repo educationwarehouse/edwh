@@ -2400,7 +2400,7 @@ def find_ruff() -> str:
     return ruff.find_ruff_bin()
 
 
-@task()
+@task(hookable=True)
 def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: bool = False):
     """
     Lint code with `ruff`.
@@ -2425,7 +2425,7 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
     cprint("⬤ ruff", color=color)
 
 
-@task(aliases=("format",))
+@task(aliases=("format",), hookable=True)
 def fmt(
     ctx: Context,
     isort: bool = True,
