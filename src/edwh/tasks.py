@@ -1294,7 +1294,7 @@ def get_paused_services_with_deps(ctx: Context, services: list[str]) -> list[str
 def up(
     ctx: Context,
     service: typing.Collection[str] | None = None,
-    build: bool = True,
+    no_build: bool = False,
     quickest: bool = False,
     stop_timeout: int = 2,
     tail: bool = False,
@@ -1328,7 +1328,7 @@ def up(
         ctx.run(
             f"{DOCKER_COMPOSE} up "
             f"{'--renew-anon-volumes' if clean else ''} "
-            f"{'--build' if build else ''} "
+            f"{'' if no_build else '--build'} "
             f"-d {services_ls}",
             pty=True,
         )
