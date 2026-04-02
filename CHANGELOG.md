@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.5 (2026-04-02)
+
+### Fix
+
+* Swap `--build` to `--no-build` since build is already default so we have a shorthand (`-n`) ([`f922c2b`](https://github.com/educationwarehouse/edwh/commit/f922c2b9a6cb1a366a90551881ff8e79dec44285))
+
 ## v1.8.4 (2026-03-25)
 
 ### Fix
