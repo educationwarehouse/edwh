@@ -174,18 +174,29 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
 
     old_plugins = _determine_outdated_threaded(edwh_packages, prerelease=prerelease)
 
-    if not old_plugins:
+    if not old_plugins and not no_cache:
         cprint("Nothing to update", "blue")
         exit()
 
-    cprint(f"Will try to update {len(old_plugins)} packages.", "blue")
+    if no_cache and not old_plugins:
+        # Fresh mode should still run for currently-up-to-date packages so transitive dependencies can be refreshed.
+        target_packages: dict[str, Version] = {
+            package.split("==")[0]: parse_package_version(package.split("==")[1])
+            for package in edwh_packages
+            if "==" in package and " @ " not in package
+        }
+    else:
+        target_packages = old_plugins
+
+    cprint(f"Will try to update {len(target_packages)} packages.", "blue")
 
     success = []
     failure = []
-    for plugin, version in old_plugins.items():
+    for plugin, version in target_packages.items():
         command = f"{pip_command} install {plugin}=={version}"
         if no_cache:
-            command = f"{command} --no-cache"
+            # In "fresh" mode, also refresh transitive dependencies to newest compatible versions.
+            command = f"{command} --no-cache --upgrade --resolution highest"
 
         result = c.run(command, warn=True)
 
@@ -195,7 +206,7 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
             failure.append(plugin)
 
     if success:
-        cprint(f"{len(success)}/{len(old_plugins)} updated successfully.", "green")
+        cprint(f"{len(success)}/{len(target_packages)} updated successfully.", "green")
 
     if failure:
         cprint(f"{', '.join(failure)} failed updating", "red")
