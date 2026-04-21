@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.6 (2026-04-21)
+
+### Fix
+
+* Make `self-update -f` also force update dependencies ([`75d8561`](https://github.com/educationwarehouse/edwh/commit/75d856124abb5dc4f5310a7b54f0edd26e3a723c))
+
 ## v1.8.5 (2026-04-02)
 
 ### Fix
