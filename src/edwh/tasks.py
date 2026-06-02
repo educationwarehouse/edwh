@@ -35,6 +35,7 @@ from invoke.context import Context
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
+from tomlkit import TOMLDocument
 from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
@@ -309,13 +310,14 @@ class ServicesTomlConfig(typing.TypedDict, total=False):
     services: typing.Literal["discover"] | list[str]
     minimal: list[str]
     include_celeries_in_minimal: str  # 'true'/'1' or 'false'/'0'
-    include_pgq_in_minimal : str  # 'true'/'1' or 'false'/'0'
+    include_pgq_in_minimal: str  # 'true'/'1' or 'false'/'0'
     log: list[str]
     db: list[str]
 
 
 # todo: keyof<ServicesTomlConfig> or something?
 TomlKeys = typing.Literal["services", "minimal", "include_celeries_in_minimal", "include_pgq_in_minimal", "log", "db"]
+
 
 class ConfigTomlDict(typing.TypedDict, total=True):
     """
@@ -788,20 +790,18 @@ def read_toml_config(fp: Path) -> ConfigTomlDict:
 def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
     return fp.write_text(tomlkit.dumps(config))
 
-def include_services(service : str,services, key : TomlKeys,config_toml_file, overwrite : bool):
+
+def include_services(service: str, services, key: TomlKeys, config_toml_file: TOMLDocument, overwrite: bool):
     # adds to services
     if not services:
         write_content_to_toml_file(key, "false")
-    elif services and (
-        "services" not in config_toml_file
-        or key not in config_toml_file["services"]
-        or overwrite
-    ):
+    elif services and ("services" not in config_toml_file or key not in config_toml_file["services"] or overwrite):
         # check if user wants to include service
         include_service = (
             "true" if confirm(f"do you want to include {service} in minimal [Yn]: ", default=True) else "false"
         )
         write_content_to_toml_file(key, include_service)
+
 
 def write_user_input_to_config_toml(
     all_services: list[str],
@@ -852,7 +852,6 @@ def write_user_input_to_config_toml(
     )
     write_content_to_toml_file("minimal", content, filename)
 
-
     content = get_content_from_toml_file(
         minimal_services,
         config_toml_file,
@@ -864,13 +863,13 @@ def write_user_input_to_config_toml(
     write_content_to_toml_file("log", content, filename)
 
     # db
-
+    possibly_postgres = [_ for _ in minimal_services if "pg-" in _]
     content = get_content_from_toml_file(
         minimal_services,
         config_toml_file,
         "db",
         "select database containers: ",
-        [],
+        possibly_postgres,
         overwrite=overwrite,
         allow_empty=True,
     )
