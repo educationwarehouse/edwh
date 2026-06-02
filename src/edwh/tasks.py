@@ -791,7 +791,7 @@ def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
     return fp.write_text(tomlkit.dumps(config))
 
 
-def include_services(service: str, services, key: TomlKeys, config_toml_file: TOMLDocument, overwrite: bool):
+def include_services(service: str, services: list[str], key: TomlKeys, config_toml_file: TOMLDocument, overwrite: bool):
     # adds to services
     if not services:
         write_content_to_toml_file(key, "false")
