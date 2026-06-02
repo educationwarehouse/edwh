@@ -149,6 +149,9 @@ def service_names(
     if "celeries" in service_arg:
         service_arg.remove("celeries")
         service_arg.extend(config.celeries)
+    if "pgq" in service_arg:
+        service_arg.remove("pgq")
+        service_arg.extend(config.pgq)
     if "db" in service_arg and config.services_db:
         service_arg.remove("db")
         service_arg.extend(config.services_db)
@@ -163,7 +166,6 @@ def service_names(
         # instead of the wanted list. This includes typos, where a single typo could cause all services to be started.
         cprint(f"ERROR: No services found matching: {service_arg!r}", color="red")
         exit(1)
-
     return list(selected)
 
 
@@ -307,13 +309,13 @@ class ServicesTomlConfig(typing.TypedDict, total=False):
     services: typing.Literal["discover"] | list[str]
     minimal: list[str]
     include_celeries_in_minimal: str  # 'true'/'1' or 'false'/'0'
+    include_pgq_in_minimal : str  # 'true'/'1' or 'false'/'0'
     log: list[str]
     db: list[str]
 
 
 # todo: keyof<ServicesTomlConfig> or something?
-TomlKeys = typing.Literal["services", "minimal", "include_celeries_in_minimal", "log", "db"]
-
+TomlKeys = typing.Literal["services", "minimal", "include_celeries_in_minimal", "include_pgq_in_minimal", "log", "db"]
 
 class ConfigTomlDict(typing.TypedDict, total=True):
     """
@@ -344,6 +346,7 @@ class TomlConfig:
     config: ConfigTomlDict
     all_services: list[str]
     celeries: list[str]
+    pgq: list[str]
     services_minimal: list[str]
     services_log: list[str]
     services_db: list[str]
@@ -392,13 +395,8 @@ class TomlConfig:
             setup(ctx)
             config = read_toml_config(config_path)
 
-        for toml_key in [
-            "minimal",
-            "services",
-            "include_celeries_in_minimal",
-            "log",
-            "db",
-        ]:
+        toml_keys = typing.get_args(TomlKeys)
+        for toml_key in toml_keys:
             if toml_key not in config["services"]:
                 setup(ctx)
             config = read_toml_config(config_path)
@@ -411,15 +409,19 @@ class TomlConfig:
             all_services = typing.cast(list[str], config["services"]["services"])
 
         celeries = [s for s in all_services if "celery" in s.lower()]
+        pgq = [s for s in all_services if "pgq" in s.lower()]
 
         minimal_services = config["services"]["minimal"]
         if boolish(config["services"].get("include_celeries_in_minimal", "false")):
             minimal_services += celeries
+        if boolish(config["services"].get("include_pgq_in_minimal", "false")):
+            minimal_services += pgq
 
         tomlconfig_singletons[singleton_key] = instance = TomlConfig(
             config=config,
             all_services=all_services,
             celeries=celeries,
+            pgq=pgq,
             services_minimal=minimal_services,
             services_log=config["services"]["log"],
             services_db=config["services"]["db"],
@@ -786,6 +788,20 @@ def read_toml_config(fp: Path) -> ConfigTomlDict:
 def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
     return fp.write_text(tomlkit.dumps(config))
 
+def include_services(service : str,services, key : TomlKeys,config_toml_file, overwrite : bool):
+    # adds to services
+    if not services:
+        write_content_to_toml_file(key, "false")
+    elif services and (
+        "services" not in config_toml_file
+        or key not in config_toml_file["services"]
+        or overwrite
+    ):
+        # check if user wants to include service
+        include_service = (
+            "true" if confirm(f"do you want to include {service} in minimal [Yn]: ", default=True) else "false"
+        )
+        write_content_to_toml_file(key, include_service)
 
 def write_user_input_to_config_toml(
     all_services: list[str],
@@ -801,21 +817,25 @@ def write_user_input_to_config_toml(
     :return:
     """
     filepath = Path(filename)
-    services_no_celery = [service for service in all_services if "celery" not in service]
+    services_no_workers = [service for service in all_services if "pgq" not in service and "celery" not in service]
+    services_pgq = [service for service in all_services if "pgq" in service]
     services_celery = [service for service in all_services if "celery" in service]
-
     setup_config_file()
+
     # services
     services_list = "discover"
     write_content_to_toml_file("services", services_list)
 
     config_toml_file = read_toml_config(filepath)
 
+    include_services("pgq", services_pgq, "include_pgq_in_minimal", config_toml_file, overwrite)
+    include_services("celery", services_celery, "include_celeries_in_minimal", config_toml_file, overwrite)
+
     # get chosen services for minimal and logs
     minimal_services = typing.cast(  # type: ignore
         list[str],
         (
-            services_no_celery
+            services_no_workers
             if config_toml_file["services"]["services"] == "discover"
             else config_toml_file["services"]["services"]
         ),
@@ -832,19 +852,6 @@ def write_user_input_to_config_toml(
     )
     write_content_to_toml_file("minimal", content, filename)
 
-    # check if minimal and celeries exist, if so add celeries to services
-    if not services_celery:
-        write_content_to_toml_file("include_celeries_in_minimal", "false")
-    elif services_celery and (
-        "services" not in config_toml_file
-        or "include_celeries_in_minimal" not in config_toml_file["services"]
-        or overwrite
-    ):
-        # check if user wants to include celeries
-        include_celeries = (
-            "true" if confirm("do you want to include celeries in minimal [Yn]: ", default=True) else "false"
-        )
-        write_content_to_toml_file("include_celeries_in_minimal", include_celeries)
 
     content = get_content_from_toml_file(
         minimal_services,
@@ -858,18 +865,15 @@ def write_user_input_to_config_toml(
 
     # db
 
-    possibly_postgres = [_ for _ in minimal_services if "pg" in _]
-
     content = get_content_from_toml_file(
         minimal_services,
         config_toml_file,
         "db",
         "select database containers: ",
-        possibly_postgres,
+        [],
         overwrite=overwrite,
         allow_empty=True,
     )
-
     write_content_to_toml_file("db", content or [], filename, allow_empty=content is None)
 
     return TomlConfig.load(filename, cache=False)
