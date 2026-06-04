@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.9.1 (2026-06-04)
+
+### Fix
+
+* Require b2 plugin of at least 0.2.5 to prevent issues ([`6f04fd2`](https://github.com/educationwarehouse/edwh/commit/6f04fd25c905307432126c18179132df8226f2e0))
+
 ## v1.9.0 (2026-06-02)
 
 ### Feature
