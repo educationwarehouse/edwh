@@ -2421,8 +2421,12 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
     if fix:
         command.append("--fix")
 
-    color: Color = "green" if run_pty(ctx, *command) else "red"
+    success = bool(run_pty(ctx, *command))
+
+    color: Color = "green" if success else "red"
     cprint("⬤ ruff", color=color)
+
+    return success
 
 
 @task(aliases=("format",), hookable=True)
