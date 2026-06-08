@@ -2,6 +2,18 @@
 
 <!--next-version-placeholder-->
 
+## v1.9.1 (2026-06-04)
+
+### Fix
+
+* Require b2 plugin of at least 0.2.5 to prevent issues ([`6f04fd2`](https://github.com/educationwarehouse/edwh/commit/6f04fd25c905307432126c18179132df8226f2e0))
+
+## v1.9.0 (2026-06-02)
+
+### Feature
+
+* **setup/up:** Pgq support ([#14](https://github.com/educationwarehouse/edwh/issues/14)) ([`2879fb5`](https://github.com/educationwarehouse/edwh/commit/2879fb506b3c322bfce0b05bf7c49a1d22ff17f2))
+
 ## v1.8.6 (2026-04-21)
 
 ### Fix

@@ -73,7 +73,7 @@ omgeving = [
 ]
 
 plugins = [
-    'edwh-b2-plugin',
+    'edwh-b2-plugin >= 0.2.5',
     'edwh-bundler-plugin',
     'edwh-demo-plugin',
     'edwh-devdb-plugin',
@@ -93,7 +93,7 @@ plugins = [
 
 # plugins that are useful on a (production) server:
 server-plugins = [
-    'edwh-b2-plugin',
+    'edwh-b2-plugin >= 0.2.5',
     'edwh-bundler-plugin',
     'edwh-devdb-plugin',
     'edwh-files-plugin',
@@ -101,7 +101,6 @@ server-plugins = [
     'edwh-restic-plugin',
     'edwh-uptime-plugin',
 ]
-
 
 
 b2 = ["edwh-b2-plugin"]
