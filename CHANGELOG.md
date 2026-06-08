@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.9.2 (2026-06-08)
+
+### Fix
+
+* Return value for `lint` based on `ruff` status ([`3c289fd`](https://github.com/educationwarehouse/edwh/commit/3c289fdaadc0a0497ccf327f456cbdb0d1752f11))
+
 ## v1.9.1 (2026-06-04)
 
 ### Fix
