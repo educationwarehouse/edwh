@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.0 (2026-06-09)
+
+### Feature
+
+* Add `--output <ci | cli | json>` to lint ([`c62c4c9`](https://github.com/educationwarehouse/edwh/commit/c62c4c93b149546f38ef5f8ed6cd1f43bd90c34b))
+
 ## v1.9.2 (2026-06-08)
 
 ### Fix
