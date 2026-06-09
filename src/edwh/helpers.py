@@ -557,12 +557,18 @@ type ColorFn = typing.Callable[[str], str]
 type FilterFn = Optional[typing.Callable[[str], bool]]
 
 
-class NoopHandler:
+class Handler(abc.ABC):
+    @abc.abstractmethod
     def process(self, chunk: str):
+        pass
+
+
+class NoopHandler(Handler):
+    def process(self, chunk: str):  # noqa: ARG002
         return
 
 
-class LineBufferHandler:
+class LineBufferHandler(Handler):
     def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
         self.buffer = ""
         self.prefix = prefix

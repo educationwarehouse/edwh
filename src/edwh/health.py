@@ -2,30 +2,15 @@ import enum
 import json
 import sys
 import typing as t
-import warnings
 from dataclasses import dataclass
 
 from ewok import Context
 from termcolor import colored, cprint, termcolor
-from typing_extensions import deprecated
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
 StatusOptions = t.Literal["created", "restarting", "running", "removing", "paused", "exited", "exited ok", "dead"]
 HealthOptions = t.Literal["starting", "unhealthy", "healthy"] | None
-
-
-# keep deprecated functions here for external use:
-
-
-@deprecated("Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`")
-def find_container_id(ctx: Context, container: str) -> None:
-    """Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`"""
-    warnings.warn(
-        "Containers can have multiple ids so please use `find_container_ids` or `find_containers_ids`",
-        category=DeprecationWarning,
-    )
-    return None
 
 
 def find_container_ids(ctx: Context, container: str) -> list[str]:

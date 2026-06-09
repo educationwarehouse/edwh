@@ -11,9 +11,9 @@ from ewok.monkey import monkeypatch_invoke
 
 monkeypatch_invoke("edwh")
 
-from . import tasks
-from .constants import DOCKER_COMPOSE
-from .health import (
+from . import tasks  # noqa E402 - must be below monkeypatch
+from .constants import DOCKER_COMPOSE  # noqa E402 - must be below monkeypatch
+from .health import (  # noqa E402 - must be below monkeypatch
     HealthLevel,
     HealthStatus,
     docker_inspect,
@@ -21,7 +21,7 @@ from .health import (
     find_containers_ids,
     get_healths,
 )
-from .helpers import (
+from .helpers import (  # noqa E402 - must be below monkeypatch
     KEY_ARROWDOWN,
     KEY_ARROWUP,
     KEY_ENTER,
@@ -50,8 +50,8 @@ from .helpers import (
     shorten,
     yaml_loads,
 )
-from .meta import is_installed
-from .tasks import (
+from .meta import is_installed  # noqa E402 - must be below monkeypatch
+from .tasks import (  # noqa E402 - must be below monkeypatch
     TomlConfig,
     check_env,
     get_env_value,
@@ -70,6 +70,8 @@ __all__ = [
     "KEY_ARROWUP",
     "KEY_ENTER",
     "AnyDict",
+    "HealthLevel",
+    "HealthStatus",
     "ImprovedTask",
     "Logger",
     "NoopLogger",
@@ -81,19 +83,24 @@ __all__ = [
     "check_env",
     "confirm",
     "dc_config",
+    "docker_inspect",
     "dump_set_as_list",
     "executes_correctly",
     "execution_fails",
     "fabric_read",
     "fabric_read_bytes",
     "fabric_write",
+    "find_container_ids",
+    "find_containers_ids",
     "flatten",
     "generate_password",
     "get_env_value",
+    "get_healths",
     "get_task",
     "improved_task",
     "interactive_selected_checkbox_values",
     "interactive_selected_radio_value",
+    "is_installed",
     "kwargs_to_options",
     "noop",
     "print_aligned",
@@ -105,11 +112,4 @@ __all__ = [
     "task_for_namespace",
     "tasks",
     "yaml_loads",
-    "is_installed",
-    "HealthLevel",
-    "get_healths",
-    "find_container_ids",
-    "find_containers_ids",
-    "HealthStatus",
-    "docker_inspect",
 ]

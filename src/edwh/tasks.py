@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 import traceback
-import typing
+import typing as t
 import warnings
 from collections import defaultdict
 from concurrent import futures
@@ -32,6 +32,7 @@ from dotenv import dotenv_values
 from ewok import Task, format_frame, task
 from invoke import Promise, Runner
 from invoke.context import Context
+from packaging.version import parse as parse_version
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
@@ -48,7 +49,7 @@ from .constants import (
     LEGACY_TOML_NAME,
 )
 from .discover import discover, get_hosts_for_service  # noqa F401 - import for export (Remco afblijven)
-from .health import (  # noqa F401 - import for export
+from .health import (
     docker_inspect,
     find_container_ids,
     find_containers_ids,
@@ -89,7 +90,7 @@ from .meta import is_installed, plugins, self_update  # noqa
 
 def copy_fallback_toml(
     tomlfile: str | Path = DEFAULT_TOML_NAME,
-    fallbacks: typing.Collection[str | Path] = (LEGACY_TOML_NAME, FALLBACK_TOML_NAME),
+    fallbacks: t.Collection[str | Path] = (LEGACY_TOML_NAME, FALLBACK_TOML_NAME),
     force: bool = False,
 ) -> bool:
     tomlfile_path = Path(tomlfile)
@@ -111,8 +112,8 @@ def copy_fallback_toml(
 
 
 def service_names(
-    service_arg: typing.Collection[str] | None,
-    default: typing.Literal["all", "minimal", "logs", "celeries"] | None = None,
+    service_arg: t.Collection[str] | None,
+    default: t.Literal["all", "minimal", "logs", "celeries"] | None = None,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -197,7 +198,7 @@ def task_for_namespace(ctx: Context, namespace: str, task_name: str) -> Task | N
     """
 
     if ns := ewok.find_namespace(ctx, namespace):
-        return typing.cast(Task, ns.tasks.get(task_name))
+        return t.cast(Task, ns.tasks.get(task_name))
 
     return None
 
@@ -302,12 +303,12 @@ def throw(error: Exception) -> Never:
     raise error
 
 
-class ServicesTomlConfig(typing.TypedDict, total=False):
+class ServicesTomlConfig(t.TypedDict, total=False):
     """
     [services] section of .toml
     """
 
-    services: typing.Literal["discover"] | list[str]
+    services: t.Literal["discover"] | list[str]
     minimal: list[str]
     include_celeries_in_minimal: str  # 'true'/'1' or 'false'/'0'
     include_pgq_in_minimal: str  # 'true'/'1' or 'false'/'0'
@@ -316,10 +317,10 @@ class ServicesTomlConfig(typing.TypedDict, total=False):
 
 
 # todo: keyof<ServicesTomlConfig> or something?
-TomlKeys = typing.Literal["services", "minimal", "include_celeries_in_minimal", "include_pgq_in_minimal", "log", "db"]
+TomlKeys = t.Literal["services", "minimal", "include_celeries_in_minimal", "include_pgq_in_minimal", "log", "db"]
 
 
-class ConfigTomlDict(typing.TypedDict, total=True):
+class ConfigTomlDict(t.TypedDict, total=True):
     """
     Data from .toml
     """
@@ -328,7 +329,7 @@ class ConfigTomlDict(typing.TypedDict, total=True):
     dotenv: AnyDict
 
 
-def boolish(value: typing.Literal["y", "yes", "t", "true", "1", "n", "no", "false", "f", "0"] | str | int) -> bool:
+def boolish(value: t.Literal["y", "yes", "t", "true", "1", "n", "no", "false", "f", "0"] | str | int) -> bool:
     """
     Convert a given value to a boolean.
 
@@ -397,7 +398,7 @@ class TomlConfig:
             setup(ctx)
             config = read_toml_config(config_path)
 
-        toml_keys = typing.get_args(TomlKeys)
+        toml_keys = t.get_args(TomlKeys)
         for toml_key in toml_keys:
             if toml_key not in config["services"]:
                 setup(ctx)
@@ -408,7 +409,7 @@ class TomlConfig:
 
             all_services = list(compose["services"].keys())
         else:
-            all_services = typing.cast(list[str], config["services"]["services"])
+            all_services = t.cast(list[str], config["services"]["services"])
 
         celeries = [s for s in all_services if "celery" in s.lower()]
         pgq = [s for s in all_services if "pgq" in s.lower()]
@@ -495,10 +496,10 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
                 return items
 
             # Check if we've reached a project root (docker-compose file exists)
-            if any(current_dir.glob("docker-compose.*")):
+            if any(current_dir.glob("docker-compose.*")) and current_dir != Path.cwd():
                 # Found project root, stop searching if we're not in the original directory
-                if current_dir != Path.cwd():
-                    break
+                break
+
             # Move up one directory
             current_dir = current_dir.parent
 
@@ -513,7 +514,7 @@ def warn_once(
     warning: str,
     previously_shown: list[str] = [],
     color: Optional[Color] = None,
-    **print_kwargs: typing.Any,
+    **print_kwargs: t.Any,
 ) -> None:
     """
     Mutable default 'previously_shown' is there on purpose, to track which warnings were already shown!
@@ -531,7 +532,7 @@ def warn_once(
     )
 
 
-type DefaultFn = typing.Callable[[], Optional[str]]
+type DefaultFn = t.Callable[[], Optional[str]]
 
 
 def check_env(
@@ -546,7 +547,7 @@ def check_env(
     # different config paths:
     env_path: Optional[str | Path] = None,
     force_default: Optional[bool] = False,
-    allowed_values: typing.Iterable[str] = (),
+    allowed_values: t.Iterable[str] = (),
     toml_path: None = None,
 ) -> str:
     """
@@ -684,7 +685,7 @@ def set_env_value(path: Path, target: str, value: str | None) -> None:
             # remove empty lines
             continue
         # convert to tuples
-        key, oldvalue = line.split("=", 1)
+        key, _oldvalue = line.split("=", 1)
         # clean the key and value
         key = key.strip()
         if key == target:
@@ -784,7 +785,7 @@ def read_toml_config(fp: Path) -> ConfigTomlDict:
     """
     config_toml_file = tomlkit.loads(fp.read_text())
 
-    return typing.cast(ConfigTomlDict, config_toml_file)
+    return t.cast(ConfigTomlDict, config_toml_file)
 
 
 def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
@@ -832,7 +833,7 @@ def write_user_input_to_config_toml(
     include_services("celery", services_celery, "include_celeries_in_minimal", config_toml_file, overwrite)
 
     # get chosen services for minimal and logs
-    minimal_services = typing.cast(  # type: ignore
+    minimal_services = t.cast(  # type: ignore
         list[str],
         (
             services_no_workers
@@ -899,7 +900,7 @@ def load_dockercompose_with_includes(
         processed_config = ran.stdout.strip()
         # mimic a file to load the yaml from
         fake_file = io.StringIO(processed_config)
-        return typing.cast(AnyDict, yaml.safe_load(fake_file))
+        return t.cast(AnyDict, yaml.safe_load(fake_file))
     else:
         return {}
 
@@ -1001,7 +1002,8 @@ def sudo(c: Context):
     pre=[require_sudo],
     help={
         "new_config_toml": "Remove existing config.toml and create a fresh one",
-        "from_env": "Read configuration values from environment variables instead of prompting (forces non-interactive mode)",
+        "from_env": "Read configuration values from environment variables instead of prompting "
+        "(forces non-interactive mode)",
         "non_interactive": "Skip all interactive prompts; fail if required configuration values are missing",
     },
     hookable=True,
@@ -1155,7 +1157,7 @@ def fuzzy_match(val1: str, val2: str, verbose: bool = False) -> float:
     return similarity
 
 
-def _settings(find: typing.Optional[str], fuzz_threshold: int = 75) -> typing.Iterable[tuple[str, typing.Any]]:
+def _settings(find: t.Optional[str], fuzz_threshold: int = 75) -> t.Iterable[tuple[str, t.Any]]:
     all_settings = read_dotenv().items()
     if find is None:
         # don't loop
@@ -1232,7 +1234,7 @@ def check_paused(ctx: Context, service: str) -> bool:
 
         state = container_info.get("State", "")
         return state == "paused"
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
+    except (json.JSONDecodeError, KeyError, IndexError):
         return False
 
 
@@ -1296,7 +1298,7 @@ def get_paused_services_with_deps(ctx: Context, services: list[str]) -> list[str
 )
 def up(
     ctx: Context,
-    service: typing.Collection[str] | None = None,
+    service: t.Collection[str] | None = None,
     no_build: bool = False,
     quickest: bool = False,
     stop_timeout: int = 2,
@@ -1395,7 +1397,7 @@ def wait_until_healthy(ctx: Context, services: list[str] = (), quiet: bool = Fal
 )
 def health(
     ctx: Context,
-    service: typing.Collection[str] | None = None,
+    service: t.Collection[str] | None = None,
     wait: bool = False,
     show_all: bool = False,
     quiet: bool = False,
@@ -1491,7 +1493,7 @@ def ps_all(ctx):
         elif len(statuses_set) > 1:
             project_status = "mixed"
         else:
-            project_status = list(statuses_set)[0]
+            project_status = next(iter(statuses_set))
 
         table_rows.append((project_name, info["count"], project_status))
 
@@ -1513,8 +1515,8 @@ def ps_all(ctx):
 def ps(
     ctx: Context,
     quiet: bool = False,
-    service: typing.Collection[str] | None = None,
-    columns: typing.Collection[str] | None = None,
+    service: t.Collection[str] | None = None,
+    columns: t.Collection[str] | None = None,
     full: bool = False,
     show_all: bool = False,
 ) -> None:
@@ -1608,7 +1610,7 @@ def get_docker_info(ctx: Context, services: list[str]) -> dict[str, AnyDict]:
     return result
 
 
-T_Stream = typing.Literal["stdout", "stderr", "out", "err", ""]
+T_Stream = t.Literal["stdout", "stderr", "out", "err", ""]
 
 
 def follow_logs(
@@ -1622,7 +1624,7 @@ def follow_logs(
     timestamps: bool,
     stream: T_Stream = "",
     filter_pattern: str = "",
-    stop_event: threading.Event = None,
+    stop_event: threading.Event | None = None,
 ) -> bool:
     """
     Follows logs of a specified Docker container while optionally filtering and formatting output.
@@ -1652,7 +1654,7 @@ def follow_logs(
     Raises:
         None explicitly defined, but will handle `KeyboardInterrupt` gracefully during execution.
     """
-    if stream not in typing.get_args(T_Stream):
+    if stream not in t.get_args(T_Stream):
         raise ValueError(f"Invalid stream value: '{stream}'.")
 
     # Get container name for prefix
@@ -1764,7 +1766,7 @@ def follow_logs(
 )
 def logs(
     ctx: Context,
-    service: typing.Collection[str] | None = None,
+    service: t.Collection[str] | None = None,
     follow: bool = True,
     limit: Optional[int] = None,
     sort: bool = False,
@@ -1786,14 +1788,12 @@ def logs(
     if sort and follow:
         raise ValueError("--sort is mutually exclusive with following logs")
 
-    if show_all:
-        services = service_names([], default="all")
-    else:
-        services = service_names(service or [], default="logs")
+    services = service_names([], default="all") if show_all else service_names(service or [], default="logs")
 
     if limit or not follow or sort:
-        if filter:
+        if filter_pattern:
             raise ValueError("--filter is exclusive with --limit, --no-follow and --sort")
+
         # use basic logs
         cmdline = [f"{DOCKER_COMPOSE} logs", f"--tail={limit or 500}"]
         cmdline.extend(services)
@@ -1861,7 +1861,7 @@ def logs(
             return []
 
 
-def start_logs(c: Context, service: typing.Collection[str] = None, args: str = ""):
+def start_logs(c: Context, service: t.Collection[str] | None = None, args: str = ""):
     """
     Normal edwh logs can't just be called with `edwh.tasks.logs` so this wrapper makes it easier.
 
@@ -1879,7 +1879,7 @@ def start_logs(c: Context, service: typing.Collection[str] = None, args: str = "
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
     hookable=True,
 )
-def stop(ctx: Context, service: typing.Collection[str] | None = None) -> None:
+def stop(ctx: Context, service: t.Collection[str] | None = None) -> None:
     """
     Stops services using docker-compose stop.
     """
@@ -1892,7 +1892,7 @@ def stop(ctx: Context, service: typing.Collection[str] | None = None) -> None:
     help=dict(service="Service to stop, can be used multiple times, handles wildcards."),
     hookable=True,
 )
-def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
+def down(ctx: Context, service: t.Collection[str] | None = None) -> None:
     """
     Stops services using docker-compose down.
     """
@@ -1904,7 +1904,7 @@ def down(ctx: Context, service: typing.Collection[str] | None = None) -> None:
 @task(
     iterable=["service"],
 )
-def restart(c: Context, service: typing.Collection[str] = None, quiet: bool = False, force: bool = False):
+def restart(c: Context, service: t.Collection[str] | None = None, quiet: bool = False, force: bool = False):
     """
     Restart Docker services by sending termination signals (ctrl-c/SIGINT; if force: SIGKILL, SIGTERM).
 
@@ -1919,8 +1919,8 @@ def restart(c: Context, service: typing.Collection[str] = None, quiet: bool = Fa
         force: send SIGKILL + SIGTERM instead of SIGINT
 
     Raises:
-        Executes a system command to restart the desired services. Should be used within an environment that supports this
-        functionality.
+        Executes a system command to restart the desired services.
+        Should be used within an environment that supports thisfunctionality.
 
     Returns:
         None
@@ -2032,7 +2032,7 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: boo
 )
 def rebuild(
     ctx: Context,
-    service: typing.Collection[str] | None = None,
+    service: t.Collection[str] | None = None,
     force_rebuild: bool = False,
 ) -> None:
     """
@@ -2107,6 +2107,21 @@ def completions(_: Context) -> None:
     print("---")
     print('eval "$(edwh --print-completion-script bash)"')
     print("---")
+
+
+def warn_plugin_version_check(active: str, required: str, name: str) -> bool:
+    """
+    Warn if a version is too low (using semver-aware sorting).
+    """
+    if parse_version(active) < parse_version(required):
+        cprint(
+            f"Note: your `{name}` tool might be outdated ({active} < {required}). "
+            "To prevent weird behavior, try running `edwh self-update`",
+            color="yellow",
+            file=sys.stderr,
+        )
+        return False
+    return True
 
 
 @task(
@@ -2403,8 +2418,75 @@ def find_ruff() -> str:
     return ruff.find_ruff_bin()
 
 
-@task(hookable=True)
-def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: bool = False):
+type OutputMode = t.Literal["ci", "cli", "json"]
+
+
+class LintOutput(t.TypedDict):
+    mode: OutputMode
+    results: dict[str, bool]
+
+
+def _render_lint_result(_: Context, result: LintOutput) -> str | None:
+    if not isinstance(result, dict):
+        return None
+
+    if result.get("mode", "cli") != "json":
+        return None
+
+    data = dict(result.get("results", {}))
+
+    print(json.dumps(data, indent=2, sort_keys=True))
+
+    if not all(data.values()):
+        raise SystemExit(1)
+
+    return None
+
+
+def _print_lint_status(tool: str, ok: bool, output: OutputMode) -> None:
+    if output == "ci":
+        print(f"{'✅' if ok else '❌'} {tool}")
+    else:
+        color: Color = "green" if ok else "red"
+        cprint(f"⬤ {tool}", color=color)
+
+
+def run_command_with_output(
+    ctx: Context,
+    command: str,
+    mode: OutputMode = "cli",
+    tool: str | None = None,
+) -> bool:
+    """Run a command, capture its output, and replay it to the current terminal."""
+
+    result = ctx.run(command, hide=True, warn=True)
+    ok = bool(result and result.ok)
+    should_print = not ok and mode != "json"
+
+    if should_print and result.stdout:
+        print(result.stdout, end="")
+
+    if should_print and result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+
+    if tool and mode in {"cli", "ci"}:
+        _print_lint_status(tool, ok, mode)
+
+    return ok
+
+
+@task(
+    hookable=True,
+    help={"output": "output mode: cli, ci, or json"},
+    result_renderer=_render_lint_result,
+)
+def lint(
+    ctx: Context,
+    directory: Optional[str] = None,
+    select: str = "",
+    fix: bool = False,
+    output: OutputMode = "cli",
+) -> LintOutput:
     """
     Lint code with `ruff`.
 
@@ -2413,19 +2495,25 @@ def lint(ctx: Context, directory: Optional[str] = None, select: str = "", fix: b
         directory: where to look for code
         select: specific lints to check
         fix: try to fix (some) issues automatically
+        output: render output as cli, ci, or json
     """
     directory = directory or "."
+    output = output.lower()
+
+    if output not in {"cli", "ci", "json"}:
+        raise ValueError(f"Invalid --output value: {output}. Expected one of: cli, ci, json.")
 
     ruff = find_ruff()
 
     command = [ruff, "check", directory, "--quiet"]
     if select:
-        command.append(f"--select {select}")
+        command.extend(("--select", select))
     if fix:
         command.append("--fix")
 
-    color: Color = "green" if run_pty(ctx, *command) else "red"
-    cprint("⬤ ruff", color=color)
+    ok = run_command_with_output(ctx, shlex.join(command), mode=output, tool="ruff")
+
+    return {"mode": output, "results": {"linting (ruff)": ok}}
 
 
 @task(aliases=("format",), hookable=True)
@@ -2480,7 +2568,7 @@ def fmt(
                 """,
                 pty=True,
             )
-        except invoke.exceptions.UnexpectedExit as e:
+        except invoke.exceptions.UnexpectedExit:
             cprint(
                 "Hint: unused imports can be removed with --ioptimize; this check can be skipped with --quiet",
                 "blue",

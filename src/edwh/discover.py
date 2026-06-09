@@ -21,7 +21,7 @@ def dedent(text: str, prefix: str = "  ") -> str:
     return text.replace(prefix, "", 1)
 
 
-def terminal_link(url: str, text: str = None) -> str:
+def terminal_link(url: str, text: str | None = None) -> str:
     """
     Creëer een klikbare hyperlink voor de terminal met OSC 8 escape codes.
 

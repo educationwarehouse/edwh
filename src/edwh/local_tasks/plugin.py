@@ -397,10 +397,10 @@ def sort_versions(key_value: tuple[str, typing.Any]) -> Version:
     """
     Can be used as key=sort_versions in sort_and_filter_changelog
     """
-    key, value = key_value
+    key, _ = key_value
 
     try:
-        version, date = key.split(" ")
+        version, _date = key.split(" ")
         return parse_package_version(version)
     except Exception:
         # something went wrong, return something so sorting doesn't crash:
@@ -671,7 +671,7 @@ def require_hatch(ctx: Context):
 
 
 @dataclass
-class GitException(Exception):
+class GitError(Exception):
     reason: str
 
 
@@ -687,7 +687,7 @@ def git_pull(c: Context, yes: bool) -> None:
         c.run("git status", hide=False)  # Show status to help user see unstaged changes
         if not yes and not confirm("Continue with git pull despite unstaged changes? [yN] ", default=False):
             cprint("Operation cancelled. Please commit or stash your changes first.", "red")
-            raise GitException("unstaged changes")
+            raise GitError("unstaged changes")
 
     # 1. pull
     git_pull = c.run("git pull", warn=True)
@@ -696,7 +696,7 @@ def git_pull(c: Context, yes: bool) -> None:
     if git_pull.stderr and ("merge" in git_pull.stderr.lower() or "conflict" in git_pull.stderr.lower()):
         cprint("Git merge conflict detected! Please resolve the conflicts manually and try again.", "red")
         c.run("git status", hide=False)  # Show status to help user identify conflicting files
-        raise GitException("merge required")
+        raise GitError("merge required")
 
     # 3. if no merge - we good so continue
     if git_pull.ok:
@@ -704,7 +704,7 @@ def git_pull(c: Context, yes: bool) -> None:
     else:
         cprint(f"Git pull failed: {git_pull.stderr}", "red")
         if not yes and not confirm("Continue despite git pull failure? [yN] ", default=False):
-            raise GitException(git_pull.stderr)
+            raise GitError(git_pull.stderr)
 
 
 def build(c: Context, hatch: bool = False) -> list[str]:
@@ -799,7 +799,7 @@ def release(
     if pull:
         try:
             git_pull(c, yes=yes)
-        except GitException:
+        except GitError:
             # stop
             return
 

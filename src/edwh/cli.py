@@ -45,12 +45,12 @@ class EddieApp(ewok.App):
         signal.signal(signal.SIGINT, handle_signal)
         signal.signal(signal.SIGTERM, handle_signal)
 
-    def run(self, argv: t.Optional[list[str]] = None, exit: bool = True) -> None:
+    def run(self, argv: t.Optional[list[str]] = None, exit: bool = True) -> None:  # noqa: A002
         """Run the application with terminal‑safety fixes enabled."""
         self._fix_invoke_terminal_corruption()
         return super().run(argv=argv, exit=exit)
 
-    def run_fmt(self, argv: list[str] = None, exit: bool = True):
+    def run_fmt(self, argv: list[str] | None = None, exit: bool = True):  # noqa: A002
         """
         Process arguments for the fmt command with special handling:
         - `ew-fmt` == `ew fmt`
@@ -62,12 +62,9 @@ class EddieApp(ewok.App):
         # Filter out any 'fmt' arguments to prevent duplicates
         argv = [arg for arg in argv if arg != "fmt"]
 
-        if not argv:
-            # No files specified, just run fmt command
-            argv = ["fmt"]
-        else:
-            # Convert each argument to fmt --file arg format using list comprehension
-            argv = [item for arg in argv for item in ["fmt", "--file", arg]]
+        # Convert each argument to fmt --file arg format using list comprehension;
+        # if no files specified, just run fmt command
+        argv = [item for arg in argv for item in ["fmt", "--file", arg]] if argv else ["fmt"]
 
         # Add all no_flags at the beginning
         argv = [f"--{flag}" for flag in self.CUSTOM_FLAGS] + argv
