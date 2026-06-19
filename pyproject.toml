@@ -36,7 +36,7 @@ dependencies = [
     "diceware < 2", # for generating random, safe passhprases
     "ewok >= 0.5.0, < 1", # base cli tool based on invoke and fabric
     "humanize < 5", # for making raw sizes huam nreadable
-    "more-itertools < 11", # improved 'flatten' function (among others)
+    "more-itertools", # improved 'flatten' function (among others)
     "docstring_parser < 1", # better help
     "keyring < 26", # safely storing secrets
     "packaging", # parsing package versions (for plugin subcommand)
