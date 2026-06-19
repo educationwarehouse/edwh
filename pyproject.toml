@@ -39,7 +39,7 @@ dependencies = [
     "more-itertools < 11", # improved 'flatten' function (among others)
     "docstring_parser < 1", # better help
     "keyring < 26", # safely storing secrets
-    "packaging < 25", # parsing package versions (for plugin subcommand)
+    "packaging", # parsing package versions (for plugin subcommand)
     "plumbum < 2", # running bash commands more nicely than with invoke
     "python-dateutil < 3", # improved date parsing
     "python-dotenv < 2", # for .env
