@@ -47,7 +47,7 @@ dependencies = [
     "rapidfuzz < 4",  # levenshtein my beloved
     "requests < 3", # better than urllib no?
     "ruff==0.15.21", # For `edwh fmt`, `edwh lint`
-    "tabulate < 1", # for nice cli tables
+    "tabulate >= 0.9, < 0.10", # for nice cli tables; b2 4.x is incompatible with 0.10+
     "termcolor < 3", # improved ansi colored print (v3 removes Color type)
     "threadful >= 0.5, < 1", # running things in different threads easily, with animations
     "tomlkit < 1", # for toml reading and writing
