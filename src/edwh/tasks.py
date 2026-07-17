@@ -30,7 +30,7 @@ import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
-from ewok import Task, format_frame, task
+from ewok import Context, Task, format_frame, task
 from invoke import Promise, Runner
 from packaging.version import parse as parse_version
 from rapidfuzz import fuzz
@@ -372,7 +372,7 @@ class TomlConfig:
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
-        ctx = invoke.Context()
+        ctx = t.cast(Context, invoke.Context())
 
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
@@ -890,7 +890,7 @@ def load_dockercompose_with_includes(
     This function uses the `docker compose config` command to properly load the entire config with all enabled services.
     """
     if not c:
-        c = invoke.Context()
+        c = t.cast(Context, invoke.Context())
 
     if not isinstance(dc_path, Path):
         dc_path = Path(dc_path)
