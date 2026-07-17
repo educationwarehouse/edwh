@@ -9,6 +9,7 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Linting](#linting)
 - [Plugins](#plugins)
 - [License](#license)
 - [Changelog](#changelog)
@@ -40,6 +41,18 @@ ew help <namespace> # e.g. `ew help plugin`
 # to see help about a specific command:
 ew help <command> # e.g. `ew help plugin.list` 
 ```
+
+## Linting
+
+`edwh lint` runs Ruff and Ty by default. Disable either tool for a specific project in its `pyproject.toml`:
+
+```toml
+[tool.edwh.lint]
+ruff = false
+ty = false
+```
+
+`edwh fmt` sorts imports and reformats Python code with Ruff.
 
 ## Task Load Order
 

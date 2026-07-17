@@ -15,7 +15,7 @@ import dateutil.parser
 import keyring
 import yayarl as yarl
 from ewok import (
-    Context,  # type: ignore
+    Context,
     task,
 )
 from packaging.version import parse as parse_package_version
@@ -23,7 +23,7 @@ from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, kwargs_to_options
-from ..meta import (  # type: ignore
+from ..meta import (
     Version,
     _gather_package_metadata_threaded,
     _get_available_plugins_from_pypi,
@@ -298,7 +298,7 @@ def update(
         c.run("uv cache clean", hide=True)
 
     if plugin_names == "all":
-        from ..tasks import self_update  # type: ignore
+        from ..tasks import self_update
 
         return self_update(c, no_cache=force)
 

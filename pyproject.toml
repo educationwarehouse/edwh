@@ -49,6 +49,7 @@ dependencies = [
     "ruff==0.15.17", # For `edwh fmt`, `edwh lint`
     "tabulate < 1", # for nice cli tables
     "termcolor < 3", # improved ansi colored print (v3 removes Color type)
+    "ty==0.0.60", # For `edwh lint`
     "threadful >= 0.5, < 1", # running things in different threads easily, with animations
     "tomlkit < 1", # for toml reading and writing
     "tqdm < 5", # nice progress bars

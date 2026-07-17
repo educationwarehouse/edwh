@@ -9,7 +9,9 @@ from termcolor import colored, cprint, termcolor
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
-StatusOptions = t.Literal["created", "restarting", "running", "removing", "paused", "exited", "exited ok", "dead"]
+StatusOptions = t.Literal[
+    "created", "restarting", "running", "removing", "paused", "exited", "exited ok", "dead", "unknown"
+]
 HealthOptions = t.Literal["starting", "unhealthy", "healthy"] | None
 
 
@@ -185,7 +187,13 @@ def get_healths(ctx: Context, *container_names: str) -> list[HealthStatus]:
     #  when containers die between these two statements:
     #  info_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
     try:
-        info_by_id = {_["Id"]: _ for _ in docker_inspect(ctx, "`docker compose ps -aq`")}
+        docker_info = docker_inspect(ctx, "`docker compose ps -aq`")
+        if isinstance(docker_info, list):
+            info_by_id: dict[str, AnyDict] = {_["Id"]: _ for _ in docker_info}
+        else:
+            # invalid data returned
+            info_by_id = {}
+
     except EnvironmentError:
         # probably everything down (warning is already shown by inspect() -> this can be safely ignored)
         info_by_id = {}

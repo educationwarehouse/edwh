@@ -10,22 +10,20 @@ import itertools
 import os
 import re
 import sys
-import typing
+import typing as t
 from pathlib import Path
-from typing import Optional
 
 import click
 import diceware
 import invoke
 import yaml
-from fabric.connection import Connection
-from invoke.context import Context
+from ewok import Context
 from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
 
-def confirm(prompt: str, default: bool = False, allowed: Optional[set[str]] = None, strict: bool = False) -> bool:
+def confirm(prompt: str, default: bool = False, allowed: set[str] | None = None, strict: bool = False) -> bool:
     """
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
@@ -98,7 +96,7 @@ def _add_dash(flag: str) -> str:
         return f"--{flag}"
 
 
-def arg_was_passed(flag: str | tuple[str, ...]) -> Optional[int]:
+def arg_was_passed(flag: str | tuple[str, ...]) -> int | None:
     """
     Returns the index of the flag in sys.argv if passed, else None
     """
@@ -108,7 +106,7 @@ def arg_was_passed(flag: str | tuple[str, ...]) -> Optional[int]:
     return next((i for i, item in enumerate(sys.argv) if item in flag), None)
 
 
-def kwargs_to_options(data: Optional[AnyDict] = None, **kw: typing.Any) -> str:
+def kwargs_to_options(data: AnyDict | None = None, **kw: t.Any) -> str:
     """
     Convert a dictionary of options to the cli variant
     e.g. {'a': 1, 'key': 2} -> -a 1 --key 2
@@ -136,7 +134,7 @@ def kwargs_to_options(data: Optional[AnyDict] = None, **kw: typing.Any) -> str:
 
 
 class Logger(abc.ABC):
-    def log(self, *a: typing.Any) -> None:
+    def log(self, *a: t.Any) -> None:
         raise NotImplementedError("This is an abstract method")
 
 
@@ -149,7 +147,7 @@ class VerboseLogger(Logger):
     def _now() -> dt.datetime:
         return dt.datetime.now(dt.timezone.utc)
 
-    def log(self, *a: typing.Any) -> None:
+    def log(self, *a: t.Any) -> None:
         now = self._now()
         delta_start = now - self._then
         delta_prev = now - self._previous
@@ -165,29 +163,29 @@ class VerboseLogger(Logger):
 
 
 class NoopLogger(Logger):
-    def log(self, *_: typing.Any) -> None:
+    def log(self, *_: t.Any) -> None:
         return None
 
 
-def noop(*_: typing.Any, **__: typing.Any) -> None:
+def noop(*_: t.Any, **__: t.Any) -> None:
     return None
 
 
-@typing.overload
+@t.overload
 def dump_set_as_list[T](data: set[T]) -> list[T]:
     """
     Sets are converted to lists.
     """
 
 
-@typing.overload
+@t.overload
 def dump_set_as_list[T](data: T) -> T:
     """
     Other datatypes remain untouched.
     """
 
 
-def dump_set_as_list[T](data: set[T] | T) -> list[T] | T:  # type: ignore
+def dump_set_as_list[T](data: set[T] | T) -> list[T] | T:
     if isinstance(data, set):
         return list(data)
     else:
@@ -205,12 +203,12 @@ def print_box(label: str, selected: bool, current: bool, number: int, fmt: str =
     click.echo(f"{indicator}{number}. {box} {label}")
 
 
-def interactive_selected_checkbox_values[H: typing.Hashable](
+def interactive_selected_checkbox_values[H: t.Hashable](
     options: list[str] | dict[H, str],
     prompt: str = "Select options (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: typing.Collection[H] = (),
+    selected: t.Collection[H] = (),
     allow_empty: bool = False,
-) -> list[str] | None:
+) -> list[str | H] | None:
     """
     This function provides an interactive checkbox selection in the console.
 
@@ -242,22 +240,23 @@ def interactive_selected_checkbox_values[H: typing.Hashable](
 
         interactive_selected_checkbox_values({1: "first", 2: "second", 3: "third"}, selected=[3])
     """
-    checked_indices = dict()  # instead of set to keep ordering
+    checked_indices: dict[int, str | H] = {}  # instead of set to keep ordering
     current_index = 0
 
     if isinstance(options, list):
         labels = options
+        option_values = t.cast(t.Sequence[str | H], options)
     else:
         labels = list(options.values())
-        options = list(options.keys())  # type: ignore
+        option_values = t.cast(t.Sequence[str | H], list(options))
 
     for item in selected:
-        if item not in options:
+        if item not in option_values:
             # invalid
             continue
 
-        idx = options.index(item)  # type: ignore
-        checked_indices[idx] = options[idx]
+        idx = option_values.index(item)
+        checked_indices[idx] = option_values[idx]
 
     if allow_empty:
         labels.append("(none)")
@@ -291,7 +290,7 @@ def interactive_selected_checkbox_values[H: typing.Hashable](
                 if current_index in checked_indices:
                     del checked_indices[current_index]
                 else:
-                    checked_indices[current_index] = options[current_index]
+                    checked_indices[current_index] = option_values[current_index]
 
     if allow_empty and len(checked_indices) == 1 and set(checked_indices.values()) == {"(none)"}:
         # None instead of empty list since otherwise it would just ask again
@@ -300,12 +299,12 @@ def interactive_selected_checkbox_values[H: typing.Hashable](
     return list(checked_indices.values())
 
 
-def interactive_selected_radio_value[H: typing.Hashable](
+def interactive_selected_radio_value[H: t.Hashable](
     options: list[str] | dict[H, str],
     prompt: str = "Select an option (use arrow keys, spacebar, or digit keys, press 'Enter' to finish):",
-    selected: Optional[H] = None,
+    selected: H | None = None,
     allow_empty: bool = False,
-) -> str | None:
+) -> str | H | None:
     """
     This function provides an interactive radio box selection in the console.
 
@@ -336,17 +335,18 @@ def interactive_selected_radio_value[H: typing.Hashable](
 
         interactive_selected_radio_value({1: "first", 2: "second", 3: "third"}, selected=3)
     """
-    selected_index: Optional[int] = None
+    selected_index: int | None = None
     current_index = 0
 
     if isinstance(options, list):
         labels = options
+        option_values = t.cast(t.Sequence[str | H], options)
     else:
         labels = list(options.values())
-        options = list(options.keys())  # type: ignore
+        option_values = t.cast(t.Sequence[str | H], list(options))
 
-    if selected in options:
-        selected_index = current_index = options.index(selected)  # type: ignore
+    if selected in option_values:
+        selected_index = current_index = option_values.index(selected)
 
     if allow_empty:
         labels.append("(none)")
@@ -382,7 +382,7 @@ def interactive_selected_radio_value[H: typing.Hashable](
     if allow_empty and selected_index == len(labels) - 1:
         return None
 
-    return options[selected_index]
+    return option_values[selected_index]
 
 
 def yaml_loads(text: str) -> AnyDict:
@@ -390,7 +390,7 @@ def yaml_loads(text: str) -> AnyDict:
         text,
         Loader=yaml.SafeLoader,
     )
-    return typing.cast(AnyDict, dct)
+    return t.cast(AnyDict, dct)
 
 
 def dc_config(ctx: Context) -> AnyDict:
@@ -431,7 +431,7 @@ def print_aligned(plugin_commands: list[str]) -> None:
         print("\t", before.ljust(max_l, " "), "\t\t", after)
 
 
-def flatten[T](something: typing.Iterable[typing.Iterable[T]]) -> list[T]:
+def flatten[T](something: t.Iterable[t.Iterable[T]]) -> list[T]:
     """
     Like itertools.flatten but eager
     """
@@ -455,7 +455,7 @@ def _fabric_resolve_home(path: str, user: str) -> str:
     return path.replace("~", f"/home/{user}", 1)
 
 
-def _write_bytes_remote(c: Connection, path: str, contents: bytes, parents: bool = False) -> None:
+def _write_bytes_remote(c: Context, path: str, contents: bytes, parents: bool = False) -> None:
     f = io.BytesIO(contents)
 
     if parents:
@@ -474,23 +474,23 @@ def _write_bytes_local(_: Context, path: str, contents: bytes, parents: bool = F
     p.write_bytes(contents)
 
 
-class WriteBytesFn(typing.Protocol):
-    def __call__(self, c: Connection | Context, path: str, contents: bytes, parents: bool = False) -> None: ...
+class WriteBytesFn(t.Protocol):
+    def __call__(self, c: Context, path: str, contents: bytes, parents: bool = False) -> None: ...
 
 
-def fabric_write(c: Connection | Context, path: str, contents: str | bytes, parents: bool = False) -> None:
+def fabric_write(c: Context, path: str, contents: str | bytes, parents: bool = False) -> None:
     """
     Write some contents to a remote file.
     ~ will be resolved to the remote user's home
     """
-    path = _fabric_resolve_home(path, c.user)
+    path = _fabric_resolve_home(path, c.user) if c.user else path
 
-    fn = typing.cast(WriteBytesFn, _write_bytes_remote if isinstance(c, Connection) else _write_bytes_local)
+    fn = t.cast(WriteBytesFn, _write_bytes_local if isinstance(c, invoke.Context) else _write_bytes_remote)
 
     return fn(c, path, contents if isinstance(contents, bytes) else contents.encode(), parents=parents)
 
 
-def _read_bytes_remote(c: Connection, path: str) -> bytes:
+def _read_bytes_remote(c: Context, path: str) -> bytes:
     buf = io.BytesIO()
     c.get(path, buf)
 
@@ -502,17 +502,17 @@ def _read_bytes_local(_: Context, path: str) -> bytes:
     return Path(path).read_bytes()
 
 
-type ReadBytesFn = typing.Callable[[Connection | Context, str], bytes]
+type ReadBytesFn = t.Callable[[Context, str], bytes]
 
 
-def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) -> bytes:
+def fabric_read_bytes(c: Context, path: str, throw: bool = True) -> bytes:
     """
     Write some bytes from a remote file.
     ~ will be resolved to the remote user's home
     """
-    path = _fabric_resolve_home(path, c.user)
+    path = _fabric_resolve_home(path, c.user) if c.user else path
 
-    fn: ReadBytesFn = _read_bytes_remote if isinstance(c, Connection) else _read_bytes_local
+    fn: ReadBytesFn = _read_bytes_local if isinstance(c, invoke.Context) else _read_bytes_remote
 
     try:
         return fn(c, path)
@@ -523,7 +523,7 @@ def fabric_read_bytes(c: Connection | Context, path: str, throw: bool = True) ->
             return b""
 
 
-def fabric_read(c: Connection | Context, path: str, throw: bool = True) -> str:
+def fabric_read(c: Context, path: str, throw: bool = True) -> str:
     """
     Write some text from a remote file.
     ~ will be resolved to the remote user's home
@@ -532,12 +532,12 @@ def fabric_read(c: Connection | Context, path: str, throw: bool = True) -> str:
     return b.decode()
 
 
-def _add_alias(sometask: typing.Any, alias: str):
+def _add_alias(sometask: t.Any, alias: str):
     if alias not in sometask.aliases:
         sometask.aliases = (*sometask.aliases, alias)
 
 
-def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
+def add_alias(sometask: t.Any, aliases: str | t.Iterable[str]):
     """
     Add an extra alias to an existing task (usually in ~/.config/edwh/tasks.py).
 
@@ -553,8 +553,8 @@ def add_alias(sometask: typing.Any, aliases: str | typing.Iterable[str]):
         _add_alias(sometask, alias)
 
 
-type ColorFn = typing.Callable[[str], str]
-type FilterFn = Optional[typing.Callable[[str], bool]]
+type ColorFn = t.Callable[[str], str]
+type FilterFn = t.Callable[[str], bool] | None
 
 
 class Handler(abc.ABC):
@@ -569,7 +569,7 @@ class NoopHandler(Handler):
 
 
 class LineBufferHandler(Handler):
-    def __init__(self, prefix: str, output_stream: io.IOBase, filter_fn: FilterFn | None = None):
+    def __init__(self, prefix: str, output_stream: t.TextIO, filter_fn: FilterFn = None):
         self.buffer = ""
         self.prefix = prefix
         self.output_stream = output_stream
@@ -649,7 +649,7 @@ def parse_regex(raw: str) -> FilterFn:
         return lambda text: bool(re_compiled.search(text))
 
 
-def ansi_color_code(code: str, format_opts: typing.Collection[str] = ()) -> str:
+def ansi_color_code(code: str, format_opts: t.Collection[str] = ()) -> str:
     res = "\033["
     for c in format_opts:
         res += f"{c};"
@@ -691,7 +691,7 @@ def build_rainbow() -> tuple[ColorFn, ...]:
     )
 
 
-def rainbow() -> typing.Generator[ColorFn, None, None]:
+def rainbow() -> t.Generator[ColorFn, None, None]:
     """
     rainbow = []colorFunc{
                 colors["cyan"],

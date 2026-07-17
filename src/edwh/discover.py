@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TypedDict
 
 import humanize
-from invoke.context import Context
+from ewok import Context
 from termcolor import colored, cprint
 
 from .helpers import AnyDict, dc_config, dump_set_as_list, noop

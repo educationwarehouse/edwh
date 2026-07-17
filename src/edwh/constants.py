@@ -11,5 +11,6 @@ DEFAULT_TOML_NAME = ".toml"  # was config.toml
 FALLBACK_TOML_NAME = "default.toml"
 LEGACY_TOML_NAME = "config.toml"  # set to None when no longer supported
 DEFAULT_DOTENV_PATH = Path(".env")
+DEFAULT_HOST = "localhost"
 
 type AnyDict = dict[str, t.Any]

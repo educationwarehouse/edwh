@@ -12,6 +12,7 @@ import shutil
 import sys
 import threading
 import time
+import tomllib
 import traceback
 import typing as t
 import warnings
@@ -29,19 +30,18 @@ import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
-from ewok import Task, format_frame, task
+from ewok import Context, Task, format_frame, task
 from invoke import Promise, Runner
-from invoke.context import Context
 from packaging.version import parse as parse_version
 from rapidfuzz import fuzz
 from termcolor import colored, cprint
 from termcolor._types import Color
-from tomlkit import TOMLDocument
 from typing_extensions import Never
 
 from .__about__ import __version__ as edwh_version
 from .constants import (
     DEFAULT_DOTENV_PATH,
+    DEFAULT_HOST,
     DEFAULT_TOML_NAME,
     DOCKER_COMPOSE,
     FALLBACK_TOML_NAME,
@@ -373,7 +373,7 @@ class TomlConfig:
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
-        ctx = Context()
+        ctx = Context(host=DEFAULT_HOST)
 
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
@@ -439,7 +439,7 @@ def process_env_file(env_path: Path) -> dict[str, str]:
         return {}
 
     values = dotenv_values(env_path)
-    return dict(values)
+    return t.cast(dict[str, str], dict(values))
 
 
 def exists_nonempty(path: Path) -> bool:
@@ -606,7 +606,7 @@ def check_env(
     suffix = suffix or postfix
 
     if callable(default):
-        default = default()
+        default = default()  # type: ignore
 
     non_interactive = os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
     from_env = os.environ.get("EDWH_FROM_ENV", "0") == "1"
@@ -626,18 +626,21 @@ def check_env(
         if allowed_values and value not in allowed_values:
             raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
 
+    str_value = str(value)
+
     if prefix:
-        value = prefix + value
+        str_value = prefix + str_value
     if suffix:
-        value += suffix
+        str_value += suffix
 
     with env_path.open(mode="a") as env_file:
         # append mode ensures we're writing at the end
-        env_file.write(f"\n{key.upper()}={value}")
+        env_file.write(f"\n{key.upper()}={str_value}")
 
         # update in memory too:
-        env[key] = value
-        return value
+        env[key] = str_value
+
+    return str_value
 
 
 def get_env_value(key: str, default: str | type[Exception] = KeyError) -> str:
@@ -720,7 +723,7 @@ def write_content_to_toml_file(
     filepath = Path(filename)
 
     config_toml_file = read_toml_config(filepath)
-    config_toml_file["services"][content_key] = content
+    config_toml_file["services"][content_key] = content  # type: ignore
 
     write_toml_config(filepath, config_toml_file)
 
@@ -792,7 +795,9 @@ def write_toml_config(fp: Path, config: ConfigTomlDict) -> int:
     return fp.write_text(tomlkit.dumps(config))
 
 
-def include_services(service: str, services: list[str], key: TomlKeys, config_toml_file: TOMLDocument, overwrite: bool):
+def include_services(
+    service: str, services: list[str], key: TomlKeys, config_toml_file: ConfigTomlDict, overwrite: bool
+):
     # adds to services
     if not services:
         write_content_to_toml_file(key, "false")
@@ -833,13 +838,10 @@ def write_user_input_to_config_toml(
     include_services("celery", services_celery, "include_celeries_in_minimal", config_toml_file, overwrite)
 
     # get chosen services for minimal and logs
-    minimal_services = t.cast(  # type: ignore
-        list[str],
-        (
-            services_no_workers
-            if config_toml_file["services"]["services"] == "discover"
-            else config_toml_file["services"]["services"]
-        ),
+    minimal_services = (
+        services_no_workers
+        if config_toml_file["services"]["services"] == "discover"
+        else config_toml_file["services"]["services"]
     )
 
     # services
@@ -889,7 +891,8 @@ def load_dockercompose_with_includes(
     This function uses the `docker compose config` command to properly load the entire config with all enabled services.
     """
     if not c:
-        c = Context()
+        c = Context(host=DEFAULT_HOST)
+
     if not isinstance(dc_path, Path):
         dc_path = Path(dc_path)
 
@@ -1214,7 +1217,11 @@ def volumes(ctx: Context) -> None:
     stdout = ran.stdout if ran else ""
     for container_id in stdout.strip().split("\n"):
         with contextlib.suppress(EnvironmentError):
-            info = docker_inspect(ctx, container_id)[0]
+            docker_info = docker_inspect(ctx, container_id)
+            if not isinstance(docker_info, list):
+                continue
+
+            info = docker_info[0]
             container = info["Name"]
             lines.extend(
                 dict(container=container, volume=volume)
@@ -1245,7 +1252,7 @@ def get_service_dependencies(ctx: Context, service: str) -> list[str]:
         config = json.loads(result.stdout.strip())
         services = config.get("services", {})
         service_config = services.get(service, {})
-        depends_on = service_config.get("depends_on", {})
+        depends_on: dict[str, t.Any] = service_config.get("depends_on", {})
 
         # depends_on can be a list or a dict
         if isinstance(depends_on, dict):
@@ -1371,7 +1378,7 @@ def inspect_health(ctx, container: str, quiet: bool = False) -> dict:
 @task(
     iterable=("service",),
 )
-def wait_until_healthy(ctx: Context, services: list[str] = (), quiet: bool = False):
+def wait_until_healthy(ctx: Context, services: t.Iterable[str] = (), quiet: bool = False):
     initial_length = 0
     # for every container with a health check, wait for it to be either healthy or dead (not starting)
     while missing := [_.container for _ in get_healths(ctx, *services) if _ and _.health == "starting"]:
@@ -1445,6 +1452,11 @@ def health(
     return sum(not _.ok for _ in healths)
 
 
+class DockerProject(t.TypedDict):
+    count: int
+    container_statuses: list[str]
+
+
 @task(aliases=("psa",))
 def ps_all(ctx):
     """
@@ -1453,7 +1465,7 @@ def ps_all(ctx):
     result = ctx.run("docker ps --format '{{json .}}'", hide=True)
     lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
-    projects = defaultdict(lambda: {"count": 0, "container_statuses": []})
+    projects: dict[str, DockerProject] = defaultdict(lambda: {"count": 0, "container_statuses": []})
 
     for line in lines:
         container_data = json.loads(line)
@@ -1480,6 +1492,9 @@ def ps_all(ctx):
 
     table_rows = []
     for project_name, info in sorted(projects.items()):
+        if not isinstance(info, dict):
+            continue
+
         statuses_set = set(info["container_statuses"])
 
         if "unhealthy" in statuses_set:
@@ -2295,7 +2310,11 @@ def clean_postgres(ctx: Context, yes: bool = False) -> None:
             continue
 
         for container_id in container_ids:
-            info = docker_inspect(ctx, container_id)[0]
+            docker_info = docker_inspect(ctx, container_id)
+            if not isinstance(docker_info, list):
+                continue
+
+            info = docker_info[0]
             pg_data_volumes.extend([mount["Name"] for mount in info["Mounts"] if "Name" in mount])
 
     # stop, remove the postgres instances and remove anonymous volumes
@@ -2418,6 +2437,32 @@ def find_ruff() -> str:
     return ruff.find_ruff_bin()
 
 
+def find_ty() -> str:
+    """Use Ty's own logic to find the required binary."""
+    from ty import find_ty_bin
+
+    return find_ty_bin()
+
+
+def enabled_lint_tools() -> dict[str, bool]:
+    """Return the enabled lint tools for the current project.
+
+    Projects can opt out of either tool independently in ``pyproject.toml``:
+
+        [tool.edwh.lint]
+        ruff = false
+        ty = false
+    """
+    pyproject = Path("pyproject.toml")
+    if not pyproject.exists():
+        return {"ruff": True, "ty": True}
+
+    config = tomllib.loads(pyproject.read_text())
+    lint_config = config.get("tool", {}).get("edwh", {}).get("lint", {})
+
+    return {tool: lint_config.get(tool, True) is not False for tool in ("ruff", "ty")}
+
+
 type OutputMode = t.Literal["ci", "cli", "json"]
 
 
@@ -2463,10 +2508,10 @@ def run_command_with_output(
     ok = bool(result and result.ok)
     should_print = not ok and mode != "json"
 
-    if should_print and result.stdout:
+    if should_print and result and result.stdout:
         print(result.stdout, end="")
 
-    if should_print and result.stderr:
+    if should_print and result and result.stderr:
         print(result.stderr, end="", file=sys.stderr)
 
     if tool and mode in {"cli", "ci"}:
@@ -2488,7 +2533,10 @@ def lint(
     output: OutputMode = "cli",
 ) -> LintOutput:
     """
-    Lint code with `ruff`.
+    Lint code with `ruff` and `ty`.
+
+    Disable either tool for a project with ``[tool.edwh.lint]`` in
+    ``pyproject.toml``. Both are enabled by default.
 
     Args:
         ctx: invoke context
@@ -2498,22 +2546,34 @@ def lint(
         output: render output as cli, ci, or json
     """
     directory = directory or "."
-    output = output.lower()
+    output = t.cast(OutputMode, output.lower())
 
     if output not in {"cli", "ci", "json"}:
         raise ValueError(f"Invalid --output value: {output}. Expected one of: cli, ci, json.")
 
-    ruff = find_ruff()
+    enabled_tools = enabled_lint_tools()
+    results: dict[str, bool] = {}
 
-    command = [ruff, "check", directory, "--quiet"]
-    if select:
-        command.extend(("--select", select))
-    if fix:
-        command.append("--fix")
+    if enabled_tools["ruff"]:
+        ruff = find_ruff()
+        command = [ruff, "check", directory, "--quiet"]
+        if select:
+            command.extend(("--select", select))
+        if fix:
+            command.append("--fix")
 
-    ok = run_command_with_output(ctx, shlex.join(command), mode=output, tool="ruff")
+        results["linting (ruff)"] = run_command_with_output(ctx, shlex.join(command), mode=output, tool="ruff")
 
-    return {"mode": output, "results": {"linting (ruff)": ok}}
+    if enabled_tools["ty"]:
+        ty = find_ty()
+        results["type checking (ty)"] = run_command_with_output(
+            ctx,
+            shlex.join([ty, "check", directory]),
+            mode=output,
+            tool="ty",
+        )
+
+    return {"mode": output, "results": results}
 
 
 @task(aliases=("format",), hookable=True)
@@ -2550,7 +2610,7 @@ def fmt(
     if reformat:
         # note: ruff format --quiet also hides what's wrong, so instead pipe stdout to dev null and only show stderr:
         color = "green" if run_pty_ok(ctx, ruff, f"format {target} > /dev/null") else "red"
-        cprint("● reformat", color=color)
+        cprint("⬤ reformat", color=color)
 
     if not quiet and not ioptimize:
         # print out unused imports:

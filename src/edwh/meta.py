@@ -4,12 +4,10 @@ This files contains everything to do with meta-tasks such as self-updating
 
 import concurrent.futures
 import sys
-import typing
-from typing import Optional
+import typing as t
 
 import yayarl as yarl
-from ewok import task
-from invoke.context import Context
+from ewok import Context, task
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
@@ -40,7 +38,7 @@ def _get_pypi_info(package: str) -> AnyDict:
     """
     url = PYPI_URL_BASE / package / "json"
     resp = url.get(timeout=10)
-    return typing.cast(AnyDict, resp.json())
+    return t.cast(AnyDict, resp.json())
 
 
 def _get_latest_version_from_pypi(package: str) -> Version:
@@ -54,7 +52,7 @@ def _get_latest_version_from_pypi(package: str) -> Version:
     return parse_package_version(data["info"]["version"])
 
 
-def _get_available_plugins_from_pypi(package: str, extra: Optional[str] = None) -> list[str]:
+def _get_available_plugins_from_pypi(package: str, extra: str | None = None) -> list[str]:
     """
     List all plugins available for package, optionally for a specific 'extra'.
 
@@ -79,7 +77,7 @@ def _get_available_plugins_from_pypi(package: str, extra: Optional[str] = None) 
     return list(extras)
 
 
-def _gather_package_metadata_threaded(packages: typing.Iterable[str]) -> dict[str, AnyDict | None]:
+def _gather_package_metadata_threaded(packages: t.Iterable[str]) -> dict[str, AnyDict | None]:
     """
     For any package in packages, gather its metadata from pypi
     """
@@ -92,14 +90,12 @@ def _gather_package_metadata_threaded(packages: typing.Iterable[str]) -> dict[st
     return all_data
 
 
-def _determine_newest_version(releases: typing.Collection[str]) -> str:
+def _determine_newest_version(releases: t.Collection[str]) -> str:
     sorted_releases = sorted(releases, key=Version)
     return sorted_releases[-1]
 
 
-def _determine_outdated_threaded(
-    installed_plugins: typing.Collection[str], prerelease: bool = False
-) -> dict[str, Version]:
+def _determine_outdated_threaded(installed_plugins: t.Collection[str], prerelease: bool = False) -> dict[str, Version]:
     """
     Like _determine_outdated but parallelized with Threading
 
@@ -118,7 +114,10 @@ def _determine_outdated_threaded(
 
             latest_stable = metadata["info"]["version"]
             latest_prerelease = _determine_newest_version(metadata["releases"].keys()) if prerelease else None
-            latest_version = parse_package_version(latest_prerelease if prerelease else latest_stable)
+            if not (latest_stable or latest_prerelease):
+                continue
+
+            latest_version = parse_package_version(t.cast(str, latest_prerelease if prerelease else latest_stable))
         except Exception:
             # no current or latest version found? skip
             continue
@@ -233,4 +232,5 @@ def is_installed(ctx: Context, command: str) -> bool:
     """
     Check if a bash command is known.
     """
-    return ctx.run(f"which {command}", hide="both", warn=True).ok
+    result = ctx.run(f"which {command}", hide="both", warn=True)
+    return bool(result and result.ok)
