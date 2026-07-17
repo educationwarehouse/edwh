@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.0 (2026-07-17)
+
+### Feature
+
+* **lint:** Add Ty type checking and project-level lint configuration ([`d238e79`](https://github.com/educationwarehouse/edwh/commit/d238e7919dab4f4857ba519bc44b19d17746e4c5))
+
 ## v1.10.4 (2026-07-10)
 
 ### Fix
