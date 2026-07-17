@@ -30,7 +30,7 @@ import tabulate
 import tomlkit  # has more features than tomllib
 import yaml
 from dotenv import dotenv_values
-from ewok import Context, Task, format_frame, task
+from ewok import Task, format_frame, task
 from invoke import Promise, Runner
 from packaging.version import parse as parse_version
 from rapidfuzz import fuzz
@@ -41,7 +41,6 @@ from typing_extensions import Never
 from .__about__ import __version__ as edwh_version
 from .constants import (
     DEFAULT_DOTENV_PATH,
-    DEFAULT_HOST,
     DEFAULT_TOML_NAME,
     DOCKER_COMPOSE,
     FALLBACK_TOML_NAME,
@@ -373,7 +372,7 @@ class TomlConfig:
         Returns a dictionary with CONFIG, ALL_SERVICES, CELERIES and MINIMAL_SERVICES
         """
         singleton_key = (str(fname), str(dotenv_path))
-        ctx = Context(host=DEFAULT_HOST)
+        ctx = invoke.Context()
 
         if cache and (instance := tomlconfig_singletons.get(singleton_key)):
             return instance
@@ -882,7 +881,7 @@ def write_user_input_to_config_toml(
 
 
 def load_dockercompose_with_includes(
-    c: Optional[Context] = None,
+    c: Optional[invoke.Context] = None,
     dc_path: str | Path = "docker-compose.yml",
 ) -> AnyDict:
     """
@@ -891,7 +890,7 @@ def load_dockercompose_with_includes(
     This function uses the `docker compose config` command to properly load the entire config with all enabled services.
     """
     if not c:
-        c = Context(host=DEFAULT_HOST)
+        c = invoke.Context()
 
     if not isinstance(dc_path, Path):
         dc_path = Path(dc_path)
