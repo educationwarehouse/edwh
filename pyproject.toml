@@ -34,7 +34,7 @@ dependencies = [
     "anyio < 5", # for async log reading
     "click < 9", # for interactive select box (e.g. in `ew setup`)
     "diceware < 2", # for generating random, safe passhprases
-    "ewok >= 0.5.0, < 1", # base cli tool based on invoke and fabric
+    "ewok >= 0.5.1, < 1", # base cli tool based on invoke and fabric
     "humanize < 5", # for making raw sizes huam nreadable
     "more-itertools", # improved 'flatten' function (among others)
     "docstring_parser < 1", # better help
@@ -46,8 +46,8 @@ dependencies = [
     "pyyaml < 7", # yaml parser (for docker-compose.yml)
     "rapidfuzz < 4",  # levenshtein my beloved
     "requests < 3", # better than urllib no?
-    "ruff==0.15.17", # For `edwh fmt`, `edwh lint`
-    "tabulate < 1", # for nice cli tables
+    "ruff==0.15.21", # For `edwh fmt`, `edwh lint`
+    "tabulate >= 0.9, < 0.10", # for nice cli tables; b2 4.x is incompatible with 0.10+
     "termcolor < 3", # improved ansi colored print (v3 removes Color type)
     "ty==0.0.60", # For `edwh lint`
     "threadful >= 0.5, < 1", # running things in different threads easily, with animations
