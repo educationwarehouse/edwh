@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.2 (2026-07-17)
+
+### Fix
+
+* Explicitly use 'invoke.Context' when needed (instead of going through Fabric) II ([`bc3880e`](https://github.com/educationwarehouse/edwh/commit/bc3880eb807206e9c3ef144398419094bdccde9f))
+
 ## v1.11.1 (2026-07-17)
 
 ### Fix
