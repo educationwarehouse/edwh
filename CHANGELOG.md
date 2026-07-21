@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.3 (2026-07-21)
+
+### Fix
+
+* **lint:** Safely handle empty command results, print out if errors again ([`00eb159`](https://github.com/educationwarehouse/edwh/commit/00eb1599d9460f50546f872ba48a3399b966cdb5))
+
 ## v1.11.2 (2026-07-17)
 
 ### Fix
