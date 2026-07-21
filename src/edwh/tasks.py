@@ -2507,10 +2507,10 @@ def run_command_with_output(
     ok = bool(result and result.ok)
     should_print = not ok and mode != "json"
 
-    if should_print and result and result.stdout:
+    if should_print and result is not None and result.stdout:
         print(result.stdout, end="")
 
-    if should_print and result and result.stderr:
+    if should_print and result is not None and result.stderr:
         print(result.stderr, end="", file=sys.stderr)
 
     if tool and mode in {"cli", "ci"}:
