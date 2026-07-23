@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.0 (2026-07-23)
+
+### Feature
+
+* Unlock keyring on headless machine via SSH-agent backend ([#15](https://github.com/educationwarehouse/edwh/issues/15)) ([`ccf1d35`](https://github.com/educationwarehouse/edwh/commit/ccf1d35b0d6b4cc91aa1fbeb26b837e7f27cc670))
+
 ## v1.11.3 (2026-07-21)
 
 ### Fix
