@@ -9,6 +9,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -34,6 +35,7 @@ from ewok import Context, Task, format_frame, task
 from invoke import Promise, Runner
 from packaging.version import parse as parse_version
 from rapidfuzz import fuzz
+from ssh_agent_keyring.backend import SSHAgentKeyring
 from termcolor import colored, cprint
 from termcolor._types import Color
 from typing_extensions import Never
@@ -923,6 +925,59 @@ def prompt_validate_sudo_pass(c: Context):
         return None
 
 
+def ssh_agent_keyring_config_path() -> Path:
+    config_root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return config_root / "ssh-agent-keyring" / "config.json"
+
+
+def use_configured_ssh_agent_keyring() -> bool:
+    if not ssh_agent_keyring_config_path().exists():
+        return False
+
+    keyring.set_keyring(SSHAgentKeyring())
+    return True
+
+
+def configure_ssh_agent_keyring() -> bool:
+    result = subprocess.run(["ssh-add", "-L"], text=True, capture_output=True, check=False)
+    public_keys = [key for key in result.stdout.splitlines() if key.startswith("ssh-")]
+    if not public_keys:
+        cprint("No public keys are available from SSH_AUTH_SOCK.", color="red")
+        return False
+
+    options = {
+        public_key: f"{parts[0]} {parts[1][:20]}… {' '.join(parts[2:])}".strip()
+        for public_key in public_keys
+        if len(parts := public_key.split()) >= 2
+    }
+    public_key = interactive_selected_radio_value(options, prompt="Select the SSH key for EDWH's encrypted keyring:")
+    if not public_key:
+        return False
+
+    config_path = ssh_agent_keyring_config_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config = json.loads(config_path.read_text()) if config_path.exists() else {}
+    config["public_key"] = public_key
+    config_path.write_text(json.dumps(config, indent=2) + "\n")
+
+    keyring.set_keyring(SSHAgentKeyring())
+    return True
+
+
+def ensure_keyring_unlocked() -> bool:
+    """Offer a secure SSH-agent fallback when the system keyring is locked."""
+    use_configured_ssh_agent_keyring()
+
+    try:
+        keyring.get_password("edwh", "sudo")
+    except keyring.errors.KeyringLocked:
+        if confirm("The system keyring is locked. Would you like to use your SSH agent instead? [Yn]", default=True):
+            return configure_ssh_agent_keyring()
+        return False
+
+    return True
+
+
 @task()
 def require_sudo(c: Context) -> bool:
     """
@@ -939,6 +994,8 @@ def require_sudo(c: Context) -> bool:
                 c.sudo('echo "I am the captain now."')
 
     """
+    use_configured_ssh_agent_keyring()
+
     ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
     if ran and ran.ok:
         # prima
@@ -969,6 +1026,9 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 
 @task()
 def sudo(c: Context):
+    if not ensure_keyring_unlocked():
+        return
+
     # 1.
     # check current status in keyring
     try:
