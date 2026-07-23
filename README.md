@@ -9,6 +9,7 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Sudo authentication](#sudo-authentication)
 - [Linting](#linting)
 - [Plugins](#plugins)
 - [License](#license)
@@ -41,6 +42,23 @@ ew help <namespace> # e.g. `ew help plugin`
 # to see help about a specific command:
 ew help <command> # e.g. `ew help plugin.list` 
 ```
+
+## Sudo authentication
+
+`edwh sudo` verifies your sudo password and safely stores it temporarily so commands that require sudo can run without
+prompting again.
+
+By default, EDWH uses the operating system keyring (for example, GNOME Secret Service on Linux). This is the preferred
+backend when the desktop session and its keyring are available.
+
+When the system keyring is locked, `edwh sudo` offers an SSH-agent fallback. If you accept, EDWH lists the public keys
+available through `ssh-add -L`; select the key whose agent should unlock the encrypted EDWH keyring. The selection is
+recorded in `~/.config/ssh-agent-keyring/config.json`, the SSH-agent backend's documented configuration file, and later
+EDWH commands automatically use that backend.
+
+The SSH-agent backend requires a reachable agent, `SSH_AUTH_SOCK`, and the selected key loaded in that agent. For a
+remote development machine, connect with agent forwarding (`ssh -A` or `ForwardAgent yes`). The sudo password remains
+encrypted on disk; access depends on the selected SSH agent rather than a second keyring password.
 
 ## Linting
 
