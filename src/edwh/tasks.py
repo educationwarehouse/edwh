@@ -9,6 +9,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -923,6 +924,28 @@ def prompt_validate_sudo_pass(c: Context):
         return None
 
 
+def ensure_keyring_unlocked() -> bool:
+    """Offer to unlock a locked GNOME keyring before using it."""
+    try:
+        keyring.get_password("edwh", "sudo")
+    except keyring.errors.KeyringLocked:
+        if not confirm("The system keyring is locked. Would you like to unlock it? [Yn]", default=True):
+            return False
+
+        keyring_password = getpass("Please enter the keyring password: ")
+        result = subprocess.run(
+            ["gnome-keyring-daemon", "--unlock", "--components=secrets"],
+            input=keyring_password,
+            text=True,
+            check=False,
+        )
+        if result.returncode:
+            cprint("Unable to unlock the system keyring.", color="red")
+            return False
+
+    return True
+
+
 @task()
 def require_sudo(c: Context) -> bool:
     """
@@ -969,6 +992,9 @@ def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
 
 @task()
 def sudo(c: Context):
+    if not ensure_keyring_unlocked():
+        return
+
     # 1.
     # check current status in keyring
     try:
