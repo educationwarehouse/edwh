@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.1 (2026-07-24)
+
+### Fix
+
+* Bump ty&ruff ([`374517a`](https://github.com/educationwarehouse/edwh/commit/374517a3f20a14330c23fb5fcc617a52cca7ae5b))
+
 ## v1.12.0 (2026-07-23)
 
 ### Feature
