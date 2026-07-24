@@ -131,6 +131,7 @@ DEFAULT_DOTENV_PATH = Path(".env")
 # Cached singletons for expensive operations
 tomlconfig_singletons: dict[tuple[str, str], TomlConfig] = {}
 
+
 @classmethod
 def load(cls, fname: str = DEFAULT_TOML_NAME, cache: bool = True) -> TomlConfig:
     if cache and (instance := tomlconfig_singletons.get(singleton_key)):
@@ -145,10 +146,7 @@ def load(cls, fname: str = DEFAULT_TOML_NAME, cache: bool = True) -> TomlConfig:
 ```python
 # GOOD: Actionable error messages
 if not dc_path.exists():
-    cprint(
-        "docker-compose.yml file is missing, setup could not be completed!",
-        color="red"
-    )
+    cprint("docker-compose.yml file is missing, setup could not be completed!", color="red")
     return None
 
 # AVOID: Technical jargon
@@ -171,7 +169,7 @@ except FileNotFoundError:
 ```python
 # Consistent color coding
 cprint("Success message", "green")
-cprint("Warning message", "yellow")  
+cprint("Warning message", "yellow")
 cprint("Error message", "red")
 cprint("Info message", "blue")
 
@@ -189,7 +187,7 @@ def check_env(
     key: str,
     default: str | Callable,  # Callable for lazy evaluation
     comment: str,
-    allowed_values: Iterable[str] = ()
+    allowed_values: Iterable[str] = (),
 ) -> str:
     """Ensure environment variable exists with validation."""
     pass
@@ -208,10 +206,10 @@ if boolish(config["services"].get("include_celeries_in_minimal", "false")):
 ```python
 # Always use type hints for public APIs
 def service_names(
-    service_arg: Collection[str] | None,
-    default: Literal["all", "minimal", "logs", "celeries"] | None = None
+    service_arg: Collection[str] | None, default: Literal["all", "minimal", "logs", "celeries"] | None = None
 ) -> list[str]:
     pass
+
 
 # Use TypedDict for complex structures
 class ServicesTomlConfig(TypedDict, total=False):
@@ -223,8 +221,7 @@ class ServicesTomlConfig(TypedDict, total=False):
 ```python
 # Use generics for reusable components
 def interactive_selected_checkbox_values[H: Hashable](
-    options: list[str] | dict[H, str],
-    selected: Collection[H] = ()
+    options: list[str] | dict[H, str], selected: Collection[H] = ()
 ) -> list[str] | None:
     pass
 ```
@@ -281,7 +278,9 @@ my_plugin = "my_package.tasks"
 # Lazy loading for expensive imports
 def get_task(ctx: Context, identifier: str) -> Task | None:
     from .local_tasks import plugin  # Import only when needed
+
     pass
+
 
 # Threading for I/O operations
 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -292,6 +291,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 ```python
 # Module-level cache for expensive operations
 _dotenv_settings: dict[str, dict[str, str]] = {}
+
 
 def read_dotenv(env_path: Path) -> dict[str, str]:
     if existing := _dotenv_settings.get(str(env_path)):
@@ -327,6 +327,7 @@ def generate_password(silent: bool = True, dice: int = 6) -> str:
 ```python
 from typing_extensions import deprecated
 
+
 @deprecated("Use new_function instead")
 def old_function():
     warnings.warn("Deprecated", DeprecationWarning)
@@ -340,7 +341,7 @@ def check_env(
     default: str,
     comment: str,
     postfix: str = None,  # Deprecated
-    suffix: str = None,   # New parameter
+    suffix: str = None,  # New parameter
 ):
     if postfix:
         warnings.warn("Use 'suffix' instead of 'postfix'", DeprecationWarning)

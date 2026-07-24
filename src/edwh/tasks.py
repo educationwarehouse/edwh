@@ -27,6 +27,7 @@ from typing import Optional
 import ewok
 import invoke
 import keyring
+import keyring.errors
 import tabulate
 import tomlkit  # has more features than tomllib
 import yaml

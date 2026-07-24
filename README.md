@@ -206,7 +206,7 @@ Using a dictionary as the return value is recommended, as it allows you to merge
 from edwh import improved_task as task
 
 
-@task(flags={'exclude': ['--exclude', '-x'], 'as_json': ['--json']}, hookable=True)
+@task(flags={"exclude": ["--exclude", "-x"], "as_json": ["--json"]}, hookable=True)
 def process_data(ctx, exclude: str, as_json: bool = False):
     # Task implementation here
     return {
@@ -220,7 +220,7 @@ def process_data(ctx, exclude: str):
     # the cascading function can choose whether to include the arguments `exclude` and `as_json` or not.
     # this can be cherry-picked as long as the names match the arguments of the main function.
     print(
-        ctx["result"] # will contain {"data": []}
+        ctx["result"]  # will contain {"data": []}
     )
 ```
 
