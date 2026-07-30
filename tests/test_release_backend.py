@@ -9,7 +9,7 @@ import inspect
 
 import pytest
 
-from edwh.release_backend import (
+from src.edwh.release_backend import (
     detect_backend,
     enable_publishing,
     pin_backend,

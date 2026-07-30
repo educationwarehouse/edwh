@@ -67,15 +67,10 @@ dev = [
     "types-python-dateutil",
     "types-redis",
     "types-tabulate",
-    "vommit >= 0.1.1, < 1", # so `edwh lint` can resolve the optional release backend
+    "vommit >= 0.1.1, < 1", # so `edwh lint` can resolve it
 ]
 
-# The modern release backend. Optional at runtime: `plugin.release` offers to
-# install it when a project wants it. Deliberately NOT in `plugins` below --
-# that list is read by `plugin.list`, which expects edwh-*-plugin names.
-vommit = [
-    "vommit >= 0.1.1, < 1",
-]
+vommit = ["vommit >= 0.1.1, < 1"] # release backend; keep out of `plugins`
 
 omgeving = [
     # no extra dependencies anymore !

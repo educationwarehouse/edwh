@@ -9,7 +9,6 @@ import json
 import os
 import re
 import sys
-import types
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -36,6 +35,8 @@ from ..meta import (
     _parse_versions,
     _pip,
     is_installed,
+    pip_install,
+    pip_uninstall,
 )
 from ..release_backend import (
     PYPROJECT,
@@ -253,11 +254,9 @@ def add_all(c: Context) -> None:
     Args:
         c (Context): invoke ctx
     """
-    pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins_joined = " ".join(plugins)
-    c.run(f"{pip} install {plugins_joined}")
+    pip_install(c, *plugins)
 
 
 @task()
@@ -268,11 +267,9 @@ def remove_all(c: Context) -> None:
     Args:
         c (Context): invoke ctx
     """
-    pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins_joined = " ".join(plugins)
-    c.run(f"{pip} uninstall {plugins_joined}")
+    pip_uninstall(c, *plugins)
 
 
 @task(aliases=("install",))
@@ -289,11 +286,9 @@ def add(c: Context, plugin_names: str) -> None:
     if plugin_names == "all":
         return add_all(c)
 
-    pip = _pip()
-
     plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} install " + " ".join(plugin_names_splitted))
+    pip_install(c, *plugin_names_splitted)
 
 
 @task(aliases=("upgrade",))
@@ -318,8 +313,6 @@ def update(
 
         return self_update(c, no_cache=force)
 
-    pip = _pip()
-
     plugins_with_version = []
     for plugin_name in plugin_names.split(","):
         plugin_name = _require_affixes(plugin_name.strip())
@@ -329,7 +322,7 @@ def update(
     if verbose:
         cprint(str(plugins_with_version), "blue")
 
-    c.run(f"{pip} install " + " ".join(plugins_with_version))
+    pip_install(c, *plugins_with_version)
 
 
 @task(aliases=("uninstall",))
@@ -344,11 +337,10 @@ def remove(c: Context, plugin_names: str) -> None:
     if plugin_names == "all":
         return remove_all(c)
 
-    pip = _pip()
     # ensure the prefix and suffix exist, but not twice:
     plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} uninstall " + " ".join(plugin_names_splitted))
+    pip_uninstall(c, *plugin_names_splitted)
 
 
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
@@ -686,12 +678,52 @@ PSR_DEPRECATION = (
 )
 
 
-def _vommit() -> Optional[types.ModuleType]:
+class VommitTasks(typing.Protocol):
     """
-    vommit's task module, or None when the `edwh[vommit]` extra isn't installed.
+    The four vommit tasks we call, and the arguments we call them with.
 
-    Its tasks take a Context and are callable in-process, which is why vommit is
-    a dependency rather than a tool we shell out to: `bump` hands back the new
+    Spelled out rather than typed as a module, so a mistake in a keyword or a
+    reshape on vommit's side is a type error here instead of an AttributeError
+    during someone's release. `tests/test_release_backend.py` checks the real
+    signatures still match.
+    """
+
+    def setup(self, c: Context, /, *, project_dir: str) -> None: ...
+
+    def migrate(self, c: Context, /, *, project_dir: str) -> None: ...
+
+    def bump(
+        self,
+        c: Context,
+        /,
+        *,
+        major: bool = False,
+        minor: bool = False,
+        patch: bool = False,
+        prerelease: bool = False,
+        noop: bool = False,
+    ) -> Optional[str]: ...
+
+    def release(
+        self,
+        c: Context,
+        /,
+        *,
+        major: bool = False,
+        minor: bool = False,
+        patch: bool = False,
+        prerelease: bool = False,
+        noop: bool = False,
+        yes: bool = False,
+    ) -> Optional[str]: ...
+
+
+def _vommit() -> Optional[VommitTasks]:
+    """
+    vommit's tasks, or None when the `edwh[vommit]` extra isn't installed.
+
+    They take a Context and are callable in-process, which is why vommit is a
+    dependency rather than a tool we shell out to: `bump` hands back the new
     version instead of us regex-scraping it out of another process' stderr.
     """
     try:
@@ -699,7 +731,7 @@ def _vommit() -> Optional[types.ModuleType]:
     except ImportError:
         return None
 
-    return vommit_tasks
+    return typing.cast(VommitTasks, vommit_tasks)
 
 
 def _vommit_spec() -> str:
@@ -731,7 +763,7 @@ def require_vommit(ctx: Context) -> bool:
     if not confirm(f"vommit is not installed. Install {spec} now? [Yn] ", default=True):
         return False
 
-    ctx.run(f"{_pip()} install '{spec}'")
+    pip_install(ctx, spec)
 
     # site-packages is already on sys.path, so the import finder just needs to
     # be told to look again.
@@ -801,12 +833,10 @@ def _offer_switch(c: Context, backend: Backend, pyproject: Path) -> Backend:
         pin_backend("psr" if migrating else "vommit", pyproject)
         cprint(f"Recorded your choice in {pyproject}; edwh will not ask again.", "blue")
         return backend
-
-    if answer != SWITCH_NOW:
+    elif answer != SWITCH_NOW:
         # "not now", or the prompt was abandoned
         return backend
-
-    if not require_vommit(c):
+    elif not require_vommit(c):
         return backend
 
     if migrating:
@@ -908,6 +938,9 @@ def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Backend:
 def require_hatch(ctx: Context):
     """
     Task to ensure hatch is available.
+
+    Part of the deprecated release path; vommit projects set
+    [tool.vommit.commands] build/publish instead of passing --hatch.
     """
     if is_installed(ctx, "hatch"):
         return
@@ -995,6 +1028,12 @@ def authenticate(_: Context):
 
 
 def publish(c: Context, hatch: bool = False):
+    """
+    Upload a build, as the deprecated psr path does it.
+
+    Only reachable from `release`'s psr branch, which prints PSR_DEPRECATION
+    before it gets here; vommit projects publish via [tool.vommit.commands].
+    """
     if hatch:
         c.run("hatch publish")
     else:

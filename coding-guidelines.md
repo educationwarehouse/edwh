@@ -385,37 +385,19 @@ edwh plugin.release --patch  # 1.1.0 -> 1.1.1
 edwh plugin.release --major  # 1.1.1 -> 2.0.0
 ```
 
-`plugin.release` picks the release tool from the project it runs in:
+`plugin.release` picks its tool from the project: `[tool.vommit]` means
+[vommit](https://github.com/educationwarehouse/vommit), `[tool.semantic_release]`
+means psr (deprecated, removed in edwh 2.0), neither means you are offered
+`vommit setup`. A psr project is offered the switch: migrate now, not now, or
+never (recorded as `[tool.edwh.release] backend = "psr"`). `EDWH_NON_INTERACTIVE=1`
+skips the prompt and keeps the current tool.
 
-- **`[tool.vommit]` present** — [vommit](https://github.com/educationwarehouse/vommit)
-  releases it. `--hatch` does not apply; set `[tool.vommit.commands]` `build` and
-  `publish` instead.
-- **`[tool.semantic_release]` present** — python-semantic-release still works, but it
-  is deprecated and will be removed in edwh 2.0. You are offered a switch:
-
-  | Answer | What happens |
-  |---|---|
-  | migrate now | Installs vommit if needed, copies your PyPI token into vommit's keyring (edwh's stays), then runs vommit's interactive migrator |
-  | not now | Releases with psr this time, asks again next release |
-  | never | Records `[tool.edwh.release] backend = "psr"` and stops asking |
-
-- **Neither** — you are offered `vommit setup` to configure the project.
-
-Migration note: v7 projects here set `upload_to_repository = false` because
-`plugin.release` did the uploading. vommit translates that faithfully to
-`pypi.enabled = false`, so after migrating you are asked whether to turn
-publishing back on. Say yes unless something else uploads for you.
-
-`EDWH_NON_INTERACTIVE=1` suppresses all of these prompts: the project keeps its
-current backend and a deprecation notice is printed instead.
-
-Once vommit is installed its own tasks are available too, for anything
-`plugin.release` does not expose (`--version`, `--allow-dirty`, `--no-bump`):
-
-```bash
-edwh vommit.release --version 2.0.0
-edwh vommit.migrate --on-unsupported=error
-```
+Migrating copies your PyPI token into vommit's keyring and asks whether to
+re-enable publishing — our v7 configs set `upload_to_repository = false` because
+`plugin.release` uploaded instead, and vommit would otherwise stop publishing.
+On vommit, `--hatch` is replaced by `[tool.vommit.commands]` build/publish, and
+`edwh vommit.*` exposes what `plugin.release` doesn't (`--version`,
+`--allow-dirty`, `--no-bump`).
 
 ## Anti-Patterns to Avoid
 

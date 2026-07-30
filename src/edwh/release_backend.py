@@ -16,6 +16,7 @@ Reads go through `tomllib` (like `enabled_lint_tools`), writes through
 
 import tomllib
 import typing as t
+from contextlib import contextmanager
 from pathlib import Path
 
 import keyring
@@ -156,16 +157,19 @@ def vommit_publishes(pyproject: Path = PYPROJECT) -> bool:
     return pypi.get("enabled", True) is not False
 
 
-def _edit(pyproject: Path) -> tuple[tomlkit.TOMLDocument, t.Callable[[], None]]:
+@contextmanager
+def _edit(pyproject: Path) -> t.Iterator[tomlkit.TOMLDocument]:
     """
-    A tomlkit document plus the call that writes it back.
+    Edit a pyproject in place, keeping its comments and formatting.
+
+    Written back on a clean exit only, so a failure part-way leaves the file
+    as it was rather than half-updated.
     """
     document = tomlkit.parse(pyproject.read_text()) if pyproject.exists() else tomlkit.document()
 
-    def save() -> None:
-        pyproject.write_text(tomlkit.dumps(document))
+    yield document
 
-    return document, save
+    pyproject.write_text(tomlkit.dumps(document))
 
 
 def _table(document: tomlkit.TOMLDocument, path: t.Sequence[str]) -> t.Any:
@@ -185,18 +189,16 @@ def pin_backend(backend: Backend, pyproject: Path = PYPROJECT) -> None:
     """
     Record the release backend in the project, so we stop asking.
     """
-    document, save = _edit(pyproject)
-    _table(document, PIN_KEY)["backend"] = backend
-    save()
+    with _edit(pyproject) as document:
+        _table(document, PIN_KEY)["backend"] = backend
 
 
 def enable_publishing(pyproject: Path = PYPROJECT) -> None:
     """
     Turn vommit's publishing step back on after a migration turned it off.
     """
-    document, save = _edit(pyproject)
-    _table(document, (*VOMMIT_KEY, "pypi"))["enabled"] = True
-    save()
+    with _edit(pyproject) as document:
+        _table(document, (*VOMMIT_KEY, "pypi"))["enabled"] = True
 
 
 def edwh_pypi_token() -> str | None:
