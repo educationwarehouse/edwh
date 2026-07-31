@@ -28,7 +28,7 @@ version = "1.0.0"
 
 @pytest.fixture
 def project(tmp_path):
-    """Run inside a throwaway project, with every prompt answered for us."""
+    """Build a throwaway project to run a task inside."""
 
     def make(content: str):
         (tmp_path / "pyproject.toml").write_text(content)
@@ -47,7 +47,12 @@ def no_vommit(monkeypatch):
 def refuses_install(monkeypatch):
     """Decline the install offer, and record that it was made."""
     offered = []
-    monkeypatch.setattr(plugin, "confirm", lambda prompt, **kw: offered.append(prompt) and False)
+
+    def decline(prompt, **_kwargs):
+        offered.append(prompt)
+        return False
+
+    monkeypatch.setattr(plugin, "confirm", decline)
     return offered
 
 
@@ -63,7 +68,8 @@ def no_psr(monkeypatch):
     monkeypatch.setattr(plugin, "_semantic_release_publish", forbidden)
 
 
-def test_configured_for_vommit_but_not_installed_offers_the_install(project, no_vommit, refuses_install):
+@pytest.mark.usefixtures("no_vommit")
+def test_configured_for_vommit_but_not_installed_offers_the_install(project, refuses_install):
     """
     vommit's config outlives its install -- a migrated project cloned onto a
     second machine has [tool.vommit] and no vommit. That has to reach the
@@ -76,7 +82,8 @@ def test_configured_for_vommit_but_not_installed_offers_the_install(project, no_
     assert "vommit is not installed" in refuses_install[0]
 
 
-def test_declining_that_install_does_not_release(project, no_vommit, refuses_install, no_psr):
+@pytest.mark.usefixtures("no_vommit", "refuses_install", "no_psr")
+def test_declining_that_install_does_not_release(project):
     """Refusing the install must stop, not fall back to the deprecated path."""
     with chdir(project(VOMMIT)):
         plugin.release(invoke.Context(), noop=True, pull=False)
@@ -88,8 +95,8 @@ def test_declining_that_install_does_not_release(project, no_vommit, refuses_ins
 def test_accepting_that_install_proceeds(project, monkeypatch):
     """Once vommit is importable, the backend resolves to it."""
     installed = []
-    monkeypatch.setattr(plugin, "confirm", lambda *a, **kw: True)
-    monkeypatch.setattr(plugin, "pip_install", lambda ctx, *specs, **kw: installed.extend(specs))
+    monkeypatch.setattr(plugin, "confirm", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(plugin, "pip_install", lambda _ctx, *specs, **_kwargs: installed.extend(specs))
     # absent until the install "runs", importable afterwards
     monkeypatch.setattr(plugin, "_vommit", lambda: object() if installed else None)
 
@@ -99,7 +106,8 @@ def test_accepting_that_install_proceeds(project, monkeypatch):
     assert installed and installed[0].startswith("vommit")
 
 
-def test_bump_without_any_backend_does_not_reach_psr(project, monkeypatch, no_psr):
+@pytest.mark.usefixtures("no_psr")
+def test_bump_without_any_backend_does_not_reach_psr(project, monkeypatch):
     """
     `release` already refused this; `bump` used to install psr and run it
     against a project that has no psr config.
@@ -122,7 +130,8 @@ def test_install_specifier_carries_the_declared_bound():
     assert plugin._vommit_spec().endswith(specifier)
 
 
-def test_require_vommit_task_keeps_its_result_to_itself(project, no_vommit, refuses_install):
+@pytest.mark.usefixtures("no_vommit", "refuses_install")
+def test_require_vommit_task_keeps_its_result_to_itself(project):
     """
     ewok writes a task's return value into the shared ctx["result"], which the
     enclosing task then returns as its own. `ensure_vommit` is a plain function

@@ -43,11 +43,8 @@ from ..release_backend import (
     Backend,
     copy_pypi_token,
     detect_backend,
-    enable_publishing,
     pin_backend,
-    psr_uploaded,
     store_vommit_pypi_token,
-    vommit_publishes,
 )
 
 
@@ -896,12 +893,9 @@ def _offer_switch(c: Context, backend: Backend, pyproject: Path) -> Backend:
 
 def _migrate_to_vommit(c: Context, pyproject: Path) -> Backend:
     """
-    Copy the PyPI token across, run vommit's migrator, then repair publishing.
+    Copy the PyPI token across, then hand over to vommit's migrator.
     """
     copy_pypi_token()
-
-    # psr's upload flags have to be read before the migrator strips its table
-    uploaded = psr_uploaded(pyproject)
 
     vommit_tasks = _vommit()
     assert vommit_tasks, "ensure_vommit returned True without vommit being importable"
@@ -911,7 +905,6 @@ def _migrate_to_vommit(c: Context, pyproject: Path) -> Backend:
         cprint("Migration did not complete; releasing with python-semantic-release for now.", "yellow")
         return "psr"
 
-    _restore_publishing(pyproject, psr_uploaded=uploaded)
     return "vommit"
 
 
@@ -939,29 +932,6 @@ def _vommit_configured(pyproject: Path) -> bool:
     from vommit.config import Config
 
     return Config.has_pyproject_config(pyproject)
-
-
-def _restore_publishing(pyproject: Path, psr_uploaded: bool) -> None:
-    """
-    Put back the publishing step a faithful migration just removed.
-
-    psr was not uploading because `plugin.release` did it afterwards, so
-    `upload_to_repository = false` translates to `pypi.enabled = false` and the
-    project silently stops reaching PyPI. vommit cannot know that; we can.
-    """
-    if psr_uploaded or vommit_publishes(pyproject):
-        return
-
-    cprint(
-        "python-semantic-release was not uploading, so vommit turned publishing off. "
-        "But `plugin.release` was doing that upload, and vommit owns that step now.",
-        "yellow",
-    )
-    if confirm("Enable publishing (pypi.enabled = true)? [Yn] ", default=True):
-        enable_publishing(pyproject)
-        cprint("Enabled vommit's publishing step.", "green")
-    else:
-        cprint("Left publishing off: `vommit release` will bump, tag and push, but not publish.", "yellow")
 
 
 def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backend]:

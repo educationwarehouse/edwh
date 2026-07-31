@@ -11,11 +11,8 @@ import pytest
 
 from src.edwh.release_backend import (
     detect_backend,
-    enable_publishing,
     pin_backend,
     pinned_backend,
-    psr_uploaded,
-    vommit_publishes,
 )
 
 PSR = """[project]
@@ -107,34 +104,6 @@ def test_pin_alongside_existing_tool_edwh_table(tmp_path):
     text = pyproject.read_text()
     assert "ty = false" in text
     assert pinned_backend(pyproject) == "psr"
-
-
-@pytest.mark.parametrize(
-    "table,uploaded",
-    [
-        ("", True),  # no psr config: nothing was disabled
-        ("[tool.semantic_release]\nbranch = 'main'\n", True),  # v7 defaulted to true
-        ("[tool.semantic_release]\nupload_to_repository = false\n", False),
-        ("[tool.semantic_release]\nupload_to_pypi = false\n", False),
-    ],
-)
-def test_psr_uploaded(tmp_path, table, uploaded):
-    """Read before migrating: vommit strips the table it is derived from."""
-    assert psr_uploaded(write(tmp_path, f'[project]\nname = "demo"\n\n{table}')) is uploaded
-
-
-def test_enable_publishing_restores_the_step_migration_removed(tmp_path):
-    """psr wasn't uploading because plugin.release was; vommit owns that now."""
-    pyproject = write(tmp_path, VOMMIT + "\n[tool.vommit.pypi]\nenabled = false\n")
-    assert vommit_publishes(pyproject) is False
-
-    enable_publishing(pyproject)
-
-    assert vommit_publishes(pyproject) is True
-
-
-def test_publishing_defaults_to_on_without_a_pypi_section(tmp_path):
-    assert vommit_publishes(write(tmp_path, VOMMIT)) is True
 
 
 def test_vommit_tasks_accept_the_arguments_we_pass():

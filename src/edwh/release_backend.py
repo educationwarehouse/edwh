@@ -38,10 +38,6 @@ PYPROJECT = Path("pyproject.toml")
 
 type Backend = t.Literal["vommit", "psr", "none"]
 
-# The psr keys that meant "do not upload"; edwh's convention set them because
-# `plugin.release` did the uploading itself.
-PSR_UPLOAD_KEYS = ("upload_to_repository", "upload_to_pypi")
-
 
 def _load(pyproject: Path) -> dict[str, t.Any]:
     """
@@ -127,36 +123,6 @@ def detect_backend(pyproject: Path = PYPROJECT) -> Backend:
     return "psr" if has_psr_config(pyproject) else "none"
 
 
-def psr_uploaded(pyproject: Path = PYPROJECT) -> bool:
-    """
-    Whether psr itself was uploading this project to an index.
-
-    Must be read *before* migrating, because vommit strips the table. When psr
-    was not uploading, vommit's translation faithfully turns publishing off --
-    and that is wrong for us, because the uploading was `plugin.release`'s job
-    all along. See `enable_publishing`.
-    """
-    psr = _nested(_load(pyproject), PSR_KEY)
-    if not isinstance(psr, dict):
-        # no psr config at all: nothing was disabled, so nothing to restore
-        return True
-
-    # v7 defaulted both to true; either one set to false stopped the upload.
-    return all(psr.get(key, True) is not False for key in PSR_UPLOAD_KEYS)
-
-
-def vommit_publishes(pyproject: Path = PYPROJECT) -> bool:
-    """
-    Whether a migrated project would actually publish.
-    """
-    pypi = _nested(_load(pyproject), (*VOMMIT_KEY, "pypi"))
-    if not isinstance(pypi, dict):
-        # the section is absent, which vommit reads as enabled
-        return True
-
-    return pypi.get("enabled", True) is not False
-
-
 @contextmanager
 def _edit(pyproject: Path) -> t.Iterator[tomlkit.TOMLDocument]:
     """
@@ -191,14 +157,6 @@ def pin_backend(backend: Backend, pyproject: Path = PYPROJECT) -> None:
     """
     with _edit(pyproject) as document:
         _table(document, PIN_KEY)["backend"] = backend
-
-
-def enable_publishing(pyproject: Path = PYPROJECT) -> None:
-    """
-    Turn vommit's publishing step back on after a migration turned it off.
-    """
-    with _edit(pyproject) as document:
-        _table(document, (*VOMMIT_KEY, "pypi"))["enabled"] = True
 
 
 def edwh_pypi_token() -> str | None:
