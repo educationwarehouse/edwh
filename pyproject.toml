@@ -249,6 +249,11 @@ profile = "black"
 # Tests can use magic values, assertions, and relative imports
 "tests/**/*" = ["PLR2004", "S101", "TID252"]
 
+[tool.pytest.ini_options]
+pythonpath = [
+    "src",
+]
+
 [tool.coverage.run]
 source_pkgs = ["edwh", "tests"]
 branch = true
