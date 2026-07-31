@@ -734,6 +734,42 @@ def _vommit() -> Optional[VommitTasks]:
     return typing.cast(VommitTasks, vommit_tasks)
 
 
+# Used only when edwh's own metadata cannot be read, which happens when it runs
+# from a source tree that was never installed.
+VOMMIT_FALLBACK_SPECIFIER = ">=0.1.1,<1"
+
+
+def _vommit_specifier() -> str:
+    """
+    The version range the `vommit` extra declares.
+
+    Read from edwh's metadata rather than written down twice, so widening the
+    extra cannot leave the install prompt behind on the old range.
+    """
+    from importlib.metadata import PackageNotFoundError, requires
+
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    try:
+        declared = requires("edwh") or ()
+    except PackageNotFoundError:
+        return VOMMIT_FALLBACK_SPECIFIER
+
+    for requirement in declared:
+        try:
+            parsed = Requirement(requirement)
+        except InvalidRequirement:
+            continue
+
+        if parsed.name != "vommit" or not parsed.marker:
+            continue
+
+        if parsed.marker.evaluate({"extra": "vommit"}):
+            return str(parsed.specifier)
+
+    return VOMMIT_FALLBACK_SPECIFIER
+
+
 def _vommit_spec() -> str:
     """
     What to install, taking edwh's keyring backend into account.
@@ -744,17 +780,22 @@ def _vommit_spec() -> str:
     """
     from ..tasks import ssh_agent_keyring_config_path
 
-    return "vommit[ssh]" if ssh_agent_keyring_config_path().exists() else "vommit"
+    extras = "[ssh]" if ssh_agent_keyring_config_path().exists() else ""
+
+    return f"vommit{extras}{_vommit_specifier()}"
 
 
-@task()
-def require_vommit(ctx: Context) -> bool:
+def ensure_vommit(ctx: Context) -> bool:
     """
     Ensure vommit is importable, offering to install it when it isn't.
 
     Installs into edwh's own environment rather than via uvenv: that is what
     activates vommit's `edwh` entry point, so `edwh vommit.*` starts working
     too.
+
+    A plain function rather than a task, because ewok writes a task's return
+    value into the shared `ctx["result"]`, and the enclosing task then returns
+    that instead of its own -- which would make `plugin.bump` answer False.
     """
     if _vommit():
         return True
@@ -773,6 +814,14 @@ def require_vommit(ctx: Context) -> bool:
 
     cprint("vommit was installed but is not importable yet; please run this command again.", "yellow")
     return False
+
+
+@task()
+def require_vommit(ctx: Context) -> None:
+    """
+    Install vommit, the release backend, if this environment lacks it.
+    """
+    ensure_vommit(ctx)
 
 
 SWITCH_NOW = "now"
@@ -836,7 +885,7 @@ def _offer_switch(c: Context, backend: Backend, pyproject: Path) -> Backend:
     elif answer != SWITCH_NOW:
         # "not now", or the prompt was abandoned
         return backend
-    elif not require_vommit(c):
+    elif not ensure_vommit(c):
         return backend
 
     if migrating:
@@ -855,7 +904,7 @@ def _migrate_to_vommit(c: Context, pyproject: Path) -> Backend:
     uploaded = psr_uploaded(pyproject)
 
     vommit_tasks = _vommit()
-    assert vommit_tasks, "require_vommit returned True without vommit being importable"
+    assert vommit_tasks, "ensure_vommit returned True without vommit being importable"
     vommit_tasks.migrate(c, project_dir=str(pyproject.parent))
 
     if not _vommit_configured(pyproject):
@@ -871,7 +920,7 @@ def _setup_vommit(c: Context, pyproject: Path) -> Backend:
     Run vommit's interactive setup on a project with no release config.
     """
     vommit_tasks = _vommit()
-    assert vommit_tasks, "require_vommit returned True without vommit being importable"
+    assert vommit_tasks, "ensure_vommit returned True without vommit being importable"
     vommit_tasks.setup(c, project_dir=str(pyproject.parent))
 
     if not _vommit_configured(pyproject):
@@ -915,16 +964,24 @@ def _restore_publishing(pyproject: Path, psr_uploaded: bool) -> None:
         cprint("Left publishing off: `vommit release` will bump, tag and push, but not publish.", "yellow")
 
 
-def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Backend:
+def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backend]:
     """
     Which backend releases this project, asking about a switch when relevant.
 
     The single funnel for `release` and `bump`, so the deprecation notice lands
-    here once rather than at every place that could reach the psr path.
+    here once rather than at every place that could reach the psr path. None
+    means this project cannot be released and the reason has been reported.
     """
     backend = detect_backend(pyproject)
+
     if backend == "vommit":
-        return backend
+        # vommit is an optional extra, so its config outlives its install: a
+        # migrated project on a second machine has the one without the other.
+        if _vommit():
+            return backend
+
+        cprint(f"{pyproject} is configured for vommit, but vommit is not installed.", "yellow")
+        return backend if ensure_vommit(c) else None
 
     backend = _offer_switch(c, backend, pyproject)
 
@@ -1094,7 +1151,12 @@ def bump(
     """
     Bump this project's version, using whichever release tool it is configured for.
     """
-    if _resolve_backend(c) == "vommit":
+    backend = _resolve_backend(c)
+
+    if backend is None:
+        return None
+
+    if backend == "vommit":
         vommit_tasks = _vommit()
         assert vommit_tasks, "backend resolved to vommit without vommit being importable"
         return vommit_tasks.bump(
@@ -1105,6 +1167,12 @@ def bump(
             prerelease=prerelease,
             noop=noop,
         )
+
+    if backend == "none":
+        # falling through here would install psr and run it against a project
+        # that has no psr config to run against
+        cprint("No release configuration; nothing to bump.", "yellow")
+        return None
 
     return _psr_bump(
         c,
@@ -1155,6 +1223,9 @@ def release(
     # check, so resolving the backend before pulling would change what --pull
     # means for a project that migrates during this very run.
     backend = _resolve_backend(c)
+
+    if backend is None:
+        return
 
     if backend == "vommit":
         if hatch:
