@@ -1,27 +1,23 @@
 """
-Which release tool owns a project, and what it takes to move it to vommit.
+Which release tool owns a project, and everything edwh asks of vommit.
 
-`plugin.release` used to mean "run python-semantic-release". It now routes: a
-project configured for vommit is released by vommit, a project still on psr is
-offered a migration, and a project with neither is offered a first-time setup.
-Deciding which of those applies has to work *before* vommit is installed, so
-the detection here is deliberately edwh's own rather than a call into
-`vommit.migrate` -- it is three key lookups, and it buys the ability to leave
-vommit uninstalled on projects that will never want it. Everything downstream
-of the prompt imports from vommit instead of reimplementing it.
-
-Reads go through `tomllib` (like `enabled_lint_tools`), writes through
-`tomlkit`, so a project's comments and formatting survive being pinned.
+Detection is edwh's own because it has to answer "should I offer to install
+vommit?" before vommit exists; every other call in here goes to vommit. Those
+imports are deferred on purpose -- the extra is optional, so importing at module
+level would make edwh itself unimportable without it.
 """
 
 import tomllib
 import typing as t
 from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, requires
 from pathlib import Path
 
 import keyring
 import keyring.errors
 import tomlkit
+from ewok import Context
+from packaging.requirements import InvalidRequirement, Requirement
 from termcolor import cprint
 
 # Where each tool keeps its configuration.
@@ -33,6 +29,9 @@ PIN_KEY = ("tool", "edwh", "release")
 # edwh's PyPI token, as `plugin.authenticate` has always stored it.
 EDWH_KEYRING_SERVICE = "edwh"
 EDWH_KEYRING_USERNAME = "pypi"
+
+# Only used when edwh's metadata cannot be read, i.e. an uninstalled source tree.
+VOMMIT_FALLBACK_SPECIFIER = ">=0.1.1,<1"
 
 PYPROJECT = Path("pyproject.toml")
 
@@ -157,6 +156,119 @@ def pin_backend(backend: Backend, pyproject: Path = PYPROJECT) -> None:
     """
     with _edit(pyproject) as document:
         _table(document, PIN_KEY)["backend"] = backend
+
+
+class VommitTasks(t.Protocol):
+    """
+    The vommit tasks edwh calls, and the arguments it calls them with.
+
+    Spelled out rather than typed as a module, so a wrong keyword is a type
+    error here instead of an AttributeError during someone's release.
+    `tests/test_release_backend.py` checks the real signatures still match.
+    """
+
+    def setup(self, c: Context, /, *, project_dir: str) -> None: ...
+
+    def migrate(self, c: Context, /, *, project_dir: str) -> None: ...
+
+    def bump(
+        self,
+        c: Context,
+        /,
+        *,
+        major: bool = False,
+        minor: bool = False,
+        patch: bool = False,
+        prerelease: bool = False,
+        noop: bool = False,
+    ) -> str | None: ...
+
+    def release(
+        self,
+        c: Context,
+        /,
+        *,
+        major: bool = False,
+        minor: bool = False,
+        patch: bool = False,
+        prerelease: bool = False,
+        noop: bool = False,
+        yes: bool = False,
+    ) -> str | None: ...
+
+
+def vommit_tasks() -> VommitTasks | None:
+    """
+    vommit's tasks, or None when the `edwh[vommit]` extra isn't installed.
+
+    They take a Context and are callable in-process, which is why vommit is a
+    dependency rather than a tool we shell out to: `bump` hands back the new
+    version instead of us regex-scraping it out of another process' stderr.
+    """
+    try:
+        from vommit import tasks
+    except ImportError:
+        return None
+
+    return t.cast(VommitTasks, tasks)
+
+
+def vommit_configured(pyproject: Path = PYPROJECT) -> bool:
+    """
+    Whether vommit ended up with a config here, according to vommit.
+
+    Unlike `has_vommit_config`, this needs vommit installed -- it is for after
+    the migrator has run, when it is.
+    """
+    from vommit.config import Config
+
+    return Config.has_pyproject_config(pyproject)
+
+
+def vommit_specifier() -> str:
+    """
+    The version range the `vommit` extra declares.
+
+    Read from edwh's metadata rather than written down twice, so widening the
+    extra cannot leave the install prompt behind on the old range. The fallback
+    covers a source tree that was never installed, whose metadata is absent.
+    """
+    try:
+        declared = requires("edwh") or ()
+    except PackageNotFoundError:
+        return VOMMIT_FALLBACK_SPECIFIER
+
+    for requirement in declared:
+        try:
+            parsed = Requirement(requirement)
+        except InvalidRequirement:
+            continue
+
+        if parsed.name == "vommit" and parsed.marker and parsed.marker.evaluate({"extra": "vommit"}):
+            return str(parsed.specifier)
+
+    return VOMMIT_FALLBACK_SPECIFIER
+
+
+def vommit_token_complaint(token: str) -> str | None:
+    """
+    vommit's verdict on a token's format, or None when it has nothing to say.
+
+    Delegated rather than re-checked here: vommit already knows what a usable
+    token looks like, and its message says more than "should start with pypi-".
+    """
+    try:
+        from vommit.auth import check_format
+        from vommit.errors import VommitError
+    except ImportError:
+        return None
+
+    try:
+        check_format(token)
+    except VommitError as complaint:
+        return str(complaint)
+
+    return None
 
 
 def edwh_pypi_token() -> str | None:

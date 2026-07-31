@@ -45,6 +45,10 @@ from ..release_backend import (
     detect_backend,
     pin_backend,
     store_vommit_pypi_token,
+    vommit_configured,
+    vommit_specifier,
+    vommit_tasks,
+    vommit_token_complaint,
 )
 
 
@@ -675,98 +679,6 @@ PSR_DEPRECATION = (
 )
 
 
-class VommitTasks(typing.Protocol):
-    """
-    The four vommit tasks we call, and the arguments we call them with.
-
-    Spelled out rather than typed as a module, so a mistake in a keyword or a
-    reshape on vommit's side is a type error here instead of an AttributeError
-    during someone's release. `tests/test_release_backend.py` checks the real
-    signatures still match.
-    """
-
-    def setup(self, c: Context, /, *, project_dir: str) -> None: ...
-
-    def migrate(self, c: Context, /, *, project_dir: str) -> None: ...
-
-    def bump(
-        self,
-        c: Context,
-        /,
-        *,
-        major: bool = False,
-        minor: bool = False,
-        patch: bool = False,
-        prerelease: bool = False,
-        noop: bool = False,
-    ) -> Optional[str]: ...
-
-    def release(
-        self,
-        c: Context,
-        /,
-        *,
-        major: bool = False,
-        minor: bool = False,
-        patch: bool = False,
-        prerelease: bool = False,
-        noop: bool = False,
-        yes: bool = False,
-    ) -> Optional[str]: ...
-
-
-def _vommit() -> Optional[VommitTasks]:
-    """
-    vommit's tasks, or None when the `edwh[vommit]` extra isn't installed.
-
-    They take a Context and are callable in-process, which is why vommit is a
-    dependency rather than a tool we shell out to: `bump` hands back the new
-    version instead of us regex-scraping it out of another process' stderr.
-    """
-    try:
-        from vommit import tasks as vommit_tasks
-    except ImportError:
-        return None
-
-    return typing.cast(VommitTasks, vommit_tasks)
-
-
-# Used only when edwh's own metadata cannot be read, which happens when it runs
-# from a source tree that was never installed.
-VOMMIT_FALLBACK_SPECIFIER = ">=0.1.1,<1"
-
-
-def _vommit_specifier() -> str:
-    """
-    The version range the `vommit` extra declares.
-
-    Read from edwh's metadata rather than written down twice, so widening the
-    extra cannot leave the install prompt behind on the old range.
-    """
-    from importlib.metadata import PackageNotFoundError, requires
-
-    from packaging.requirements import InvalidRequirement, Requirement
-
-    try:
-        declared = requires("edwh") or ()
-    except PackageNotFoundError:
-        return VOMMIT_FALLBACK_SPECIFIER
-
-    for requirement in declared:
-        try:
-            parsed = Requirement(requirement)
-        except InvalidRequirement:
-            continue
-
-        if parsed.name != "vommit" or not parsed.marker:
-            continue
-
-        if parsed.marker.evaluate({"extra": "vommit"}):
-            return str(parsed.specifier)
-
-    return VOMMIT_FALLBACK_SPECIFIER
-
-
 def _vommit_spec() -> str:
     """
     What to install, taking edwh's keyring backend into account.
@@ -775,11 +687,12 @@ def _vommit_spec() -> str:
     project relying on it would install vommit and still be unable to reach its
     own PyPI token.
     """
+    # local: ..tasks imports this module's package, so a top-level import cycles
     from ..tasks import ssh_agent_keyring_config_path
 
     extras = "[ssh]" if ssh_agent_keyring_config_path().exists() else ""
 
-    return f"vommit{extras}{_vommit_specifier()}"
+    return f"vommit{extras}{vommit_specifier()}"
 
 
 def ensure_vommit(ctx: Context) -> bool:
@@ -794,7 +707,7 @@ def ensure_vommit(ctx: Context) -> bool:
     value into the shared `ctx["result"]`, and the enclosing task then returns
     that instead of its own -- which would make `plugin.bump` answer False.
     """
-    if _vommit():
+    if vommit_tasks():
         return True
 
     spec = _vommit_spec()
@@ -806,7 +719,7 @@ def ensure_vommit(ctx: Context) -> bool:
     # site-packages is already on sys.path, so the import finder just needs to
     # be told to look again.
     importlib.invalidate_caches()
-    if _vommit():
+    if vommit_tasks():
         return True
 
     cprint("vommit was installed but is not importable yet; please run this command again.", "yellow")
@@ -897,11 +810,11 @@ def _migrate_to_vommit(c: Context, pyproject: Path) -> Backend:
     """
     copy_pypi_token()
 
-    vommit_tasks = _vommit()
-    assert vommit_tasks, "ensure_vommit returned True without vommit being importable"
-    vommit_tasks.migrate(c, project_dir=str(pyproject.parent))
+    tasks = vommit_tasks()
+    assert tasks, "ensure_vommit returned True without vommit being importable"
+    tasks.migrate(c, project_dir=str(pyproject.parent))
 
-    if not _vommit_configured(pyproject):
+    if not vommit_configured(pyproject):
         cprint("Migration did not complete; releasing with python-semantic-release for now.", "yellow")
         return "psr"
 
@@ -912,26 +825,15 @@ def _setup_vommit(c: Context, pyproject: Path) -> Backend:
     """
     Run vommit's interactive setup on a project with no release config.
     """
-    vommit_tasks = _vommit()
-    assert vommit_tasks, "ensure_vommit returned True without vommit being importable"
-    vommit_tasks.setup(c, project_dir=str(pyproject.parent))
+    tasks = vommit_tasks()
+    assert tasks, "ensure_vommit returned True without vommit being importable"
+    tasks.setup(c, project_dir=str(pyproject.parent))
 
-    if not _vommit_configured(pyproject):
+    if not vommit_configured(pyproject):
         cprint("vommit was not configured; nothing to release with.", "yellow")
         return "none"
 
     return "vommit"
-
-
-def _vommit_configured(pyproject: Path) -> bool:
-    """
-    Whether vommit ended up with a config here.
-
-    vommit is importable by now, so ask vommit rather than re-parsing the file.
-    """
-    from vommit.config import Config
-
-    return Config.has_pyproject_config(pyproject)
 
 
 def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backend]:
@@ -947,7 +849,7 @@ def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backen
     if backend == "vommit":
         # vommit is an optional extra, so its config outlives its install: a
         # migrated project on a second machine has the one without the other.
-        if _vommit():
+        if vommit_tasks():
             return backend
 
         cprint(f"{pyproject} is configured for vommit, but vommit is not installed.", "yellow")
@@ -1040,8 +942,8 @@ def authenticate(_: Context):
         cprint("No token specified, exiting", "red")
         exit(1)
 
-    if not pypi_token.startswith("pypi-"):
-        cprint("Warning: PyPI tokens normally start with 'pypi-'.", "yellow")
+    if complaint := vommit_token_complaint(pypi_token):
+        cprint(complaint, "yellow")
 
     ensure_keyring_unlocked()
     keyring.set_password("edwh", "pypi", pypi_token)
@@ -1093,6 +995,8 @@ def _psr_bump(
     """
     Bump via python-semantic-release, installing it first if needed.
     """
+    # not a `pre=` on bump/release any more: a pre-task runs whatever the
+    # project is configured for, so a vommit project installed psr to release
     require_semantic_release(c)
 
     return _semantic_release_publish(
@@ -1125,11 +1029,10 @@ def bump(
 
     if backend is None:
         return None
-
-    if backend == "vommit":
-        vommit_tasks = _vommit()
-        assert vommit_tasks, "backend resolved to vommit without vommit being importable"
-        return vommit_tasks.bump(
+    elif backend == "vommit":
+        tasks = vommit_tasks()
+        assert tasks, "backend resolved to vommit without vommit being importable"
+        return tasks.bump(
             c,
             major=major,
             minor=minor,
@@ -1137,21 +1040,54 @@ def bump(
             prerelease=prerelease,
             noop=noop,
         )
-
-    if backend == "none":
-        # falling through here would install psr and run it against a project
-        # that has no psr config to run against
+    elif backend == "none":
+        # falling through would install psr and run it against a project that
+        # has no psr config to run against
         cprint("No release configuration; nothing to bump.", "yellow")
         return None
+    else:
+        return _psr_bump(
+            c,
+            major=major,
+            minor=minor,
+            patch=patch,
+            prerelease=prerelease,
+            noop=noop,
+            hide=hide,
+        )
 
-    return _psr_bump(
+
+def _vommit_release(
+    c: Context,
+    hatch: bool,
+    major: bool,
+    minor: bool,
+    patch: bool,
+    prerelease: bool,
+    noop: bool,
+    yes: bool,
+) -> None:
+    """
+    Hand a release to vommit.
+    """
+    if hatch:
+        cprint(
+            "--hatch has no meaning for a vommit project: set "
+            "[tool.vommit.commands] build/publish instead (e.g. `hatch build -c` / `hatch publish`).",
+            "red",
+        )
+        return
+
+    tasks = vommit_tasks()
+    assert tasks, "backend resolved to vommit without vommit being importable"
+    tasks.release(
         c,
         major=major,
         minor=minor,
         patch=patch,
         prerelease=prerelease,
         noop=noop,
-        hide=hide,
+        yes=yes,
     )
 
 
@@ -1196,20 +1132,10 @@ def release(
 
     if backend is None:
         return
-
-    if backend == "vommit":
-        if hatch:
-            cprint(
-                "--hatch has no meaning for a vommit project: set "
-                "[tool.vommit.commands] build/publish instead (e.g. `hatch build -c` / `hatch publish`).",
-                "red",
-            )
-            return
-
-        vommit_tasks = _vommit()
-        assert vommit_tasks, "backend resolved to vommit without vommit being importable"
-        vommit_tasks.release(
+    elif backend == "vommit":
+        return _vommit_release(
             c,
+            hatch=hatch,
             major=major,
             minor=minor,
             patch=patch,
@@ -1217,9 +1143,7 @@ def release(
             noop=noop,
             yes=yes,
         )
-        return
-
-    if backend == "none":
+    elif backend == "none":
         cprint("No release configuration; nothing to release with.", "yellow")
         return
 

@@ -9,6 +9,7 @@ import typing as t
 
 import yayarl as yarl
 from ewok import Context, task
+from invoke.runners import Result
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
@@ -33,14 +34,14 @@ def _pip(python: str = _python()) -> str:
     return f"{python} -m uv pip"
 
 
-def pip_install(c: Context, *specifiers: str, **kw: t.Any) -> t.Any:
+def pip_install(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
     """
     Install into the environment edwh itself runs in.
     """
     return c.run(f"{_pip()} install {shlex.join(specifiers)}", **kw)
 
 
-def pip_uninstall(c: Context, *specifiers: str, **kw: t.Any) -> t.Any:
+def pip_uninstall(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
     """
     Remove from the environment edwh itself runs in.
     """

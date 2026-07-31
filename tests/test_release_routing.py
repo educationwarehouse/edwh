@@ -40,7 +40,7 @@ def project(tmp_path):
 @pytest.fixture
 def no_vommit(monkeypatch):
     """An environment where the optional `vommit` extra is not installed."""
-    monkeypatch.setattr(plugin, "_vommit", lambda: None)
+    monkeypatch.setattr(plugin, "vommit_tasks", lambda: None)
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def test_accepting_that_install_proceeds(project, monkeypatch):
     monkeypatch.setattr(plugin, "confirm", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(plugin, "pip_install", lambda _ctx, *specs, **_kwargs: installed.extend(specs))
     # absent until the install "runs", importable afterwards
-    monkeypatch.setattr(plugin, "_vommit", lambda: object() if installed else None)
+    monkeypatch.setattr(plugin, "vommit_tasks", lambda: object() if installed else None)
 
     with chdir(project(VOMMIT)):
         assert plugin._resolve_backend(invoke.Context()) == "vommit"
@@ -122,7 +122,7 @@ def test_install_specifier_carries_the_declared_bound():
     """
     The install prompt must not be able to pull a vommit edwh does not support.
     """
-    specifier = plugin._vommit_specifier()
+    specifier = plugin.vommit_specifier()
 
     assert specifier, "no version bound at all"
     assert "<1" in specifier.replace(" ", "")
