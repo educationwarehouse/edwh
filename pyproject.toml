@@ -67,10 +67,10 @@ dev = [
     "types-python-dateutil",
     "types-redis",
     "types-tabulate",
-    "vommit >= 0.1.1, < 1", # so `edwh lint` can resolve it
+    "vommit >= 0.1.2, < 1", # so `edwh lint` can resolve it
 ]
 
-vommit = ["vommit >= 0.1.1, < 1"] # release backend; keep out of `plugins`
+vommit = ["vommit >= 0.1.2, < 1"] # release backend; keep out of `plugins`
 
 omgeving = [
     # no extra dependencies anymore !
