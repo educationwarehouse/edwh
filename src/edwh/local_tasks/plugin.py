@@ -4,11 +4,15 @@ Extra namespace for plugin tasks such as plugin.add
 
 import concurrent.futures
 import datetime as dt
+import importlib
 import json
+import os
 import re
+import sys
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import dateutil.parser
@@ -22,7 +26,7 @@ from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 from termcolor._types import Color
 
-from .. import confirm, kwargs_to_options
+from .. import confirm, interactive_selected_radio_value, kwargs_to_options
 from ..meta import (
     Version,
     _gather_package_metadata_threaded,
@@ -31,6 +35,21 @@ from ..meta import (
     _parse_versions,
     _pip,
     is_installed,
+    pip_install,
+    pip_uninstall,
+)
+from ..release_backend import (
+    PYPROJECT,
+    Backend,
+    copy_pypi_token,
+    detect_backend,
+    pin_backend,
+    pinned_backend,
+    store_vommit_pypi_token,
+    vommit_configured,
+    vommit_specifier,
+    vommit_tasks,
+    vommit_token_complaint,
 )
 
 
@@ -237,11 +256,9 @@ def add_all(c: Context) -> None:
     Args:
         c (Context): invoke ctx
     """
-    pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins_joined = " ".join(plugins)
-    c.run(f"{pip} install {plugins_joined}")
+    pip_install(c, *plugins)
 
 
 @task()
@@ -252,11 +269,9 @@ def remove_all(c: Context) -> None:
     Args:
         c (Context): invoke ctx
     """
-    pip = _pip()
     plugins = _get_available_plugins_from_pypi("edwh", "plugins")
 
-    plugins_joined = " ".join(plugins)
-    c.run(f"{pip} uninstall {plugins_joined}")
+    pip_uninstall(c, *plugins)
 
 
 @task(aliases=("install",))
@@ -273,11 +288,9 @@ def add(c: Context, plugin_names: str) -> None:
     if plugin_names == "all":
         return add_all(c)
 
-    pip = _pip()
-
     plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} install " + " ".join(plugin_names_splitted))
+    pip_install(c, *plugin_names_splitted)
 
 
 @task(aliases=("upgrade",))
@@ -302,8 +315,6 @@ def update(
 
         return self_update(c, no_cache=force)
 
-    pip = _pip()
-
     plugins_with_version = []
     for plugin_name in plugin_names.split(","):
         plugin_name = _require_affixes(plugin_name.strip())
@@ -313,7 +324,7 @@ def update(
     if verbose:
         cprint(str(plugins_with_version), "blue")
 
-    c.run(f"{pip} install " + " ".join(plugins_with_version))
+    pip_install(c, *plugins_with_version)
 
 
 @task(aliases=("uninstall",))
@@ -328,11 +339,10 @@ def remove(c: Context, plugin_names: str) -> None:
     if plugin_names == "all":
         return remove_all(c)
 
-    pip = _pip()
     # ensure the prefix and suffix exist, but not twice:
     plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
 
-    c.run(f"{pip} uninstall " + " ".join(plugin_names_splitted))
+    pip_uninstall(c, *plugin_names_splitted)
 
 
 GITHUB_RAW_URL = yarl.URL("https://raw.githubusercontent.com")
@@ -624,6 +634,11 @@ def changelog(ctx: Context, plugin: list[str], since: str = "5", new: bool = Fal
 
 
 def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw: typing.Any) -> typing.Optional[str]:
+    """
+    Run the deprecated python-semantic-release path.
+
+    Kept for projects that have not moved to vommit yet; see `release`.
+    """
     semver = c.run(f"semantic-release publish {kwargs_to_options(flags)}", **kw)
 
     matches: list[str] = re.findall(r"to (\d+\.\d+\.\d+.*)", semver.stderr if semver else "")
@@ -648,6 +663,8 @@ def uvenv(ctx: Context, specifier: str):
 def require_semantic_release(ctx: Context):
     """
     Task to ensure psr is available.
+
+    Part of the deprecated release path; new projects use vommit instead.
     """
     if is_installed(ctx, "semantic-release"):
         return
@@ -657,10 +674,204 @@ def require_semantic_release(ctx: Context):
     assert is_installed(ctx, "semantic-release"), "Tool 'semantic-release' still can't be found!"
 
 
+PSR_DEPRECATION = (
+    "python-semantic-release support is deprecated and will be removed in edwh 2.0. "
+    "Run `edwh plugin.release` again to migrate this project to vommit."
+)
+
+
+def _vommit_spec() -> str:
+    """
+    What to install, taking edwh's keyring backend into account.
+
+    A plain `vommit` cannot read or write the ssh-agent-backed keyring, so a
+    project relying on it would install vommit and still be unable to reach its
+    own PyPI token.
+    """
+    # local: ..tasks imports this module's package, so a top-level import cycles
+    from ..tasks import ssh_agent_keyring_config_path
+
+    extras = "[ssh]" if ssh_agent_keyring_config_path().exists() else ""
+
+    return f"vommit{extras}{vommit_specifier()}"
+
+
+def ensure_vommit(ctx: Context) -> bool:
+    """
+    Ensure vommit is importable, offering to install it when it isn't.
+
+    Installs into edwh's own environment rather than via uvenv: that is what
+    activates vommit's `edwh` entry point, so `edwh vommit.*` starts working
+    too.
+
+    A plain function rather than a task, because ewok writes a task's return
+    value into the shared `ctx["result"]`, and the enclosing task then returns
+    that instead of its own -- which would make `plugin.bump` answer False.
+    """
+    if vommit_tasks():
+        return True
+
+    spec = _vommit_spec()
+    if not confirm(f"vommit is not installed. Install {spec} now? [Yn] ", default=True):
+        return False
+
+    pip_install(ctx, spec)
+
+    # site-packages is already on sys.path, so the import finder just needs to
+    # be told to look again.
+    importlib.invalidate_caches()
+    if vommit_tasks():
+        return True
+
+    cprint("vommit was installed but is not importable yet; please run this command again.", "yellow")
+    return False
+
+
+@task()
+def require_vommit(ctx: Context) -> None:
+    """
+    Install vommit, the release backend, if this environment lacks it.
+    """
+    ensure_vommit(ctx)
+
+
+SWITCH_NOW = "now"
+SWITCH_LATER = "later"
+SWITCH_NEVER = "never"
+
+MIGRATE_OPTIONS = {
+    SWITCH_NOW: "migrate now - walk through vommit's migrator, keeping your v7 settings",
+    SWITCH_LATER: "not now - release with python-semantic-release this time, ask again next time",
+    SWITCH_NEVER: "never - keep this project on python-semantic-release and stop asking",
+}
+
+SETUP_OPTIONS = {
+    SWITCH_NOW: "set up now - configure vommit for this project",
+    SWITCH_LATER: "not now - ask again next time",
+    SWITCH_NEVER: "never - stop asking about this project",
+}
+
+
+def _can_ask() -> bool:
+    """
+    Whether there is anybody to answer a radio prompt.
+
+    `confirm` honours EDWH_NON_INTERACTIVE itself, but the radio helper reads
+    the terminal directly and would hang or misread without this guard.
+    """
+    return os.environ.get("EDWH_NON_INTERACTIVE", "0") != "1" and sys.stdin.isatty()
+
+
+def _offer_switch(c: Context, backend: Backend, pyproject: Path) -> Backend:
+    """
+    Offer to move this project to vommit, and report which backend to use now.
+
+    Returns "vommit" only when a config was actually written: vommit's migrator
+    can be stopped halfway on purpose, and this release has to fall back rather
+    than hand over to a config that never landed.
+    """
+    migrating = backend == "psr"
+
+    if migrating:
+        cprint("This project still releases with python-semantic-release.", "blue")
+    else:
+        cprint("This project has no release configuration yet.", "blue")
+
+    if not _can_ask():
+        if not migrating:
+            cprint("Run `edwh plugin.release` interactively to set up vommit.", "blue")
+        return backend
+
+    prompt = "Switch this project to vommit?" if migrating else "Set this project up with vommit?"
+    answer = interactive_selected_radio_value(
+        MIGRATE_OPTIONS if migrating else SETUP_OPTIONS,
+        prompt=prompt,
+        selected=SWITCH_NOW,
+    )
+
+    if answer == SWITCH_NEVER:
+        pin_backend("psr" if migrating else "vommit", pyproject)
+        cprint(f"Recorded your choice in {pyproject}; edwh will not ask again.", "blue")
+        return backend
+    elif answer != SWITCH_NOW:
+        # "not now", or the prompt was abandoned
+        return backend
+    elif not ensure_vommit(c):
+        return backend
+
+    if migrating:
+        return _migrate_to_vommit(c, pyproject)
+
+    return _setup_vommit(c, pyproject)
+
+
+def _migrate_to_vommit(c: Context, pyproject: Path) -> Backend:
+    """
+    Copy the PyPI token across, then hand over to vommit's migrator.
+    """
+    copy_pypi_token()
+
+    tasks = vommit_tasks()
+    assert tasks, "ensure_vommit returned True without vommit being importable"
+    tasks.migrate(c, project_dir=str(pyproject.parent))
+
+    if not vommit_configured(pyproject):
+        cprint("Migration did not complete; releasing with python-semantic-release for now.", "yellow")
+        return "psr"
+
+    return "vommit"
+
+
+def _setup_vommit(c: Context, pyproject: Path) -> Backend:
+    """
+    Run vommit's interactive setup on a project with no release config.
+    """
+    tasks = vommit_tasks()
+    assert tasks, "ensure_vommit returned True without vommit being importable"
+    tasks.setup(c, project_dir=str(pyproject.parent))
+
+    if not vommit_configured(pyproject):
+        cprint("vommit was not configured; nothing to release with.", "yellow")
+        return "none"
+
+    return "vommit"
+
+
+def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backend]:
+    """
+    Which backend releases this project, asking about a switch when relevant.
+
+    The single funnel for `release` and `bump`, so the deprecation notice lands
+    here once rather than at every place that could reach the psr path. None
+    means this project cannot be released and the reason has been reported.
+    """
+    backend = detect_backend(pyproject)
+
+    if backend == "vommit":
+        # vommit is an optional extra, so its config outlives its install: a
+        # migrated project on a second machine has the one without the other.
+        if vommit_tasks():
+            return backend
+
+        cprint(f"{pyproject} is configured for vommit, but vommit is not installed.", "yellow")
+        return backend if ensure_vommit(c) else None
+
+    if pinned_backend(pyproject) is None:
+        backend = _offer_switch(c, backend, pyproject)
+
+    if backend == "psr":
+        cprint(PSR_DEPRECATION, "yellow")
+
+    return backend
+
+
 @task()
 def require_hatch(ctx: Context):
     """
     Task to ensure hatch is available.
+
+    Part of the deprecated release path; vommit projects set
+    [tool.vommit.commands] build/publish instead of passing --hatch.
     """
     if is_installed(ctx, "hatch"):
         return
@@ -720,18 +931,49 @@ def build(c: Context, hatch: bool = False) -> list[str]:
 
 @task()
 def authenticate(_: Context):
-    if pypi_token := input("Enter your token (starting with pypi-): ").strip():
-        keyring.set_password("edwh", "pypi", pypi_token)
-        return pypi_token
-    else:
+    """
+    Store a PyPI token for releasing.
+
+    Written to both edwh's and vommit's keyring entries, so the token works
+    whichever backend a project uses.
+    """
+    from ..tasks import ensure_keyring_unlocked
+
+    pypi_token = input("Enter your token (starting with pypi-): ").strip()
+    if not pypi_token:
         cprint("No token specified, exiting", "red")
         exit(1)
 
+    if complaint := vommit_token_complaint(pypi_token):
+        cprint(complaint, "yellow")
+
+    ensure_keyring_unlocked()
+    keyring.set_password("edwh", "pypi", pypi_token)
+
+    if store_vommit_pypi_token(pypi_token):
+        cprint("Stored the token for both edwh and vommit.", "green")
+    else:
+        cprint("Stored the token for edwh; run `vommit authenticate` too once vommit is installed.", "blue")
+
+    return pypi_token
+
 
 def publish(c: Context, hatch: bool = False):
+    """
+    Upload a build, as the deprecated psr path does it.
+
+    Only reachable from `release`'s psr branch, which prints PSR_DEPRECATION
+    before it gets here; vommit projects publish via [tool.vommit.commands].
+    """
     if hatch:
         c.run("hatch publish")
     else:
+        from ..tasks import ensure_keyring_unlocked
+
+        # without this a locked keyring raises instead of offering the ssh-agent
+        # fallback, which is exactly when a release needs the token most
+        ensure_keyring_unlocked()
+
         pypi_token = keyring.get_password("edwh", "pypi")
         if not pypi_token:
             pypi_token = authenticate(c)
@@ -743,8 +985,7 @@ def publish(c: Context, hatch: bool = False):
             cprint("Hint: you may want to enter a new token via `edwh plugin.authenticate`", "blue")
 
 
-@task(pre=[require_semantic_release])
-def bump(
+def _psr_bump(
     c: Context,
     major: bool = False,
     minor: bool = False,
@@ -752,7 +993,14 @@ def bump(
     prerelease: bool = False,
     noop: bool = False,
     hide: bool = False,
-):
+) -> Optional[str]:
+    """
+    Bump via python-semantic-release, installing it first if needed.
+    """
+    # not a `pre=` on bump/release any more: a pre-task runs whatever the
+    # project is configured for, so a vommit project installed psr to release
+    require_semantic_release(c)
+
     return _semantic_release_publish(
         c,
         {
@@ -766,7 +1014,86 @@ def bump(
     )
 
 
-@task(aliases=("publish",), pre=[require_semantic_release])
+@task()
+def bump(
+    c: Context,
+    major: bool = False,
+    minor: bool = False,
+    patch: bool = False,
+    prerelease: bool = False,
+    noop: bool = False,
+    hide: bool = False,
+) -> Optional[str]:
+    """
+    Bump this project's version, using whichever release tool it is configured for.
+    """
+    backend = _resolve_backend(c)
+
+    if backend is None:
+        return None
+    elif backend == "vommit":
+        tasks = vommit_tasks()
+        assert tasks, "backend resolved to vommit without vommit being importable"
+        return tasks.bump(
+            c,
+            major=major,
+            minor=minor,
+            patch=patch,
+            prerelease=prerelease,
+            noop=noop,
+        )
+    elif backend == "none":
+        # falling through would install psr and run it against a project that
+        # has no psr config to run against
+        cprint("No release configuration; nothing to bump.", "yellow")
+        return None
+    else:
+        return _psr_bump(
+            c,
+            major=major,
+            minor=minor,
+            patch=patch,
+            prerelease=prerelease,
+            noop=noop,
+            hide=hide,
+        )
+
+
+def _vommit_release(
+    c: Context,
+    hatch: bool,
+    major: bool,
+    minor: bool,
+    patch: bool,
+    prerelease: bool,
+    noop: bool,
+    yes: bool,
+) -> None:
+    """
+    Hand a release to vommit.
+    """
+    if hatch:
+        cprint(
+            "--hatch has no meaning for a vommit project: set "
+            "[tool.vommit.commands] build/publish instead (e.g. `hatch build -c` / `hatch publish`).",
+            "red",
+        )
+        return
+
+    tasks = vommit_tasks()
+    assert tasks, "backend resolved to vommit without vommit being importable"
+    tasks.release(
+        c,
+        major=major,
+        minor=minor,
+        patch=patch,
+        prerelease=prerelease,
+        noop=noop,
+        yes=yes,
+    )
+
+
+@task(aliases=("publish",))
 def release(
     c: Context,
     noop: bool = False,
@@ -793,9 +1120,6 @@ def release(
         yes: don't ask for confirmation
         hatch: backwards-compatibility for when 'uv' doesn't work.
     """
-    if hatch:
-        require_hatch(c)
-
     if pull:
         try:
             git_pull(c, yes=yes)
@@ -803,10 +1127,35 @@ def release(
             # stop
             return
 
+    # git_pull runs first on both paths: vommit only fetches for its branch
+    # check, so resolving the backend before pulling would change what --pull
+    # means for a project that migrates during this very run.
+    backend = _resolve_backend(c)
+
+    if backend is None:
+        return
+    elif backend == "vommit":
+        return _vommit_release(
+            c,
+            hatch=hatch,
+            major=major,
+            minor=minor,
+            patch=patch,
+            prerelease=prerelease,
+            noop=noop,
+            yes=yes,
+        )
+    elif backend == "none":
+        cprint("No release configuration; nothing to release with.", "yellow")
+        return
+
+    if hatch:
+        require_hatch(c)
+
     cprint("bumping version", "blue")
 
     if not (yes or noop):
-        new_version = bump(
+        new_version = _psr_bump(
             c,
             major=major,
             minor=minor,
@@ -822,7 +1171,7 @@ def release(
             print("bye!")
             return
 
-    new_version = bump(
+    new_version = _psr_bump(
         c,
         major=major,
         minor=minor,
