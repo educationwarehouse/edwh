@@ -1,6 +1,6 @@
 from contextlib import chdir
 
-from edwh.tasks import TomlConfig
+from src.edwh.tasks import TomlConfig
 
 
 def test_toml_config_bootstrap_preserves_application_context(tmp_path):

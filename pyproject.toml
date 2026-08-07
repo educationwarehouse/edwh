@@ -7,7 +7,6 @@ build-backend = "hatchling.build"
 
 [project]
 name = "edwh"
-dynamic = ["version"]
 description = 'Education Warehouse maintenance tools'
 readme = "README.md"
 requires-python = ">=3.12"
@@ -58,16 +57,19 @@ dependencies = [
     "uv < 1", # faster pip
     "yayarl < 3", # like yarl (Pathlib style URL builder) but with requests built in
 ]
+version = "1.12.1"
 
 [project.optional-dependencies]
 dev = [
     "hatch",
-    "python-semantic-release<8",
     "types-requests",
     "types-python-dateutil",
     "types-redis",
-    "types-tabulate"
+    "types-tabulate",
+    "vommit >= 0.2.0, < 1", # so `edwh lint` can resolve it
 ]
+
+vommit = ["vommit >= 0.2.0, < 1"] # release backend; keep out of `plugins`
 
 omgeving = [
     # no extra dependencies anymore !
@@ -149,36 +151,50 @@ Documentation = "https://github.com/educationwarehouse/edwh#readme"
 Issues = "https://github.com/educationwarehouse/edwh/issues"
 Source = "https://github.com/educationwarehouse/edwh"
 
-[tool.semantic_release]
+[tool.vommit]
+allow_breaking_bang = true
+allow_breaking_footer = true
+prerelease_token = "beta"
+confirm = true
+
+[tool.vommit.git]
+enabled = true
+origin = "origin"
 branch = "main"
-version_variable = "src/edwh/__about__.py:__version__"
-change_log = "CHANGELOG.md"
-upload_to_repository = false
-upload_to_release = false
-build_command = "hatch build"
+on_wrong_branch = "error"
+tag_format = "v{version}"
+commit_format = "{version}"
 
-[tool.hatch.version]
-path = "src/edwh/__about__.py"
+[tool.vommit.changelog]
+enabled = true
+file = "CHANGELOG.md"
+include_prereleases = false
+placeholder = "<!--next-version-placeholder-->"
+placeholder_regex = "<auto>"
+entry_title_format = "## v{version} ({date:%Y-%m-%d})"
 
-# note: don't run `hatch run publish` right now,
-# because semantic release v7 (stable) is not compatible with invoke 2 (which is required for python3.11+)
-# and semantic release v8 (alpha) is not compatible with the tool.semantic_release config in this file!
-publish = [
-    'semantic-release publish',
-    'hatch build -c',
-    'hatch publish',
-]
-# pytest/cov
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report",
-]
-cov = [
-    "test-cov",
-    "cov-report",
-]
+[tool.vommit.changelog.levels]
+feat = "Feature{s}"
+fix = "Fix{es}"
+break = "Breaking Change{s}"
+docs = "Documentation"
+perf = "Performance"
+
+[tool.vommit.pypi]
+enabled = true
+use_keyring = true
+
+[tool.vommit.commands]
+clean = "rm -rf ./dist"
+build = "hatch build"
+publish = "uv publish"
+post_publish = ""
+
+[tool.vommit.version_bump_map]
+break = "major"
+feat = "minor"
+fix = "patch"
+perf = "patch"
 
 [tool.black]
 target-version = ["py312"]
@@ -246,6 +262,11 @@ profile = "black"
 # Tests can use magic values, assertions, and relative imports
 "tests/**/*" = ["PLR2004", "S101", "TID252"]
 
+[tool.pytest.ini_options]
+pythonpath = [
+    "src",
+]
+
 [tool.coverage.run]
 source_pkgs = ["edwh", "tests"]
 branch = true
@@ -301,3 +322,5 @@ directory = "src"
 include = []
 exclude = []
 stop-after-first-failure = true
+
+
