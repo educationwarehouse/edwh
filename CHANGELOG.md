@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.13.0 (2026-08-07)
+
+### Feature
+* add `vommit` support to `plugin.release`
+
 ## v1.12.1 (2026-07-24)
 
 ### Fix
