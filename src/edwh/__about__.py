@@ -7,4 +7,4 @@ This file keeps track of the current package version.
 # SPDX-License-Identifier: MIT
 from importlib.metadata import version
 
-__version__ = version(__package__)
+__version__ = version("edwh")
