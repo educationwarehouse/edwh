@@ -11,6 +11,7 @@
 - [Usage](#usage)
 - [Sudo authentication](#sudo-authentication)
 - [Linting](#linting)
+- [Testing](#testing)
 - [Plugins](#plugins)
 - [License](#license)
 - [Changelog](#changelog)
@@ -71,6 +72,21 @@ ty = false
 ```
 
 `edwh fmt` sorts imports and reformats Python code with Ruff.
+
+## Testing
+
+`edwh test.run` runs pytest with coverage by default. It prefers `./venv/bin/pytest`, falls back to
+`pytest` from `PATH`, and requires `pytest-cov` in the selected environment.
+
+```console
+edwh test.run
+edwh test.run -k test_specific_behavior
+edwh test.run --html
+edwh test.run --no-coverage
+```
+
+If a project provides its own `test.tasks.py`, edwh warns about the override and that local `test.run`
+replaces the built-in task.
 
 ## Task Load Order
 
