@@ -91,6 +91,7 @@ plugins = [
     'edwh-sshkey-plugin',
     'edwh-uptime-plugin',
     'edwh-whitelabel-plugin',
+    'vommit',
 ]
 
 # plugins that are useful on a (production) server:
@@ -138,6 +139,8 @@ sshkey = ["edwh-sshkey-plugin"]
 uptime = ["edwh-uptime-plugin"]
 
 whitelabel = ["edwh-whitelabel-plugin"]
+
+vommit = ["vommit"]
 
 [project.scripts]
 edwh = "edwh.cli:program.run"

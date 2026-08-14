@@ -9,6 +9,7 @@ import re
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
+from importlib.metadata import requires
 from typing import Optional
 
 import dateutil.parser
@@ -18,6 +19,8 @@ from ewok import (
     Context,
     task,
 )
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
 from termcolor._types import Color
@@ -229,6 +232,30 @@ def _require_affixes(package: str, prefix: str = "edwh-", suffix: str = "-plugin
     return f"{prefix}{package}{suffix}"
 
 
+def _get_registered_plugin_requirements() -> list[str]:
+    """Return plugin requirements declared by the running edwh installation."""
+    return [
+        requirement.split(";", maxsplit=1)[0]
+        for requirement in requires("edwh") or []
+        if 'extra == "plugins"' in requirement or "extra == 'plugins'" in requirement
+    ]
+
+
+def _resolve_plugin_requirement(plugin_name: str) -> str:
+    """Resolve registered plugins before falling back to the conventional package name."""
+    requested_name = canonicalize_name(plugin_name)
+    for requirement_string in _get_registered_plugin_requirements():
+        requirement = Requirement(requirement_string)
+        package_name = canonicalize_name(requirement.name)
+        plugin_alias = package_name.removeprefix("edwh-").removesuffix("-plugin")
+        conventional_alias = canonicalize_name(_require_affixes(plugin_alias))
+
+        if requested_name in {package_name, plugin_alias, conventional_alias}:
+            return str(requirement)
+
+    return _require_affixes(plugin_name)
+
+
 @task()
 def add_all(c: Context) -> None:
     """
@@ -275,7 +302,9 @@ def add(c: Context, plugin_names: str) -> None:
 
     pip = _pip()
 
-    plugin_names_splitted = [_require_affixes(plugin_name.strip()) for plugin_name in plugin_names.split(",")]
+    plugin_names_splitted = [
+        _resolve_plugin_requirement(plugin_name.strip()) for plugin_name in plugin_names.split(",")
+    ]
 
     c.run(f"{pip} install " + " ".join(plugin_names_splitted))
 
