@@ -24,7 +24,8 @@ from ewok import (
     Context,
     task,
 )
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
@@ -55,6 +56,11 @@ from ..release_backend import (
     vommit_tasks,
     vommit_token_complaint,
 )
+
+RECOMMENDED_UV_BUILD_MINIMUM = "0.12.4"
+RECOMMENDED_UV_BUILD_MAXIMUM = "0.13"
+RECOMMENDED_UV_BUILD_SPECIFIER = SpecifierSet(f">={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}")
+RECOMMENDED_UV_BUILD_REQUIREMENT = f"uv_build>={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}"
 
 
 def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> list[str]:
@@ -942,6 +948,40 @@ def warn_about_hatchling() -> None:
         )
 
 
+def has_recommended_uv_build_requirement(config: dict[str, typing.Any]) -> bool:
+    """Whether the build requirement matches edwh's current uv_build policy."""
+    requirements = config.get("build-system", {}).get("requires", [])
+    if not isinstance(requirements, list):
+        return False
+
+    for requirement_string in requirements:
+        if not isinstance(requirement_string, str):
+            continue
+        try:
+            requirement = Requirement(requirement_string)
+        except InvalidRequirement:
+            continue
+        if canonicalize_name(requirement.name) == "uv-build":
+            return requirement.specifier == RECOMMENDED_UV_BUILD_SPECIFIER
+
+    return False
+
+
+def warn_about_uv_build() -> None:
+    if not release_warning_enabled("warn-uv-build"):
+        return
+
+    config = release_project_config()
+    build_backend = config.get("build-system", {}).get("build-backend")
+    if build_backend == "uv_build" and not has_recommended_uv_build_requirement(config):
+        cprint(
+            "Warning: this project's uv_build requirement should be "
+            f"`{RECOMMENDED_UV_BUILD_REQUIREMENT}`. Set it under `[build-system].requires`, or set "
+            "`warn-uv-build = false` under `[tool.edwh.release]` to silence this warning.",
+            "yellow",
+        )
+
+
 def warn_about_hatch_build(backend: Backend, hatch: bool) -> None:
     config = release_project_config()
     build_command = config.get("tool", {}).get("vommit", {}).get("commands", {}).get("build", "")
@@ -1215,6 +1255,7 @@ def release(
         return
 
     warn_about_hatchling()
+    warn_about_uv_build()
     warn_about_hatch_build(backend, hatch)
 
     if backend == "vommit":

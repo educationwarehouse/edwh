@@ -76,12 +76,15 @@ ty = false
 ## Releasing plugins
 
 `edwh plugin.release` warns when a project still uses Hatchling or when its
-`--hatch` build fallback is selected. Silence either warning for a project:
+`--hatch` build fallback is selected. It also warns when a project's `uv_build`
+requirement no longer matches edwh's current recommendation. Silence any of
+these warnings for a project:
 
 ```toml
 [tool.edwh.release]
 warn-hatchling = false
 warn-hatch-build = false
+warn-uv-build = false
 ```
 
 ## Testing
