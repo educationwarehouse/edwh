@@ -275,8 +275,12 @@ pythonpath = [
     "src",
 ]
 
+[tool.edwh.test]
+# tests are collected from `.`, but only our own code is measured
+directory = "src"
+
 [tool.coverage.run]
-source_pkgs = ["edwh", "tests"]
+source_pkgs = ["edwh"]
 branch = true
 parallel = true
 omit = [
@@ -285,7 +289,6 @@ omit = [
 
 [tool.coverage.paths]
 edwh = ["src/edwh", "*/edwh/src/edwh"]
-tests = ["tests", "*/edwh/tests"]
 
 [tool.coverage.report]
 exclude_lines = [

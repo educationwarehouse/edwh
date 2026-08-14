@@ -14,6 +14,10 @@ from termcolor import cprint
 
 from .. import confirm
 from ..meta import pip_install
+from ..release_backend import PYPROJECT, _load, _nested
+
+# The one place a project says which code is its own.
+COVERAGE_KEY = ("tool", "edwh", "test", "directory")
 
 
 def find_pytest() -> str | None:
@@ -55,6 +59,23 @@ def edwh_test_extra_requirements() -> list[str]:
     ]
 
 
+def coverage_directory(directory: str, override: str = "", pyproject: Path = PYPROJECT) -> str:
+    """
+    What to measure coverage over, which is not always what to run tests from.
+
+    A src-layout project runs its tests from `.` but only cares about `src/`;
+    `--cov=.` would drag in tests, task files and the virtualenv. Explicit flag
+    wins, then `[tool.edwh.test] directory`, then the test directory.
+    """
+    if override:
+        return override
+
+    if isinstance(configured := _nested(_load(pyproject), COVERAGE_KEY), str) and configured:
+        return configured
+
+    return directory
+
+
 def install_test_dependencies(c: Context) -> bool:
     """Offer to install the test extra into edwh's own environment."""
     if not confirm("Test dependencies are missing. Install edwh[test] now? [Yn] ", default=True):
@@ -68,18 +89,26 @@ def install_test_dependencies(c: Context) -> bool:
     flags={
         "keyword_search": ("keyword-search", "k"),
         "exitfirst": ("exitfirst", "x"),
+        "cov_directory": ("cov-directory", "coverage-directory"),
     },
 )
 def run(
     c: Context,
     directory: str = ".",
+    cov_directory: str = "",
     keyword_search: str = "",
     verbose: bool = False,
     exitfirst: bool = False,
     coverage: bool = True,
     html: bool = False,
 ) -> None:
-    """Run pytest with coverage by default."""
+    """
+    Run pytest with coverage by default.
+
+    `directory` is where tests are collected from; coverage is measured over
+    `--cov-directory`, `[tool.edwh.test] directory`, or `directory` -- in that
+    order.
+    """
     pytest = find_pytest()
     if not pytest:
         if not install_test_dependencies(c):
@@ -108,7 +137,7 @@ def run(
 
     command = [*shlex.split(pytest), directory]
     if coverage:
-        command.append(f"--cov={directory}")
+        command.append(f"--cov={coverage_directory(directory, cov_directory)}")
     if html:
         command.append("--cov-report=html")
     if verbose:
