@@ -72,6 +72,17 @@ ty = false
 
 `edwh fmt` sorts imports and reformats Python code with Ruff.
 
+## Releasing plugins
+
+`edwh plugin.release` warns when a project still uses Hatchling or when its
+`--hatch` build fallback is selected. Silence either warning for a project:
+
+```toml
+[tool.edwh.release]
+warn-hatchling = false
+warn-hatch-build = false
+```
+
 ## Task Load Order
 
 Commands are loaded in the following order:

@@ -6,10 +6,12 @@ import concurrent.futures
 import datetime as dt
 import json
 import re
+import tomllib
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
 from importlib.metadata import requires
+from pathlib import Path
 from typing import Optional
 
 import dateutil.parser
@@ -699,6 +701,45 @@ def require_hatch(ctx: Context):
     assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
 
 
+def release_warning_enabled(warning: str) -> bool:
+    pyproject = Path("pyproject.toml")
+    if not pyproject.exists():
+        return True
+
+    config = tomllib.loads(pyproject.read_text())
+    release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
+    return release_config.get(warning, True) is not False
+
+
+def warn_about_hatchling() -> None:
+    if not release_warning_enabled("warn-hatchling"):
+        return
+
+    pyproject = Path("pyproject.toml")
+    if not pyproject.exists():
+        return
+
+    config = tomllib.loads(pyproject.read_text())
+    build_backend = config.get("build-system", {}).get("build-backend")
+    if build_backend == "hatchling.build":
+        cprint(
+            "Warning: this project uses the Hatchling build backend. "
+            "Migrate to uv_build when possible, or set "
+            "`warn-hatchling = false` under `[tool.edwh.release]` to silence this warning.",
+            "yellow",
+        )
+
+
+def warn_about_hatch_build() -> None:
+    if release_warning_enabled("warn-hatch-build"):
+        cprint(
+            "Warning: this release uses `hatch build`. "
+            "Migrate to `uv build` when possible, or set "
+            "`warn-hatch-build = false` under `[tool.edwh.release]` to silence this warning.",
+            "yellow",
+        )
+
+
 @dataclass
 class GitError(Exception):
     reason: str
@@ -738,6 +779,7 @@ def git_pull(c: Context, yes: bool) -> None:
 
 def build(c: Context, hatch: bool = False) -> list[str]:
     if hatch:
+        warn_about_hatch_build()
         hatch_build = c.run("hatch build -c")
     else:
         c.run("rm -r dist/ || true", hide=True)
@@ -824,6 +866,8 @@ def release(
     """
     if hatch:
         require_hatch(c)
+
+    warn_about_hatchling()
 
     if pull:
         try:
