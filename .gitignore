@@ -9,3 +9,4 @@ config.toml
 .ruff_cache
 .pytest_cache
 .aider*
+.coverage

@@ -3,11 +3,13 @@ This files contains everything to do with meta-tasks such as self-updating
 """
 
 import concurrent.futures
+import shlex
 import sys
 import typing as t
 
 import yayarl as yarl
 from ewok import Context, task
+from invoke.runners import Result
 from packaging.version import InvalidVersion, Version
 from packaging.version import parse as parse_package_version
 from termcolor import cprint
@@ -30,6 +32,20 @@ def _pip(python: str = _python()) -> str:
     """
     # uv.find_uv_bin() does not really work here, because then the right venv may not be used!
     return f"{python} -m uv pip"
+
+
+def pip_install(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
+    """
+    Install into the environment edwh itself runs in.
+    """
+    return c.run(f"{_pip()} install {shlex.join(specifiers)}", **kw)
+
+
+def pip_uninstall(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
+    """
+    Remove from the environment edwh itself runs in.
+    """
+    return c.run(f"{_pip()} uninstall {shlex.join(specifiers)}", **kw)
 
 
 def _get_pypi_info(package: str) -> AnyDict:

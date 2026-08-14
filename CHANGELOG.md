@@ -2,6 +2,20 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.0 (2026-08-13)
+
+### Feature
+* **test:** add default pytest runner (`edwh test.run`)
+
+### Fixes
+* **namespace:** support project task overrides
+* use static package name instead of __package__ so src.edwh tests still run
+
+## v1.13.0 (2026-08-07)
+
+### Feature
+* add `vommit` support to `plugin.release`
+
 ## v1.12.1 (2026-07-24)
 
 ### Fix

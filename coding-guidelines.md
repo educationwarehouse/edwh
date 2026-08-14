@@ -385,6 +385,20 @@ edwh plugin.release --patch  # 1.1.0 -> 1.1.1
 edwh plugin.release --major  # 1.1.1 -> 2.0.0
 ```
 
+`plugin.release` picks its tool from the project: `[tool.vommit]` means
+[vommit](https://github.com/educationwarehouse/vommit), `[tool.semantic_release]`
+means psr (deprecated, removed in edwh 2.0), neither means you are offered
+`vommit setup`. A psr project is offered the switch: migrate now, not now, or
+never (recorded as `[tool.edwh.release] backend = "psr"`). `EDWH_NON_INTERACTIVE=1`
+skips the prompt and keeps the current tool.
+
+Migrating copies your PyPI token into vommit's keyring. Our v7 configs set
+`upload_to_repository = false` because `plugin.release` did the uploading;
+vommit reports that and keeps publishing on, so check `pypi.enabled` if the
+project should publish nothing. On vommit, `--hatch` is replaced by
+`[tool.vommit.commands]` build/publish, and `edwh vommit.*` exposes what
+`plugin.release` doesn't (`--version`, `--allow-dirty`, `--no-bump`).
+
 ## Anti-Patterns to Avoid
 
 ### Code Smells
