@@ -5,6 +5,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+from importlib.metadata import requires
+from importlib.util import find_spec
 from pathlib import Path
 
 from ewok import Context, task
@@ -20,12 +22,18 @@ def find_pytest() -> str | None:
     if venv_pytest.is_file() and os.access(venv_pytest, os.X_OK):
         return str(venv_pytest)
 
-    return shutil.which("pytest")
+    if pytest := shutil.which("pytest"):
+        return pytest
+
+    if find_spec("pytest"):
+        return f"{sys.executable} -m pytest"
+
+    return None
 
 
 def has_pytest_cov(pytest: str) -> bool:
     """Check whether the selected pytest executable can load pytest-cov."""
-    python = Path(pytest).resolve().with_name("python")
+    python = Path(shlex.split(pytest)[0]).resolve().with_name("python")
     if not python.is_file():
         return False
 
@@ -38,12 +46,21 @@ def has_pytest_cov(pytest: str) -> bool:
     return result.returncode == 0
 
 
+def edwh_test_extra_requirements() -> list[str]:
+    """Return the requirements declared by edwh's ``test`` extra."""
+    return [
+        requirement.split(";", maxsplit=1)[0].strip()
+        for requirement in requires("edwh") or []
+        if 'extra == "test"' in requirement or "extra == 'test'" in requirement
+    ]
+
+
 def install_test_dependencies(c: Context) -> bool:
     """Offer to install the test extra into edwh's own environment."""
     if not confirm("Test dependencies are missing. Install edwh[test] now? [Yn] ", default=True):
         return False
 
-    pip_install(c, "edwh[test]")
+    pip_install(c, *edwh_test_extra_requirements())
     return True
 
 
@@ -89,7 +106,7 @@ def run(
             )
             raise SystemExit(1)
 
-    command = [pytest, directory]
+    command = [*shlex.split(pytest), directory]
     if coverage:
         command.append(f"--cov={directory}")
     if html:
