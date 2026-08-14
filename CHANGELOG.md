@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.1 (2026-08-14)
+
+### Fixes
+* migrate to uv_build backend, warn if project does not follow recommended version bounds
+* **test:** improve pytest discovery and dependency installation
+* warn when still using hatch(lings) instead of `uv build`
+* support `edwh plugin.add vommit` by looking at the `plugins` extra `
+
 ## v1.14.0 (2026-08-13)
 
 ### Feature

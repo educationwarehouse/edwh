@@ -57,7 +57,7 @@ dependencies = [
     "uv < 1", # faster pip
     "yayarl < 3", # like yarl (Pathlib style URL builder) but with requests built in
 ]
-version = "1.14.0"
+version = "1.14.1"
 
 [project.optional-dependencies]
 dev = [
