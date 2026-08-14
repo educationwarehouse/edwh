@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.2 (2026-08-14)
+
+### Fix
+* **deps:** bump ty and ruff
+
 ## v1.14.1 (2026-08-14)
 
 ### Fixes
