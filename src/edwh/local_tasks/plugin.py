@@ -8,8 +8,8 @@ import importlib
 import json
 import os
 import re
-import tomllib
 import sys
+import tomllib
 import typing
 from collections import OrderedDict
 from dataclasses import dataclass
