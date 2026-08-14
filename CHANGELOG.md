@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.3 (2026-08-14)
+
+### Fix
+* **test:** configure coverage source directory
+
 ## v1.14.2 (2026-08-14)
 
 ### Fix
