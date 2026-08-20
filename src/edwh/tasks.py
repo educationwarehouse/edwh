@@ -9,6 +9,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -1155,6 +1156,42 @@ def next_value(c: Context, key: list[str] | str, lowest: int, silent: bool = Tru
             print()
     values = {int(v) for v in all_settings.values() if v}
     return max(values) + 1 if any(values) else lowest
+
+
+@task()
+def next_available_port(c: Context, port_or_key: str, silent: bool = True) -> int:
+    """Print the next available port from a starting port or environment key.
+
+    ``next-available-port 5432`` uses 5432 as the lower bound.
+    ``next-available-port PGPOOL_PORT`` uses the local value for that key.
+    """
+    reserved = set()
+    if port_or_key.isdecimal():
+        lowest = int(port_or_key)
+        env_paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
+        env_paths += list(pathlib.Path(c.cwd).glob("*/.env"))
+        keys = {key for env_path in env_paths for key in read_dotenv(env_path) if key.endswith("_PORT")}
+        for key in keys:
+            reserved.update(int(value) for value in search_adjacent_setting(c, key, silent).values() if value)
+        port = lowest
+    else:
+        key = port_or_key.upper()
+        lowest = int(read_dotenv().get(key) or 1024)
+        port = next_value(c, key, lowest, silent)
+
+    while port <= 65535:
+        if port not in reserved:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+                    server.bind(("127.0.0.1", port))
+            except OSError:
+                pass
+            else:
+                print(port)
+                return port
+        port += 1
+
+    raise RuntimeError(f"No available TCP port found from {lowest} onward")
 
 
 THREE_WEEKS = 60 * 24 * 7 * 3
