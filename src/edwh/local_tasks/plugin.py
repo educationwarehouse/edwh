@@ -10,12 +10,11 @@ import os
 import re
 import sys
 import tomllib
-import typing
+import typing as t
 from collections import OrderedDict
 from dataclasses import dataclass
 from importlib.metadata import requires
 from pathlib import Path
-from typing import Optional
 
 import dateutil.parser
 import keyring
@@ -63,7 +62,7 @@ RECOMMENDED_UV_BUILD_SPECIFIER = SpecifierSet(f">={RECOMMENDED_UV_BUILD_MINIMUM}
 RECOMMENDED_UV_BUILD_REQUIREMENT = f"uv_build>={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}"
 
 
-def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> list[str]:
+def list_installed_plugins(c: Context, pip_command: str | None = None) -> list[str]:
     """
     List installed edwh-plugins
     """
@@ -85,9 +84,9 @@ def list_installed_plugins(c: Context, pip_command: Optional[str] = None) -> lis
 @dataclass
 class Plugin:
     raw_name: str
-    installed_version: typing.Optional[Version]
-    latest_version: typing.Optional[Version]
-    metadata: dict[str, typing.Any]
+    installed_version: Version | None
+    latest_version: Version | None
+    metadata: dict[str, t.Any]
 
     is_installed: bool
     clean_name: str = ""
@@ -218,7 +217,7 @@ def list_plugins(c: Context, verbose: bool = False) -> None:
     plugins = gather_plugin_info(c)
 
     old_plugins = []
-    not_all_installed: Optional[str] = None
+    not_all_installed: str | None = None
     for plugin in plugins:
         plugin.print_details(verbose=verbose)
         if plugin.is_outdated:
@@ -331,7 +330,7 @@ def add(c: Context, plugin_names: str) -> None:
 
 @task(aliases=("upgrade",))
 def update(
-    c: Context, plugin_names: str, version: Optional[str] = None, verbose: bool = False, force: bool = False
+    c: Context, plugin_names: str, version: str | None = None, verbose: bool = False, force: bool = False
 ) -> None:
     """
     Update a plugin (or 'all') to the latest version
@@ -439,7 +438,7 @@ def _filter_away(version: Version, date: dt.datetime, _filter: str) -> bool:
     return (not _filter.isnumeric()) and (_filter_away_version(version, _filter) or _filter_away_date(date, _filter))
 
 
-def sort_versions(key_value: tuple[str, typing.Any]) -> Version:
+def sort_versions(key_value: tuple[str, t.Any]) -> Version:
     """
     Can be used as key=sort_versions in sort_and_filter_changelog
     """
@@ -467,8 +466,8 @@ def parse_changelog(markdown: str) -> T_Changelog:
     """
     # thanks ChatGPT
     changelog: dict[str, dict[str, list[str]]] = {}
-    current_version: Optional[str] = None
-    current_category: Optional[str] = None
+    current_version: str | None = None
+    current_category: str | None = None
 
     lines = markdown.split("\n")
     for line in lines:
@@ -519,7 +518,7 @@ def to_version(key: str) -> Version:
         return Version("0.0.0")
 
 
-def sort_and_filter_changelog(changelog: dict[str, dict[str, list[str]]], since: Optional[str] = None) -> T_Changelog:
+def sort_and_filter_changelog(changelog: T_Changelog, since: str | None = None) -> T_Changelog:
     """
     Since can be:
     - a number - amount of releases to show.
@@ -558,7 +557,7 @@ def sort_and_filter_changelog(changelog: dict[str, dict[str, list[str]]], since:
         # checks passed, add to output
         filtered[k] = v
 
-    return OrderedDict(sorted(filtered.items(), reverse=True, key=sort_versions))
+    return t.cast(T_Changelog, OrderedDict(sorted(filtered.items(), reverse=True, key=sort_versions)))
 
 
 COLORS: dict[str, Color] = {
@@ -619,7 +618,7 @@ def _gather_and_display_changelogs(info: list[Plugin], since: dict[str, str]) ->
     display_changelogs(changelogs_parsed)
 
 
-def _changelog_new(ctx: Context, *_: typing.Any) -> None:
+def _changelog_new(ctx: Context, *_: t.Any) -> None:
     """
     List changes since last installed version.
     """
@@ -630,7 +629,7 @@ def _changelog_new(ctx: Context, *_: typing.Any) -> None:
     return _gather_and_display_changelogs(info, since)
 
 
-def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_: typing.Any) -> None:
+def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_: t.Any) -> None:
     """
     List changes for specific plugins.
     """
@@ -640,7 +639,7 @@ def _changelog_specific(ctx: Context, plugin_names: list[str], since: str, *_: t
     return _gather_and_display_changelogs(info, _since)
 
 
-def _changelog_all(ctx: Context, _: list[str], since: str, *__: typing.Any) -> None:
+def _changelog_all(ctx: Context, _: list[str], since: str, *__: t.Any) -> None:
     """
     List changes for all plugins.
     """
@@ -669,7 +668,7 @@ def changelog(ctx: Context, plugin: list[str], since: str = "5", new: bool = Fal
         return _changelog_all(ctx, plugin, since, new)
 
 
-def _semantic_release_publish(c: Context, flags: dict[str, typing.Any], **kw: typing.Any) -> typing.Optional[str]:
+def _semantic_release_publish(c: Context, flags: dict[str, t.Any], **kw: t.Any) -> str | None:
     """
     Run the deprecated python-semantic-release path.
 
@@ -873,7 +872,7 @@ def _setup_vommit(c: Context, pyproject: Path) -> Backend:
     return "vommit"
 
 
-def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Optional[Backend]:
+def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Backend | None:
     """
     Which backend releases this project, asking about a switch when relevant.
 
@@ -917,7 +916,7 @@ def require_hatch(ctx: Context):
     assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
 
 
-def release_project_config() -> dict[str, typing.Any]:
+def release_project_config() -> dict[str, t.Any]:
     if not PYPROJECT.exists():
         return {}
 
@@ -948,7 +947,7 @@ def warn_about_hatchling() -> None:
         )
 
 
-def has_recommended_uv_build_requirement(config: dict[str, typing.Any]) -> bool:
+def has_recommended_uv_build_requirement(config: dict[str, t.Any]) -> bool:
     """Whether the build requirement matches edwh's current uv_build policy."""
     requirements = config.get("build-system", {}).get("requires", [])
     if not isinstance(requirements, list):
@@ -1112,7 +1111,7 @@ def _psr_bump(
     prerelease: bool = False,
     noop: bool = False,
     hide: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Bump via python-semantic-release, installing it first if needed.
     """
@@ -1142,7 +1141,7 @@ def bump(
     prerelease: bool = False,
     noop: bool = False,
     hide: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Bump this project's version, using whichever release tool it is configured for.
     """

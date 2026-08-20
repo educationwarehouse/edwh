@@ -23,7 +23,6 @@ from concurrent import futures
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 import ewok
 import invoke
@@ -366,7 +365,7 @@ class TomlConfig:
     def load(
         cls,
         fname: str | Path = DEFAULT_TOML_NAME,
-        dotenv_path: Optional[Path] = None,
+        dotenv_path: Path | None = None,
         cache: bool = True,
     ) -> "TomlConfig | None":
         """
@@ -516,7 +515,7 @@ def read_dotenv(env_path: Path = DEFAULT_DOTENV_PATH) -> dict[str, str]:
 def warn_once(
     warning: str,
     previously_shown: list[str] = [],
-    color: Optional[Color] = None,
+    color: Color | None = None,
     **print_kwargs: t.Any,
 ) -> None:
     """
@@ -535,21 +534,21 @@ def warn_once(
     )
 
 
-type DefaultFn = t.Callable[[], Optional[str]]
+type DefaultFn = t.Callable[[], str | None]
 
 
 def check_env(
     key: str,
-    default: Optional[str] | DefaultFn,
+    default: str | DefaultFn | None,
     comment: str,
     # optionals:
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
     # note: 'postfix' should be 'suffix' but to be backwards compatible we can't just remove it!
-    postfix: Optional[str] = None,
+    postfix: str | None = None,
     # different config paths:
-    env_path: Optional[str | Path] = None,
-    force_default: Optional[bool] = False,
+    env_path: str | Path | None = None,
+    force_default: bool | None = False,
     allowed_values: t.Iterable[str] = (),
     toml_path: None = None,
 ) -> str:
@@ -885,7 +884,7 @@ def write_user_input_to_config_toml(
 
 
 def load_dockercompose_with_includes(
-    c: Optional[invoke.Context] = None,
+    c: invoke.Context | None = None,
     dc_path: str | Path = "docker-compose.yml",
 ) -> AnyDict:
     """
@@ -1257,7 +1256,7 @@ def fuzzy_match(val1: str, val2: str, verbose: bool = False) -> float:
     return similarity
 
 
-def _settings(find: t.Optional[str], fuzz_threshold: int = 75) -> t.Iterable[tuple[str, t.Any]]:
+def _settings(find: str | None, fuzz_threshold: int = 75) -> t.Iterable[tuple[str, t.Any]]:
     all_settings = read_dotenv().items()
     if find is None:
         # don't loop
@@ -1277,7 +1276,7 @@ def _settings(find: t.Optional[str], fuzz_threshold: int = 75) -> t.Iterable[tup
         "fuzz_threshold": ("t", "fuzz-threshold"),
     },
 )
-def settings(_: Context, find: Optional[str] = None, fuzz_threshold: int = 75, as_json: bool = False) -> None:
+def settings(_: Context, find: str | None = None, fuzz_threshold: int = 75, as_json: bool = False) -> None:
     """
     Show all settings in .env file or search for a specific setting using -f/--find.
     """
@@ -1795,8 +1794,8 @@ def follow_logs(
     )
 
     # Loop until container state is 'exited'
-    process: Optional[Promise] = None
-    runner: Optional[Runner] = None
+    process: Promise | None = None
+    runner: Runner | None = None
     while True:
         try:
             # Check container state
@@ -1880,12 +1879,12 @@ def logs(
     ctx: Context,
     service: t.Collection[str] | None = None,
     follow: bool = True,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     sort: bool = False,
     show_all: bool = False,
     verbose: bool = False,
     timestamps: bool = True,
-    since: Optional[str] = None,
+    since: str | None = None,
     new: bool = False,
     stream: T_Stream = "",
     filter_pattern: str = "",
@@ -2624,7 +2623,7 @@ def run_command_with_output(
 )
 def lint(
     ctx: Context,
-    directory: Optional[str] = None,
+    directory: str | None = None,
     select: str = "",
     fix: bool = False,
     output: OutputMode = "cli",
@@ -2679,8 +2678,8 @@ def fmt(
     isort: bool = True,
     ioptimize: bool = False,
     reformat: bool = True,
-    directory: Optional[str] = None,
-    file: Optional[str] = None,
+    directory: str | None = None,
+    file: str | None = None,
     quiet: bool = False,
 ):
     """

@@ -1,7 +1,7 @@
 import json
 import re
 import sys
-import typing
+import typing as t
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TypedDict
@@ -120,7 +120,7 @@ class Discover:
 
         print_fn = noop if as_json else cprint
 
-        self.print_fn = typing.cast(typing.Callable[..., None], print_fn)
+        self.print_fn = t.cast(t.Callable[..., None], print_fn)
         self.reset()
 
     def reset(self) -> None:
@@ -133,13 +133,13 @@ class Discover:
         }
 
     @contextmanager
-    def indent(self, prefix: str = "  ") -> typing.Generator[None, None, None]:
+    def indent(self, prefix: str = "  ") -> t.Generator[None, None, None]:
         # context manager
         self.i = indent(self.i, prefix)
         yield
         self.i = dedent(self.i, prefix)
 
-    def print(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+    def print(self, *args: t.Any, **kwargs: t.Any) -> None:
         sep = kwargs.pop("sep", " ")
         msg = sep.join([self.i, *args])
         self.print_fn(msg, **kwargs)
@@ -189,7 +189,7 @@ class Discover:
 
         if self.as_json:
             try:
-                return typing.cast(AnyDict, json.loads(settings_output))
+                return t.cast(AnyDict, json.loads(settings_output))
             except json.JSONDecodeError:
                 print(f"Error loading settings for {self.data['server']}/{folder}", file=sys.stderr)
         else:

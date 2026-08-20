@@ -45,7 +45,7 @@ class EddieApp(ewok.App):
         signal.signal(signal.SIGINT, handle_signal)
         signal.signal(signal.SIGTERM, handle_signal)
 
-    def run(self, argv: t.Optional[list[str]] = None, exit: bool = True) -> None:  # noqa: A002
+    def run(self, argv: list[str] | None = None, exit: bool = True) -> None:  # noqa: A002
         """Run the application with terminal‑safety fixes enabled."""
         self._fix_invoke_terminal_corruption()
         return super().run(argv=argv, exit=exit)

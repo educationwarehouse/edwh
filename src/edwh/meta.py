@@ -34,14 +34,14 @@ def _pip(python: str = _python()) -> str:
     return f"{python} -m uv pip"
 
 
-def pip_install(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
+def pip_install(c: Context, *specifiers: str, **kw: t.Any) -> Result | None:
     """
     Install into the environment edwh itself runs in.
     """
     return c.run(f"{_pip()} install {shlex.join(specifiers)}", **kw)
 
 
-def pip_uninstall(c: Context, *specifiers: str, **kw: t.Any) -> t.Optional[Result]:
+def pip_uninstall(c: Context, *specifiers: str, **kw: t.Any) -> Result | None:
     """
     Remove from the environment edwh itself runs in.
     """
