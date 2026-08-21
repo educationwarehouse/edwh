@@ -83,21 +83,12 @@ Silence it for a project:
 warn-hatch-build = false
 ```
 
-The build-configuration checks — Hatchling instead of `uv_build`, a `uv_build`
-requirement outside the recommended range, a `hatch build` release command —
-belong to [vommit](https://github.com/educationwarehouse/vommit), which is what
-builds and publishes a release. It reports them at `vommit setup` (with an offer
-to fix each one) and again before a release, and silences them per project by
-id:
-
-```toml
-[tool.vommit]
-ignore = ["hatchling-backend", "uv-build-pin", "hatch-build-command"]
-```
-
-`edwh plugin.release` still prints them on the deprecated python-semantic-release
-path, where nothing else would. The old `warn-hatchling` and `warn-uv-build` keys
-under `[tool.edwh.release]` are gone; use vommit's `ignore` instead.
+Everything else about the build configuration (Hatchling instead of `uv_build`,
+the `uv_build` pin, a `hatch build` release command) is checked by
+[vommit](https://github.com/educationwarehouse/vommit) and documented there,
+under "Build checks", including how to silence one. `plugin.release` prints those
+warnings too on the deprecated python-semantic-release path, where nothing else
+would.
 
 ## Testing
 

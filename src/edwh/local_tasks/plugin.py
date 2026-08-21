@@ -927,7 +927,7 @@ def release_warning_enabled(warning: str) -> bool:
     return release_config.get(warning, True) is not False
 
 
-def warn_about_hatch_build(hatch: bool) -> None:
+def warn_about_hatch_build() -> None:
     """
     Warn about `--hatch`, which only the deprecated psr path still honours.
 
@@ -935,7 +935,7 @@ def warn_about_hatch_build(hatch: bool) -> None:
     `[tool.vommit.commands].build`; this one is about a flag, which is nothing
     vommit can see.
     """
-    if not (hatch and release_warning_enabled("warn-hatch-build")):
+    if not release_warning_enabled("warn-hatch-build"):
         return
 
     cprint(
@@ -1220,9 +1220,9 @@ def release(
     # on a backend the checks have something to say about
     for warning in vommit_project_warnings():
         cprint(warning, "yellow")
-    warn_about_hatch_build(hatch)
 
     if hatch:
+        warn_about_hatch_build()
         require_hatch(c)
 
     cprint("bumping version", "blue")
