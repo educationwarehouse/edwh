@@ -75,17 +75,30 @@ ty = false
 
 ## Releasing plugins
 
-`edwh plugin.release` warns when a project still uses Hatchling or when its
-`--hatch` build fallback is selected. It also warns when a project's `uv_build`
-requirement no longer matches edwh's current recommendation. Silence any of
-these warnings for a project:
+`edwh plugin.release` warns when the `--hatch` build fallback is selected.
+Silence it for a project:
 
 ```toml
 [tool.edwh.release]
-warn-hatchling = false
 warn-hatch-build = false
-warn-uv-build = false
 ```
+
+The build-configuration checks — Hatchling instead of `uv_build`, a `uv_build`
+requirement outside the recommended range, a `hatch build` release command —
+belong to [vommit](https://github.com/educationwarehouse/vommit), which is what
+builds and publishes a release. It reports them at `vommit setup` (with an offer
+to fix each one) and again before a release, and silences them per project by
+id:
+
+```toml
+[tool.vommit]
+ignore = ["hatchling-backend", "uv-build-pin", "hatch-build-command"]
+```
+
+`edwh plugin.release` still prints them on the deprecated python-semantic-release
+path, where nothing else would. A `warn-hatchling` or `warn-uv-build` key left in
+`[tool.edwh.release]` no longer suppresses anything; `plugin.release` says so
+once and names the id to use instead.
 
 ## Testing
 

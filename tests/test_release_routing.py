@@ -268,3 +268,61 @@ def test_require_vommit_task_keeps_its_result_to_itself(ctx: RecordingContext, a
         plugin.require_vommit(ctx)
 
     assert not ctx["result"], f"leaked {ctx['result']!r} into the shared result"
+
+
+LEGACY_SILENCED = """[project]
+name = "demo"
+version = "1.0.0"
+
+[tool.edwh.release]
+warn-hatchling = false
+warn-hatch-build = false
+"""
+
+
+def test_a_legacy_silenced_warning_is_pointed_at_its_new_home(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    The key stayed behind when the check moved, so it silences nothing. Saying
+    so beats a warning that comes back from vommit while the pyproject looks
+    like it switched that warning off.
+    """
+    with chdir(project(LEGACY_SILENCED)):
+        plugin.warn_about_moved_release_warnings("vommit")
+
+    printed = capsys.readouterr().out
+    assert "warn-hatchling" in printed, "the stale key was not named"
+    assert '"hatchling-backend"' in printed, "the id to use instead was not named"
+    # only meaningless for a vommit project: on psr it still covers --hatch
+    assert '"hatch-build-command"' in printed
+
+
+def test_warn_hatch_build_still_means_something_on_the_psr_path(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with chdir(project(LEGACY_SILENCED)):
+        plugin.warn_about_moved_release_warnings("psr")
+
+    printed = capsys.readouterr().out
+    assert "warn-hatchling" in printed
+    assert "warn-hatch-build" not in printed, "reported a key that is still honoured here"
+
+
+def test_a_project_that_silenced_nothing_hears_nothing(
+    project: MakeProject, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with chdir(project(VOMMIT)):
+        plugin.warn_about_moved_release_warnings("vommit")
+
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.usefixtures("no_vommit")
+def test_the_build_checks_are_skipped_when_vommit_cannot_answer(project: MakeProject) -> None:
+    """
+    The checks are vommit's, so a psr project without the extra installed gets
+    no build warnings rather than a second implementation of them.
+    """
+    with chdir(project(BARE)):
+        assert plugin.vommit_project_warnings() == []

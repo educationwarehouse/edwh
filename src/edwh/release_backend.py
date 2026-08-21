@@ -225,6 +225,29 @@ def vommit_configured(pyproject: Path = PYPROJECT) -> bool:
     return Config.has_pyproject_config(pyproject)
 
 
+def vommit_project_warnings(root: Path = Path()) -> list[str]:
+    """
+    vommit's verdict on this project's build configuration, or nothing.
+
+    Only needed on the deprecated psr path: a vommit release prints these
+    itself. Delegated rather than reimplemented -- these checks used to live
+    here, and two copies of "is this project still on hatchling" is how the two
+    packages end up recommending different things. Empty when the extra is
+    absent, or when it predates the checks.
+    """
+    try:
+        from vommit.build import project_warnings
+        from vommit.config import Config
+    except ImportError:
+        return []
+
+    try:
+        return [warning.message for warning in project_warnings(root, Config.from_pyproject(root))]
+    except Exception:
+        # a warning about the build is never worth failing a release over
+        return []
+
+
 def vommit_specifier() -> str:
     """
     The version range the `vommit` extra declares.

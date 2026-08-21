@@ -23,8 +23,7 @@ from ewok import (
     Context,
     task,
 )
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
@@ -51,15 +50,22 @@ from ..release_backend import (
     pinned_backend,
     store_vommit_pypi_token,
     vommit_configured,
+    vommit_project_warnings,
     vommit_specifier,
     vommit_tasks,
     vommit_token_complaint,
 )
 
-RECOMMENDED_UV_BUILD_MINIMUM = "0.12.4"
-RECOMMENDED_UV_BUILD_MAXIMUM = "0.13"
-RECOMMENDED_UV_BUILD_SPECIFIER = SpecifierSet(f">={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}")
-RECOMMENDED_UV_BUILD_REQUIREMENT = f"uv_build>={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}"
+# The build-configuration warnings that moved to vommit, and the id each one is
+# now silenced by. A project that switched one off here needs vommit's `ignore`
+# list instead: this key no longer suppresses anything.
+MOVED_RELEASE_WARNINGS = {
+    "warn-hatchling": "hatchling-backend",
+    "warn-uv-build": "uv-build-pin",
+}
+# Also moved, but only for a vommit project: on the psr path `warn-hatch-build`
+# still covers the `--hatch` flag, which is edwh's own and stays here.
+MOVED_ON_VOMMIT = {"warn-hatch-build": "hatch-build-command"}
 
 
 def list_installed_plugins(c: Context, pip_command: str | None = None) -> list[str]:
@@ -932,67 +938,45 @@ def release_warning_enabled(warning: str) -> bool:
     return release_config.get(warning, True) is not False
 
 
-def warn_about_hatchling() -> None:
-    if not release_warning_enabled("warn-hatchling"):
+def warn_about_moved_release_warnings(backend: Backend) -> None:
+    """
+    Point a project that silenced a moved warning at where it now lives.
+
+    The backend checks are vommit's, and vommit reads its own `ignore` list, so
+    a `warn-hatchling = false` left behind here silences nothing: the warning
+    comes back from the other side, and the key looks like it is broken rather
+    than relocated.
+    """
+    config = release_project_config()
+    release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
+    moved = MOVED_RELEASE_WARNINGS | (MOVED_ON_VOMMIT if backend == "vommit" else {})
+
+    silenced = [(key, warning_id) for key, warning_id in moved.items() if release_config.get(key) is False]
+    if not silenced:
         return
 
-    config = release_project_config()
-    build_backend = config.get("build-system", {}).get("build-backend")
-    if build_backend == "hatchling.build":
-        cprint(
-            "Warning: this project uses the Hatchling build backend. "
-            "Migrate to uv_build when possible, or set "
-            "`warn-hatchling = false` under `[tool.edwh.release]` to silence this warning.",
-            "yellow",
-        )
+    keys = ", ".join(f"`{key}`" for key, _ in silenced)
+    ids = ", ".join(f'"{warning_id}"' for _, warning_id in silenced)
+    cprint(
+        f"Note: {keys} under `[tool.edwh.release]` no longer does anything; that check moved to vommit. "
+        f"Put {ids} in `ignore` under `[tool.vommit]` instead.",
+        "blue",
+    )
 
 
-def has_recommended_uv_build_requirement(config: dict[str, t.Any]) -> bool:
-    """Whether the build requirement matches edwh's current uv_build policy."""
-    requirements = config.get("build-system", {}).get("requires", [])
-    if not isinstance(requirements, list):
-        return False
+def warn_about_hatch_build(hatch: bool) -> None:
+    """
+    Warn about `--hatch`, which only the deprecated psr path still honours.
 
-    for requirement_string in requirements:
-        if not isinstance(requirement_string, str):
-            continue
-        try:
-            requirement = Requirement(requirement_string)
-        except InvalidRequirement:
-            continue
-        if canonicalize_name(requirement.name) == "uv-build":
-            return requirement.specifier == RECOMMENDED_UV_BUILD_SPECIFIER
-
-    return False
-
-
-def warn_about_uv_build() -> None:
-    if not release_warning_enabled("warn-uv-build"):
-        return
-
-    config = release_project_config()
-    build_backend = config.get("build-system", {}).get("build-backend")
-    if build_backend == "uv_build" and not has_recommended_uv_build_requirement(config):
-        cprint(
-            "Warning: this project's uv_build requirement should be "
-            f"`{RECOMMENDED_UV_BUILD_REQUIREMENT}`. Set it under `[build-system].requires`, or set "
-            "`warn-uv-build = false` under `[tool.edwh.release]` to silence this warning.",
-            "yellow",
-        )
-
-
-def warn_about_hatch_build(backend: Backend, hatch: bool) -> None:
-    config = release_project_config()
-    build_command = config.get("tool", {}).get("vommit", {}).get("commands", {}).get("build", "")
-    if not isinstance(build_command, str):
-        build_command = ""
-
-    uses_hatch = (backend == "psr" and hatch) or (backend == "vommit" and "hatch build" in build_command)
-    if not (uses_hatch and release_warning_enabled("warn-hatch-build")):
+    The same warning for a vommit project comes from vommit itself, keyed on
+    `[tool.vommit.commands].build`; this one is about a flag, which is nothing
+    vommit can see.
+    """
+    if not (hatch and release_warning_enabled("warn-hatch-build")):
         return
 
     cprint(
-        "Warning: this release uses `hatch build`. "
+        "Warning: --hatch builds and publishes with `hatch`. "
         "Migrate to `uv build` when possible, or set "
         "`warn-hatch-build = false` under `[tool.edwh.release]` to silence this warning.",
         "yellow",
@@ -1253,9 +1237,7 @@ def release(
     if backend is None:
         return
 
-    warn_about_hatchling()
-    warn_about_uv_build()
-    warn_about_hatch_build(backend, hatch)
+    warn_about_moved_release_warnings(backend)
 
     if backend == "vommit":
         return _vommit_release(
@@ -1271,6 +1253,13 @@ def release(
     elif backend == "none":
         cprint("No release configuration; nothing to release with.", "yellow")
         return
+
+    # the vommit path has vommit's own release print these; here there is
+    # nobody else to do it, and a psr project is the likeliest one to still be
+    # on a backend the checks have something to say about
+    for warning in vommit_project_warnings():
+        cprint(warning, "yellow")
+    warn_about_hatch_build(hatch)
 
     if hatch:
         require_hatch(c)
