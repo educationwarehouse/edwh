@@ -56,17 +56,6 @@ from ..release_backend import (
     vommit_token_complaint,
 )
 
-# The build-configuration warnings that moved to vommit, and the id each one is
-# now silenced by. A project that switched one off here needs vommit's `ignore`
-# list instead: this key no longer suppresses anything.
-MOVED_RELEASE_WARNINGS = {
-    "warn-hatchling": "hatchling-backend",
-    "warn-uv-build": "uv-build-pin",
-}
-# Also moved, but only for a vommit project: on the psr path `warn-hatch-build`
-# still covers the `--hatch` flag, which is edwh's own and stays here.
-MOVED_ON_VOMMIT = {"warn-hatch-build": "hatch-build-command"}
-
 
 def list_installed_plugins(c: Context, pip_command: str | None = None) -> list[str]:
     """
@@ -938,32 +927,6 @@ def release_warning_enabled(warning: str) -> bool:
     return release_config.get(warning, True) is not False
 
 
-def warn_about_moved_release_warnings(backend: Backend) -> None:
-    """
-    Point a project that silenced a moved warning at where it now lives.
-
-    The backend checks are vommit's, and vommit reads its own `ignore` list, so
-    a `warn-hatchling = false` left behind here silences nothing: the warning
-    comes back from the other side, and the key looks like it is broken rather
-    than relocated.
-    """
-    config = release_project_config()
-    release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
-    moved = MOVED_RELEASE_WARNINGS | (MOVED_ON_VOMMIT if backend == "vommit" else {})
-
-    silenced = [(key, warning_id) for key, warning_id in moved.items() if release_config.get(key) is False]
-    if not silenced:
-        return
-
-    keys = ", ".join(f"`{key}`" for key, _ in silenced)
-    ids = ", ".join(f'"{warning_id}"' for _, warning_id in silenced)
-    cprint(
-        f"Note: {keys} under `[tool.edwh.release]` no longer does anything; that check moved to vommit. "
-        f"Put {ids} in `ignore` under `[tool.vommit]` instead.",
-        "blue",
-    )
-
-
 def warn_about_hatch_build(hatch: bool) -> None:
     """
     Warn about `--hatch`, which only the deprecated psr path still honours.
@@ -1236,8 +1199,6 @@ def release(
 
     if backend is None:
         return
-
-    warn_about_moved_release_warnings(backend)
 
     if backend == "vommit":
         return _vommit_release(

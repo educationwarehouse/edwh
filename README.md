@@ -96,9 +96,8 @@ ignore = ["hatchling-backend", "uv-build-pin", "hatch-build-command"]
 ```
 
 `edwh plugin.release` still prints them on the deprecated python-semantic-release
-path, where nothing else would. A `warn-hatchling` or `warn-uv-build` key left in
-`[tool.edwh.release]` no longer suppresses anything; `plugin.release` says so
-once and names the id to use instead.
+path, where nothing else would. The old `warn-hatchling` and `warn-uv-build` keys
+under `[tool.edwh.release]` are gone; use vommit's `ignore` instead.
 
 ## Testing
 
