@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v1.15.0 (2026-08-21)
+
+### Feature
+* **tasks:** add next available port task
+
+### Fix
+* **release:** align release warnings with vommit
+
+### Documentation
+* **release:** update release warning configuration
+
 ## v1.14.3 (2026-08-14)
 
 ### Fix
