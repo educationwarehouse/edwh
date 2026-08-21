@@ -75,17 +75,22 @@ ty = false
 
 ## Releasing plugins
 
-`edwh plugin.release` warns when a project still uses Hatchling or when its
-`--hatch` build fallback is selected. It also warns when a project's `uv_build`
-requirement no longer matches edwh's current recommendation. Silence any of
-these warnings for a project:
+`edwh plugin.release` warns when a project still releases with
+python-semantic-release, and when the `--hatch` build fallback is selected.
+Silence either for a project:
 
 ```toml
 [tool.edwh.release]
-warn-hatchling = false
+warn-psr = false
 warn-hatch-build = false
-warn-uv-build = false
 ```
+
+Warnings about the build configuration itself (Hatchling, the `uv_build` pin, a
+`hatch build` release command) come from
+[vommit](https://github.com/educationwarehouse/vommit), which runs the build. Its
+readme documents them under "Build checks", including how to silence one. When
+using python-semantic-release they are not reported at all; that prints its
+deprecation notice instead.
 
 ## Testing
 
@@ -228,7 +233,8 @@ introducing additional features:
   executed in sequence, passing along the context and any provided arguments.
 
 The return value of a hookable task will be available in the context under the key `result`.
-Using a dictionary as the return value is recommended, as it allows you to merge the results of multiple cascading tasks.
+Using a dictionary as the return value is recommended, as it allows you to merge the results of multiple cascading
+tasks.
 
 ### Example Usage
 
