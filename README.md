@@ -75,21 +75,25 @@ ty = false
 
 ## Releasing plugins
 
-`edwh plugin.release` warns when the `--hatch` build fallback is selected.
-Silence it for a project:
+`edwh plugin.release` warns when a project still releases with
+python-semantic-release, and when the `--hatch` build fallback is selected.
+Silence either for a project:
 
 ```toml
 [tool.edwh.release]
+warn-psr = false
 warn-hatch-build = false
 ```
+
+`warn-psr` only turns the notice off; psr support is still going away in edwh 2.0.
 
 Everything else about the build configuration (Hatchling instead of `uv_build`,
 the `uv_build` pin, a `hatch build` release command) is checked by
 [vommit](https://github.com/educationwarehouse/vommit) and documented there,
 under "Build checks", including how to silence one. They are reported by
 whichever `vommit` command runs, which `plugin.release` hands a vommit project
-over to. A project still on python-semantic-release hears only that psr is
-deprecated: migrating is the one thing worth doing about it.
+over to. On the deprecated python-semantic-release path they are not reported at
+all; that path prints its own deprecation notice instead.
 
 ## Testing
 

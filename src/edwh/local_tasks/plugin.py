@@ -705,7 +705,8 @@ def require_semantic_release(ctx: Context):
 
 PSR_DEPRECATION = (
     "python-semantic-release support is deprecated and will be removed in edwh 2.0. "
-    "Run `edwh plugin.release` again to migrate this project to vommit."
+    "Run `edwh plugin.release` again to migrate this project to vommit, or set "
+    "`warn-psr = false` under `[tool.edwh.release]` to silence this warning."
 )
 
 
@@ -888,7 +889,7 @@ def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Backend | None:
     if pinned_backend(pyproject) is None:
         backend = _offer_switch(c, backend, pyproject)
 
-    if backend == "psr":
+    if backend == "psr" and release_warning_enabled("warn-psr", pyproject):
         cprint(PSR_DEPRECATION, "yellow")
 
     return backend
@@ -910,18 +911,24 @@ def require_hatch(ctx: Context):
     assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
 
 
-def release_project_config() -> dict[str, t.Any]:
-    if not PYPROJECT.exists():
+def release_project_config(pyproject: Path = PYPROJECT) -> dict[str, t.Any]:
+    if not pyproject.exists():
         return {}
 
     try:
-        return tomllib.loads(PYPROJECT.read_text())
+        return tomllib.loads(pyproject.read_text())
     except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
         return {}
 
 
-def release_warning_enabled(warning: str) -> bool:
-    config = release_project_config()
+def release_warning_enabled(warning: str, pyproject: Path = PYPROJECT) -> bool:
+    """
+    Whether `[tool.edwh.release]` still wants to hear this warning.
+
+    Takes the path rather than reading the cwd, because the one caller that
+    knows better -- `_resolve_backend` -- is handed a pyproject of its own.
+    """
+    config = release_project_config(pyproject)
     release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
     return release_config.get(warning, True) is not False
 
