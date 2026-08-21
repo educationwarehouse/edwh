@@ -268,13 +268,3 @@ def test_require_vommit_task_keeps_its_result_to_itself(ctx: RecordingContext, a
         plugin.require_vommit(ctx)
 
     assert not ctx["result"], f"leaked {ctx['result']!r} into the shared result"
-
-
-@pytest.mark.usefixtures("no_vommit")
-def test_the_build_checks_are_skipped_when_vommit_cannot_answer(project: MakeProject) -> None:
-    """
-    The checks are vommit's, so a psr project without the extra installed gets
-    no build warnings rather than a second implementation of them.
-    """
-    with chdir(project(BARE)):
-        assert plugin.vommit_project_warnings() == []

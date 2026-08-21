@@ -86,9 +86,10 @@ warn-hatch-build = false
 Everything else about the build configuration (Hatchling instead of `uv_build`,
 the `uv_build` pin, a `hatch build` release command) is checked by
 [vommit](https://github.com/educationwarehouse/vommit) and documented there,
-under "Build checks", including how to silence one. `plugin.release` prints those
-warnings too on the deprecated python-semantic-release path, where nothing else
-would.
+under "Build checks", including how to silence one. They are reported by
+whichever `vommit` command runs, which `plugin.release` hands a vommit project
+over to. A project still on python-semantic-release hears only that psr is
+deprecated: migrating is the one thing worth doing about it.
 
 ## Testing
 

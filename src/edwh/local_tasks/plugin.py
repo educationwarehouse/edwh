@@ -50,7 +50,6 @@ from ..release_backend import (
     pinned_backend,
     store_vommit_pypi_token,
     vommit_configured,
-    vommit_project_warnings,
     vommit_specifier,
     vommit_tasks,
     vommit_token_complaint,
@@ -1214,12 +1213,6 @@ def release(
     elif backend == "none":
         cprint("No release configuration; nothing to release with.", "yellow")
         return
-
-    # the vommit path has vommit's own release print these; here there is
-    # nobody else to do it, and a psr project is the likeliest one to still be
-    # on a backend the checks have something to say about
-    for warning in vommit_project_warnings():
-        cprint(warning, "yellow")
 
     if hatch:
         warn_about_hatch_build()
