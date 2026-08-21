@@ -268,3 +268,38 @@ def test_require_vommit_task_keeps_its_result_to_itself(ctx: RecordingContext, a
         plugin.require_vommit(ctx)
 
     assert not ctx["result"], f"leaked {ctx['result']!r} into the shared result"
+
+
+PINNED_PSR = """[project]
+name = "demo"
+
+[tool.semantic_release]
+branch = "main"
+
+[tool.edwh.release]
+backend = "psr"
+"""
+
+
+def test_a_pinned_psr_project_is_told_that_psr_is_going_away(
+    project: MakeProject, ctx: RecordingContext, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with chdir(project(PINNED_PSR)):
+        assert plugin._resolve_backend(ctx) == "psr"
+
+    printed = capsys.readouterr().out
+    assert "deprecated" in printed, "the deprecation was never printed"
+    assert "warn-psr" in printed, "no way to silence it was offered"
+
+
+def test_warn_psr_silences_the_deprecation(
+    project: MakeProject, ctx: RecordingContext, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    A project that pinned psr has already answered the question; being told
+    every release is the part worth switching off.
+    """
+    with chdir(project(PINNED_PSR + "warn-psr = false\n")):
+        assert plugin._resolve_backend(ctx) == "psr"
+
+    assert capsys.readouterr().out == "", "silenced and still said something"

@@ -23,8 +23,7 @@ from ewok import (
     Context,
     task,
 )
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
+from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import parse as parse_package_version
 from termcolor import colored, cprint
@@ -55,11 +54,6 @@ from ..release_backend import (
     vommit_tasks,
     vommit_token_complaint,
 )
-
-RECOMMENDED_UV_BUILD_MINIMUM = "0.12.4"
-RECOMMENDED_UV_BUILD_MAXIMUM = "0.13"
-RECOMMENDED_UV_BUILD_SPECIFIER = SpecifierSet(f">={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}")
-RECOMMENDED_UV_BUILD_REQUIREMENT = f"uv_build>={RECOMMENDED_UV_BUILD_MINIMUM},<{RECOMMENDED_UV_BUILD_MAXIMUM}"
 
 
 def list_installed_plugins(c: Context, pip_command: str | None = None) -> list[str]:
@@ -711,7 +705,8 @@ def require_semantic_release(ctx: Context):
 
 PSR_DEPRECATION = (
     "python-semantic-release support is deprecated and will be removed in edwh 2.0. "
-    "Run `edwh plugin.release` again to migrate this project to vommit."
+    "Run `edwh plugin.release` again to migrate this project to vommit, or set "
+    "`warn-psr = false` under `[tool.edwh.release]` to silence this warning."
 )
 
 
@@ -894,7 +889,7 @@ def _resolve_backend(c: Context, pyproject: Path = PYPROJECT) -> Backend | None:
     if pinned_backend(pyproject) is None:
         backend = _offer_switch(c, backend, pyproject)
 
-    if backend == "psr":
+    if backend == "psr" and release_warning_enabled("warn-psr", pyproject):
         cprint(PSR_DEPRECATION, "yellow")
 
     return backend
@@ -916,83 +911,40 @@ def require_hatch(ctx: Context):
     assert is_installed(ctx, "hatch"), "Tool 'hatch' still can't be found!"
 
 
-def release_project_config() -> dict[str, t.Any]:
-    if not PYPROJECT.exists():
+def release_project_config(pyproject: Path = PYPROJECT) -> dict[str, t.Any]:
+    if not pyproject.exists():
         return {}
 
     try:
-        return tomllib.loads(PYPROJECT.read_text())
+        return tomllib.loads(pyproject.read_text())
     except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
         return {}
 
 
-def release_warning_enabled(warning: str) -> bool:
-    config = release_project_config()
+def release_warning_enabled(warning: str, pyproject: Path = PYPROJECT) -> bool:
+    """
+    Whether `[tool.edwh.release]` still wants to hear this warning.
+
+    Takes the path rather than reading the cwd, because `_resolve_backend` is
+    handed a pyproject of its own.
+    """
+    config = release_project_config(pyproject)
     release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
     return release_config.get(warning, True) is not False
 
 
-def warn_about_hatchling() -> None:
-    if not release_warning_enabled("warn-hatchling"):
-        return
+def warn_about_hatch_build() -> None:
+    """
+    Warn about `--hatch`, which only the deprecated psr path still honours.
 
-    config = release_project_config()
-    build_backend = config.get("build-system", {}).get("build-backend")
-    if build_backend == "hatchling.build":
-        cprint(
-            "Warning: this project uses the Hatchling build backend. "
-            "Migrate to uv_build when possible, or set "
-            "`warn-hatchling = false` under `[tool.edwh.release]` to silence this warning.",
-            "yellow",
-        )
-
-
-def has_recommended_uv_build_requirement(config: dict[str, t.Any]) -> bool:
-    """Whether the build requirement matches edwh's current uv_build policy."""
-    requirements = config.get("build-system", {}).get("requires", [])
-    if not isinstance(requirements, list):
-        return False
-
-    for requirement_string in requirements:
-        if not isinstance(requirement_string, str):
-            continue
-        try:
-            requirement = Requirement(requirement_string)
-        except InvalidRequirement:
-            continue
-        if canonicalize_name(requirement.name) == "uv-build":
-            return requirement.specifier == RECOMMENDED_UV_BUILD_SPECIFIER
-
-    return False
-
-
-def warn_about_uv_build() -> None:
-    if not release_warning_enabled("warn-uv-build"):
-        return
-
-    config = release_project_config()
-    build_backend = config.get("build-system", {}).get("build-backend")
-    if build_backend == "uv_build" and not has_recommended_uv_build_requirement(config):
-        cprint(
-            "Warning: this project's uv_build requirement should be "
-            f"`{RECOMMENDED_UV_BUILD_REQUIREMENT}`. Set it under `[build-system].requires`, or set "
-            "`warn-uv-build = false` under `[tool.edwh.release]` to silence this warning.",
-            "yellow",
-        )
-
-
-def warn_about_hatch_build(backend: Backend, hatch: bool) -> None:
-    config = release_project_config()
-    build_command = config.get("tool", {}).get("vommit", {}).get("commands", {}).get("build", "")
-    if not isinstance(build_command, str):
-        build_command = ""
-
-    uses_hatch = (backend == "psr" and hatch) or (backend == "vommit" and "hatch build" in build_command)
-    if not (uses_hatch and release_warning_enabled("warn-hatch-build")):
+    The vommit project's version of this warning comes from vommit itself;
+    this one covers a flag vommit cannot see.
+    """
+    if not release_warning_enabled("warn-hatch-build"):
         return
 
     cprint(
-        "Warning: this release uses `hatch build`. "
+        "Warning: --hatch builds and publishes with `hatch`. "
         "Migrate to `uv build` when possible, or set "
         "`warn-hatch-build = false` under `[tool.edwh.release]` to silence this warning.",
         "yellow",
@@ -1253,10 +1205,6 @@ def release(
     if backend is None:
         return
 
-    warn_about_hatchling()
-    warn_about_uv_build()
-    warn_about_hatch_build(backend, hatch)
-
     if backend == "vommit":
         return _vommit_release(
             c,
@@ -1273,6 +1221,7 @@ def release(
         return
 
     if hatch:
+        warn_about_hatch_build()
         require_hatch(c)
 
     cprint("bumping version", "blue")
