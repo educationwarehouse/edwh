@@ -88,7 +88,8 @@ warn-hatch-build = false
 Warnings about the build configuration itself (Hatchling, the `uv_build` pin, a
 `hatch build` release command) come from
 [vommit](https://github.com/educationwarehouse/vommit), which runs the build. Its
-readme documents them under "Build checks", including how to silence one.
+readme documents them under "Build checks", including how to silence one. They
+are not reported on the psr path, which prints its deprecation notice instead.
 
 ## Testing
 
