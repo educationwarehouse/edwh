@@ -85,15 +85,10 @@ warn-psr = false
 warn-hatch-build = false
 ```
 
-`warn-psr` only turns the notice off; psr support is still going away in edwh 2.0.
-
-Everything else about the build configuration (Hatchling instead of `uv_build`,
-the `uv_build` pin, a `hatch build` release command) is checked by
-[vommit](https://github.com/educationwarehouse/vommit) and documented there,
-under "Build checks", including how to silence one. They are reported by
-whichever `vommit` command runs, which `plugin.release` hands a vommit project
-over to. On the deprecated python-semantic-release path they are not reported at
-all; that path prints its own deprecation notice instead.
+Warnings about the build configuration itself (Hatchling, the `uv_build` pin, a
+`hatch build` release command) come from
+[vommit](https://github.com/educationwarehouse/vommit), which runs the build. Its
+readme documents them under "Build checks", including how to silence one.
 
 ## Testing
 

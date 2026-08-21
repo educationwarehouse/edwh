@@ -925,8 +925,8 @@ def release_warning_enabled(warning: str, pyproject: Path = PYPROJECT) -> bool:
     """
     Whether `[tool.edwh.release]` still wants to hear this warning.
 
-    Takes the path rather than reading the cwd, because the one caller that
-    knows better -- `_resolve_backend` -- is handed a pyproject of its own.
+    Takes the path rather than reading the cwd, because `_resolve_backend` is
+    handed a pyproject of its own and knows better than the cwd does.
     """
     config = release_project_config(pyproject)
     release_config = config.get("tool", {}).get("edwh", {}).get("release", {})
