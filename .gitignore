@@ -10,3 +10,4 @@ config.toml
 .pytest_cache
 .aider*
 .coverage
+uv.lock
