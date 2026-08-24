@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.16.0 (2026-08-24)
+
+### Feature
+* **test:** support default HTML coverage reports
+
 ## v1.15.0 (2026-08-21)
 
 ### Feature
