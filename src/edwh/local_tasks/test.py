@@ -18,6 +18,7 @@ from ..release_backend import PYPROJECT, _load, _nested
 
 # The one place a project says which code is its own.
 COVERAGE_KEY = ("tool", "edwh", "test", "directory")
+HTML_KEY = ("tool", "edwh", "test", "html")
 
 
 def find_pytest() -> str | None:
@@ -76,6 +77,11 @@ def coverage_directory(directory: str, override: str = "", pyproject: Path = PYP
     return directory
 
 
+def html_coverage_enabled(pyproject: Path = PYPROJECT) -> bool:
+    """Whether the project requests an HTML coverage report by default."""
+    return _nested(_load(pyproject), HTML_KEY) is True
+
+
 def install_test_dependencies(c: Context) -> bool:
     """Offer to install the test extra into edwh's own environment."""
     if not confirm("Test dependencies are missing. Install edwh[test] now? [Yn] ", default=True):
@@ -107,7 +113,8 @@ def run(
 
     `directory` is where tests are collected from; coverage is measured over
     `--cov-directory`, `[tool.edwh.test] directory`, or `directory` -- in that
-    order.
+    order. Set `[tool.edwh.test] html = true` to generate HTML and terminal
+    coverage reports by default.
     """
     pytest = find_pytest()
     if not pytest:
@@ -138,7 +145,8 @@ def run(
     command = [*shlex.split(pytest), directory]
     if coverage:
         command.append(f"--cov={coverage_directory(directory, cov_directory)}")
-    if html:
+    if html or html_coverage_enabled():
+        command.append("--cov-report=term")
         command.append("--cov-report=html")
     if verbose:
         command.append("-v")

@@ -278,6 +278,7 @@ pythonpath = [
 [tool.edwh.test]
 # tests are collected from `.`, but only our own code is measured
 directory = "src"
+html = true
 
 [tool.coverage.run]
 source_pkgs = ["edwh"]

@@ -99,6 +99,14 @@ edwh test.run --html
 edwh test.run --no-coverage
 ```
 
+To generate both the terminal summary and an HTML report on every run, add this
+to `pyproject.toml`:
+
+```toml
+[tool.edwh.test]
+html = true
+```
+
 If a project provides its own `test.tasks.py`, edwh warns about the override and that local `test.run`
 replaces the built-in task.
 
