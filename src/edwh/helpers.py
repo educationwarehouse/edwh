@@ -9,6 +9,7 @@ import io
 import itertools
 import os
 import re
+import shutil
 import sys
 import typing as t
 from pathlib import Path
@@ -195,6 +196,26 @@ def dump_set_as_list[T](data: set[T] | T) -> list[T] | T:
 KEY_ENTER = "\r"
 KEY_ARROWUP = "\033[A"
 KEY_ARROWDOWN = "\033[B"
+KEY_ESCAPE = "\033"
+KEY_BACKSPACE = "\x7f"
+KEY_SLASH = "/"
+
+# how many option rows fit alongside the prompt, filter line and hint
+CHROME_LINES = 5
+
+
+def viewport(count: int, cursor: int, height: int) -> tuple[int, int]:
+    """
+    Which slice of `count` rows to draw so that `cursor` stays visible.
+
+    Returns (start, stop). Everything fits -> the whole range; otherwise a window that only scrolls
+    once the cursor reaches an edge, so the list does not jump around while you arrow through it.
+    """
+    if count <= height:
+        return 0, count
+
+    start = min(max(cursor - height // 2, 0), count - height)
+    return start, start + height
 
 
 def print_box(label: str, selected: bool, current: bool, number: int, fmt: str = "[%s]", filler: str = "x") -> None:
@@ -241,11 +262,10 @@ def interactive_selected_checkbox_values[H: t.Hashable](
         interactive_selected_checkbox_values({1: "first", 2: "second", 3: "third"}, selected=[3])
     """
     checked_indices: dict[int, str | H] = {}  # instead of set to keep ordering
-    current_index = 0
 
     if isinstance(options, list):
-        labels = options
-        option_values = t.cast(t.Sequence[str | H], options)
+        labels = list(options)  # copy: '(none)' must not leak back into the caller's list
+        option_values = t.cast(t.Sequence[str | H], list(options))
     else:
         labels = list(options.values())
         option_values = t.cast(t.Sequence[str | H], list(options))
@@ -260,37 +280,73 @@ def interactive_selected_checkbox_values[H: t.Hashable](
 
     if allow_empty:
         labels.append("(none)")
+        option_values = [*option_values, t.cast("str | H", "(none)")]
 
+    none_index = len(labels) - 1 if allow_empty else -1
     print_checkbox = functools.partial(print_box, fmt="[%s]", filler="x")
 
-    while True:
-        click.clear()
-        click.echo(prompt)
+    query = ""
+    filtering = False
+    cursor = 0  # position within the *visible* rows, not within labels
 
-        for i, option in enumerate(labels, start=1):
-            print_checkbox(option, i - 1 in checked_indices, i - 1 == current_index, i)
+    while True:
+        visible = [i for i, label in enumerate(labels) if not query or query.lower() in label.lower()]
+        if allow_empty and none_index not in visible:
+            # the escape hatch stays reachable no matter what you type
+            visible.append(none_index)
+
+        if not visible:
+            visible = [none_index] if allow_empty else []
+        cursor = min(cursor, max(len(visible) - 1, 0))
+
+        height = max((shutil.get_terminal_size().lines) - CHROME_LINES, 3)
+        start, stop = viewport(len(visible), cursor, height)
+
+        click.clear()
+        counter = f"[{len(visible)}/{len(labels)}]" if filtering else f"[{len(labels)}]"
+        click.echo(f"{prompt}  {counter}")
+        click.echo(f"filter: {query}_" if filtering else "")
+
+        for row, idx in enumerate(visible[start:stop], start=start):
+            print_checkbox(labels[idx], idx in checked_indices, row == cursor, idx + 1)
+
+        if start > 0 or stop < len(visible):
+            click.echo(f"    ... {len(visible) - (stop - start)} more")
+        click.echo("  enter=confirm  space=toggle  /=filter" + ("  esc=clear filter" if filtering else ""))
 
         key = click.getchar()
+        active = visible[cursor] if visible else None
 
         if key == KEY_ENTER:
             break
-        elif key == KEY_ARROWUP:  # Up arrow
-            current_index = (current_index - 1) % len(labels)
-        elif key == KEY_ARROWDOWN:  # Down arrow
-            current_index = (current_index + 1) % len(labels)
-        elif key.isdigit() and 1 <= int(key) <= len(labels):
-            current_index = int(key) - 1
-        elif key == " ":
-            if allow_empty and current_index == len(labels) - 1:
+        elif key == KEY_ARROWUP:
+            cursor = (cursor - 1) % max(len(visible), 1)
+        elif key == KEY_ARROWDOWN:
+            cursor = (cursor + 1) % max(len(visible), 1)
+        elif key == KEY_ESCAPE:
+            query, filtering = "", False
+        elif key == KEY_BACKSPACE and filtering:
+            query = query[:-1]
+            filtering = bool(query)
+        elif key == KEY_SLASH and not filtering:
+            filtering = True
+        # space always toggles, so it can never be part of a filter (env keys have none anyway)
+        elif filtering and key != " " and key.isprintable():
+            query += key
+            cursor = 0
+        elif not filtering and key.isdigit() and (jump := int(key) - 1) in visible:
+            cursor = visible.index(jump)
+        elif key == " " and active is not None:
+            if active == none_index:
                 checked_indices.clear()
-                checked_indices[len(labels) - 1] = "(none)"
+                checked_indices[none_index] = "(none)"
             else:
                 if len(checked_indices) == 1 and set(checked_indices.values()) == {"(none)"}:
                     checked_indices.clear()
-                if current_index in checked_indices:
-                    del checked_indices[current_index]
+                if active in checked_indices:
+                    del checked_indices[active]
                 else:
-                    checked_indices[current_index] = option_values[current_index]
+                    checked_indices[active] = option_values[active]
 
     if allow_empty and len(checked_indices) == 1 and set(checked_indices.values()) == {"(none)"}:
         # None instead of empty list since otherwise it would just ask again

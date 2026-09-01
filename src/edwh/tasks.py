@@ -236,6 +236,23 @@ def get_task(ctx: Context, identifier: str = "") -> Task | None:
 _dotenv_settings: dict[str, dict[str, str]] = {}
 
 
+def invalidate_dotenv_cache(env_path: Path | str | None = None) -> None:
+    """
+    Drop cached .env contents so the next read_dotenv hits disk again.
+
+    Without a path, the whole cache is cleared. Note that read_dotenv caches on the *requested*
+    path, so a relative and an absolute path to the same file are separate entries; both the
+    given spelling and its resolved form are dropped.
+    """
+    if env_path is None:
+        _dotenv_settings.clear()
+        return
+
+    path = Path(env_path)
+    for key in {str(env_path), str(path), str(path.resolve())}:
+        _dotenv_settings.pop(key, None)
+
+
 def _apply_env_vars_to_template(source_lines: list[str], env: dict[str, str]) -> list[str]:
     needle = re.compile(r"# *template:")
 
@@ -329,6 +346,8 @@ class ConfigTomlDict(t.TypedDict, total=True):
 
     services: ServicesTomlConfig
     dotenv: AnyDict
+    # [worktree], written by `ew worktree.setup`; absent until a project configures it
+    worktree: t.NotRequired[AnyDict]
 
 
 def boolish(value: t.Literal["y", "yes", "t", "true", "1", "n", "no", "false", "f", "0"] | str | int) -> bool:
@@ -620,7 +639,9 @@ def check_env(
         if not value:
             raise RuntimeError(f"Environment variable {key} not found and no default provided (--from-env mode)")
     elif non_interactive:
-        raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
+        if default is None:
+            raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
+        value = default
     else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default or ""
@@ -711,6 +732,8 @@ def set_env_value(path: Path, target: str, value: str | None) -> None:
     with path.open(mode="w") as env_file:
         env_file.write("\n".join(outlines))
         env_file.write("\n")
+
+    invalidate_dotenv_cache(path)
 
 
 def write_content_to_toml_file(
@@ -1121,19 +1144,52 @@ def setup(
     return {}
 
 
+def adjacent_env_paths(c: Context) -> list[pathlib.Path]:
+    """
+    Every .env belonging to another environment on this machine.
+
+    That is the historic `../*/.env` sibling glob, plus the .env of every linked git worktree of
+    the current repository. Worktrees do not have to live next to their main checkout (see
+    `ew worktree`), so the sibling glob alone would miss them - and would miss the main checkout
+    when called from within a worktree.
+    """
+    paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
+
+    # in_stream=False: a read-only query must never grab stdin (it can run during a piped setup)
+    result = c.run("git worktree list --porcelain", hide=True, warn=True, in_stream=False)
+    if result and result.ok:
+        prefix = "worktree "
+        paths += [
+            pathlib.Path(line[len(prefix) :].strip()) / ".env"
+            for line in result.stdout.splitlines()
+            if line.startswith(prefix)
+        ]
+
+    # dedupe on the resolved path, but hand back the first spelling we saw for nicer output
+    seen: dict[pathlib.Path, pathlib.Path] = {}
+    for path in paths:
+        if path.exists():
+            seen.setdefault(path.resolve(), path)
+
+    return list(seen.values())
+
+
 @task()
 def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
     """
-    Search for key in all ../*/.env files.
+    Search for key in the .env of every other environment (siblings + git worktrees).
     """
     key = key.upper()
     if not silent:
         print("search for ", key)
-    envs = (pathlib.Path(c.cwd) / "..").glob("*/.env")
+
     adjacent_settings = {}
-    for env_path in envs:
+    for env_path in adjacent_env_paths(c):
         value = read_dotenv(env_path).get(key)
         project = env_path.parent.name
+        if project in adjacent_settings:
+            # e.g. two worktrees with the same slug in different repos
+            project = f"{env_path.parent.parent.name}/{project}"
         if not silent:
             print(f"{project:>20} : {value}")
         adjacent_settings[project] = value
@@ -1167,7 +1223,7 @@ def next_available_port(c: Context, port_or_key: str, silent: bool = True) -> in
     reserved = set()
     if port_or_key.isdecimal():
         lowest = int(port_or_key)
-        env_paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
+        env_paths = adjacent_env_paths(c)
         env_paths += list(pathlib.Path(c.cwd).glob("*/.env"))
         keys = {key for env_path in env_paths for key in read_dotenv(env_path) if key.endswith("_PORT")}
         for key in keys:

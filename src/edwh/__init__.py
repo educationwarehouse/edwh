@@ -53,9 +53,11 @@ from .helpers import (  # noqa E402 - must be below monkeypatch
 from .meta import is_installed  # noqa E402 - must be below monkeypatch
 from .tasks import (  # noqa E402 - must be below monkeypatch
     TomlConfig,
+    adjacent_env_paths,
     check_env,
     get_env_value,
     get_task,
+    invalidate_dotenv_cache,
     read_dotenv,
     set_env_value,
     task_for_namespace,
@@ -79,6 +81,7 @@ __all__ = [
     "TomlConfig",
     "VerboseLogger",
     "add_alias",
+    "adjacent_env_paths",
     "arg_was_passed",
     "check_env",
     "confirm",
@@ -100,6 +103,7 @@ __all__ = [
     "improved_task",
     "interactive_selected_checkbox_values",
     "interactive_selected_radio_value",
+    "invalidate_dotenv_cache",
     "is_installed",
     "kwargs_to_options",
     "noop",
