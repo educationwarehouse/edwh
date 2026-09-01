@@ -8,7 +8,7 @@ import pytest
 from ewok import Context
 
 from src.edwh.helpers import viewport
-from src.edwh.local_tasks.worktree import _ask_template, check_reset_took_effect
+from src.edwh.local_tasks.worktree import _ask_template
 from src.edwh.tasks import (
     _dotenv_settings,
     adjacent_env_paths,
@@ -24,6 +24,7 @@ from src.edwh.worktree_config import (
     SEEDS,
     TemplateError,
     WorktreeConfig,
+    check_reset_took_effect,
     classify_env_keys,
     collapse_to_globs,
     dest_volume_name,

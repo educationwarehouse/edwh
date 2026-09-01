@@ -1,37 +1,39 @@
 """
 Parallel dev environments per branch: `ew worktree <branch>`.
 
-A git worktree on its own does not give you a working environment - our compose setups also carry
-gitignored secrets, a generated .toml and database state in docker volumes. This module adds the
-missing parts: it copies the config a project declares, strips the keys that must be unique, lets
-the project's own `local.setup` regenerate them, and seeds the database.
+A git worktree lacks the gitignored secrets, the generated .toml and the database that an
+environment needs. This module adds those: it copies the config a project declares, deletes the
+keys that must be unique, runs `ew setup` so `local.setup` regenerates them, and seeds the database.
 
-The trick that keeps this small: `check_env` returns values that already exist untouched, so
-removing a key from the copied .env is enough to have it recomputed - including ports, via the
-existing `next_value` / `next_available_port` helpers.
+Deleting a key is enough because `check_env` leaves existing values alone, so the project's own
+`next_value` / `next_available_port` defaults do the work.
+
+Side-effecting code lives here; pure helpers live in `edwh.worktree_config`.
 """
 
 import asyncio
-import re
 import shlex
 import shutil
 import sys
 import typing as t
 from pathlib import Path
 
+import invoke
 import tomlkit
 import yaml
 from ewok import Context, task
 from termcolor import colored, cprint
 
-from ..constants import DEFAULT_DOTENV_PATH, DEFAULT_TOML_NAME, DOCKER_COMPOSE
+from ..constants import DEFAULT_DOTENV_PATH, DEFAULT_TOML_NAME, DOCKER_COMPOSE, AnyDict
 from ..discover import get_hosts_for_service
+from ..health import docker_inspect
 from ..helpers import confirm, interactive_selected_checkbox_values, interactive_selected_radio_value
 from ..pipeline import Run, Step, drive
 from ..tasks import (
     adjacent_env_paths,
     get_task,
     invalidate_dotenv_cache,
+    load_dockercompose_with_includes,
     read_dotenv,
     read_toml_config,
     set_env_value,
@@ -47,9 +49,11 @@ from ..worktree_config import (
     SEEDS,
     TemplateError,
     WorktreeConfig,
+    check_reset_took_effect,
     classify_env_keys,
     collapse_to_globs,
     dest_volume_name,
+    env_vars_in_host_labels,
     example_values,
     keys_to_reset,
     published_port_keys,
@@ -70,11 +74,10 @@ def ew_command() -> str:
     """
     How to invoke *this* edwh in a subprocess.
 
-    Not a bare `ew`: PATH may point at a different installation (a pipx/uvenv one next to a
-    development checkout), and then the worktree would be set up by another version than the one
-    the user is running.
+    Resolved next to sys.executable, not via PATH, which may point at a different installation and
+    would set the worktree up with another version than the one being run.
     """
-    sibling = Path(sys.executable).parent / "ew"
+    sibling = Path(sys.executable).parent / "edwh"
     if sibling.is_file():
         return shlex.quote(str(sibling))
 
@@ -171,10 +174,9 @@ def _ask_template(
     """
     Ask for one [worktree.env] template, echoing what it would produce.
 
-    Re-asks on a template that cannot expand, so a typo surfaces here instead of halfway through
-    creating a worktree.
+    Re-asks on a template that cannot expand, so a typo surfaces here and not mid-creation.
     """
-    context = {**example, "value": current_value}
+    context = example | {"value": current_value}
     print(f"  {key} (now `{current_value}`)")
 
     while True:
@@ -198,50 +200,36 @@ def _ask_template(
 
 def _reread_env(path: Path) -> dict[str, str]:
     """
-    Read a worktree's .env, ignoring anything cached.
+    Read a worktree's .env, ignoring the cache.
 
     `ew setup` runs as a subprocess, so the keys it regenerates are invisible to this process's
-    read_dotenv cache - which would otherwise still show the stripped-but-not-yet-restored state.
+    read_dotenv cache, which would still show the stripped-but-not-yet-restored state.
     """
     env_path = (path / DEFAULT_DOTENV_PATH).resolve()
     invalidate_dotenv_cache(env_path)
     return read_dotenv(env_path)
 
 
-def check_reset_took_effect(source_env: dict[str, str], new_env: dict[str, str], reset: list[str]) -> list[str]:
+def compose_config(c: Context, cwd: Path | None = None) -> AnyDict:
     """
-    Which reset keys came back with the source's value anyway.
+    The fully resolved compose config for a directory, or {} when it cannot be read.
 
-    Deleting a key only changes anything when local.setup's default is environment-aware -
-    `next_value(...)` or the cwd. Against a constant default like "localhost" the key is simply
-    rewritten to the same value, and the two environments quietly share it. Such a key needs a
-    [worktree.env] template instead, so say so rather than letting it surface as a collision later.
+    Soft failure on purpose: this runs before `ew setup` restores the reset keys, so interpolation
+    can legitimately fail.
     """
-    return [
-        key
-        for key in keys_to_reset(source_env, reset)
-        if key in new_env and new_env[key] == source_env[key] and source_env[key]
-    ]
-
-
-def _compose_config(c: Context) -> dict[str, t.Any]:
-    """`docker compose config` as a dict, or empty when there is no (readable) compose file."""
-    result = c.run(f"{DOCKER_COMPOSE} config", hide=True, warn=True, in_stream=False)
-    if not result or not result.ok:
-        cprint("  (could not read docker compose config; port/hostname analysis skipped)", color="yellow")
+    dc_path = (cwd or Path.cwd()) / "docker-compose.yml"
+    try:
+        return load_dockercompose_with_includes(c, dc_path)
+    except (FileNotFoundError, invoke.exceptions.Failure, yaml.YAMLError):
         return {}
-
-    return yaml.safe_load(result.stdout) or {}
 
 
 def _pick_reset_keys(c: Context, env: dict[str, str], compose: dict[str, t.Any], current: WorktreeConfig) -> list[str]:
     """
-    Choose the .env keys a worktree must regenerate, from a shortlist rather than all ~80 of them.
+    Choose the .env keys a worktree must regenerate, offering a shortlist instead of every key.
 
-    Returns concrete key names, not globs: the caller drops the ones that get a template before
-    collapsing what is left.
-
-    Falls back to a plain prompt when there is no .env to reason about yet.
+    Returns key names, not globs: the caller first drops the keys that get a [worktree.env]
+    template, then collapses the rest. Falls back to a plain prompt when there is no .env yet.
     """
     if not env:
         default_reset = ", ".join(current.reset or DEFAULT_RESET)
@@ -261,7 +249,7 @@ def _pick_reset_keys(c: Context, env: dict[str, str], compose: dict[str, t.Any],
 
     if not others:
         cprint(
-            "  (no other environments found yet - suggestions are based on docker-compose only. "
+            "  (no other environments found yet, so suggestions are based on docker-compose only. "
             "Re-run this after a second environment exists for better ones.)",
             color="yellow",
         )
@@ -287,31 +275,9 @@ def save_config(config: WorktreeConfig, toml_path: Path = Path(DEFAULT_TOML_NAME
     write_toml_config(toml_path, existing)
 
 
-def env_vars_in_host_labels(compose: dict[str, t.Any]) -> list[str]:
-    """
-    Which .env keys the traefik Host() rules depend on.
-
-    Those are the keys that decide whether two environments collide on a hostname, so they are the
-    ones worth offering a [worktree.env] template for.
-    """
-    found: list[str] = []
-    for service in (compose.get("services") or {}).values():
-        for label, value in (service.get("labels") or {}).items():
-            if "Host" not in str(value):
-                continue
-            for name in re.findall(r"\$\{(\w+)", f"{label}{value}"):
-                if name not in found:
-                    found.append(name)
-    return found
-
-
 def compose_hosts(c: Context, cwd: Path) -> set[str]:
     """Every traefik hostname an environment claims. Empty set when compose cannot be read."""
-    result = c.run(f"cd {cwd} && {DOCKER_COMPOSE} config", hide=True, warn=True)
-    if not result or not result.ok:
-        return set()
-
-    compose = yaml.safe_load(result.stdout) or {}
+    compose = compose_config(c, cwd)
     hosts: set[str] = set()
     for service in (compose.get("services") or {}).values():
         hosts |= get_hosts_for_service(service)
@@ -331,8 +297,8 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     """
     Configure how `ew worktree` should build an environment for this project.
 
-    Writes a [worktree] section to .toml, the same per-machine file `ew setup` uses. A project can
-    ship defaults for its team by putting the section in default.toml instead.
+    Writes [worktree] to .toml, like `ew setup` does. A project can ship team defaults by putting
+    the section in default.toml instead.
     """
     root = Path.cwd()
     current = load_config() or WorktreeConfig()
@@ -367,7 +333,7 @@ def setup_worktree(c: Context, show: bool = False) -> None:
         cprint("No gitignored paths found to copy; keeping the defaults.", color="yellow")
 
     env = read_dotenv(root / DEFAULT_DOTENV_PATH)
-    compose = _compose_config(c)
+    compose = compose_config(c)
 
     # 3. which keys are environment-specific at all
     picked = _pick_reset_keys(c, env, compose, current)
@@ -376,7 +342,7 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     #
     # Deleting a key only helps when local.setup's default is environment-aware (next_value, cwd).
     # For a constant default like "localhost" it regenerates the same value, so those keys need a
-    # template instead - which is why every picked key is offered one, not just traefik-label ones.
+    # template instead, which is why every picked key is offered one, not just traefik-label ones.
     candidates = list(dict.fromkeys([*picked, *DEFAULT_ENV, *current.env, *env_vars_in_host_labels(compose)]))
 
     cprint(
@@ -468,17 +434,19 @@ def add(
     collisions: dict[str, set[str]] = {}
 
     async def pipeline(run: Run) -> None:
-        await _step_git_add(c, run, repo, branch, from_ref, dst)
+        await _step_git_add(c, run, repo=repo, branch=branch, from_ref=from_ref, dst=dst)
         run.check()
 
         await run.fn("copy config", lambda step: _copy_config(step, source, dst, config.copy))
         await run.fn(
             "rewrite .env",
-            lambda step: _rewrite_env(step, source, dst, config, repo=slugify(repo.name), branch=branch, slug=slug),
+            lambda step: _rewrite_env(
+                step, source=source, dst=dst, config=config, repo=slugify(repo.name), branch=branch, slug=slug
+            ),
         )
         run.check()
 
-        await run.fn("check hostnames", lambda step: _check_hosts(step, c, dst, collisions))
+        await run.fn("check hostnames", lambda step: _check_hosts(c, step, dst, collisions))
 
         setup_step = await run.sh(
             "setup",
@@ -498,7 +466,7 @@ def add(
 
         if collisions and not force:
             # starting it now would give traefik two routers for the same Host() rule, and it
-            # picks one at random - which silently breaks the *existing* environment too.
+            # picks one at random, which silently breaks the *existing* environment too.
             run.skip("up", f"hostname collision with {', '.join(collisions)}")
             run.skip("seed database", "not started")
             return
@@ -527,7 +495,7 @@ def add(
     _report(c, run, branch, dst)
 
 
-async def _step_git_add(c: Context, run: Run, repo: Path, branch: str, from_ref: str, dst: Path) -> None:
+async def _step_git_add(c: Context, run: Run, *, repo: Path, branch: str, from_ref: str, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
 
     if find_worktree(c, branch):
@@ -545,10 +513,9 @@ async def _step_git_add(c: Context, run: Run, repo: Path, branch: str, from_ref:
 
 def _fail_on_broken_hook(step: Step) -> None:
     """
-    Core `setup` swallows a failing project hook into a warning and still exits 0.
+    Core `setup` turns a failing project hook into a warning and still exits 0.
 
-    That would leave a worktree whose .env was stripped but never regenerated, which looks like a
-    success and breaks much later. Treat it as the failure it is.
+    That leaves a worktree whose .env was stripped but never regenerated, looking like success.
     """
     if step.state != "done":
         return
@@ -588,10 +555,10 @@ def _copy_config(step: Step, source: Path, dst: Path, entries: list[str]) -> Non
 
 def _rewrite_env(
     step: Step,
+    *,
     source: Path,
     dst: Path,
     config: WorktreeConfig,
-    *,
     repo: str,
     branch: str,
     slug: str,
@@ -631,12 +598,12 @@ def _verify_reset(step: Step, source: Path, dst: Path, config: WorktreeConfig) -
     for key in unchanged:
         step.lines.append(
             f"warning: {key} was reset but came back identical to the source (`{source_env[key]}`); "
-            f"its default looks constant - give it a [worktree.env] template instead"
+            f"its default looks constant; give it a [worktree.env] template instead"
         )
     step.report(f"{len(unchanged)} key(s) unchanged after reset")
 
 
-def _check_hosts(step: Step, c: Context, dst: Path, collisions: dict[str, set[str]]) -> None:
+def _check_hosts(c: Context, step: Step, dst: Path, collisions: dict[str, set[str]]) -> None:
     ours = compose_hosts(c, dst)
     if not ours:
         step.report("no traefik hosts found")
@@ -662,15 +629,13 @@ def _check_hosts(step: Step, c: Context, dst: Path, collisions: dict[str, set[st
 
 async def _step_seed_before_up(c: Context, run: Run, seed: str, source: Path, dst: Path) -> None:
     """
-    Cloning has to happen while the new environment is still down.
-
-    Otherwise `up` lets postgres initialise an empty data directory, and we would be replacing
-    files underneath a running server.
+    Cloning must happen while the new environment is down, or `up` initialises an empty postgres
+    data directory and we replace files under a running server.
     """
     if seed != "clone":
         return
 
-    await run.fn("clone volumes", lambda step: _clone_volumes(step, c, source, dst))
+    await run.fn("clone volumes", lambda step: _clone_volumes(c, step, source, dst))
 
 
 async def _step_seed_after_up(c: Context, run: Run, seed: str, dst: Path) -> None:
@@ -688,63 +653,55 @@ async def _step_seed_after_up(c: Context, run: Run, seed: str, dst: Path) -> Non
     await run.sh("seed database", f"{ew_command()} devdb.recover", cwd=dst)
 
 
-def _service_of(c: Context, container_id: str) -> str:
-    out = c.run(
-        f"docker inspect --format '{{{{index .Config.Labels \"com.docker.compose.service\"}}}}' {container_id}",
-        hide=True,
-        warn=True,
-        in_stream=False,
-    )
-    return out.stdout.strip() if out and out.ok else ""
+def compose(c: Context, path: Path, *args: str) -> str:
+    """Run docker compose in another environment's directory and return its stdout."""
+    result = c.run(f"cd {shlex.quote(str(path))} && {DOCKER_COMPOSE} {' '.join(args)}", hide=True, warn=True)
+    return result.stdout.strip() if result and result.ok else ""
 
 
-def _volume_owners(c: Context, path: Path) -> dict[str, list[str]]:
-    """Named volume -> the compose services that mount it, for the environment at `path`."""
-    ids = c.run(f"cd {path} && {DOCKER_COMPOSE} ps -aq", hide=True, warn=True, in_stream=False)
-    if not ids or not ids.ok:
-        return {}
+def containers(c: Context, path: Path, running_only: bool = False) -> list[AnyDict]:
+    """Inspected containers of the environment at `path`."""
+    ids = compose(c, path, "ps -q --status running" if running_only else "ps -aq").split()
+    if not ids:
+        return []
 
+    info = docker_inspect(c, " ".join(ids))
+    return info if isinstance(info, list) else [info]
+
+
+def service_of(container: AnyDict) -> str:
+    return container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service", "")
+
+
+def volume_owners(c: Context, path: Path) -> dict[str, list[str]]:
+    """Named volume -> the compose services mounting it, for the environment at `path`."""
     owners: dict[str, list[str]] = {}
-    for container_id in ids.stdout.split():
-        info = c.run(
-            f"docker inspect --format '{{{{range .Mounts}}}}{{{{.Name}}}} {{{{end}}}}' {container_id}",
-            hide=True,
-            warn=True,
-            in_stream=False,
-        )
-        if not info or not info.ok:
-            continue
 
-        service = _service_of(c, container_id)
-        for volume in info.stdout.split():
-            owners.setdefault(volume, [])
-            if service and service not in owners[volume]:
-                owners[volume].append(service)
+    for container in containers(c, path):
+        service = service_of(container)
+        for mount in container.get("Mounts", []):
+            if not (name := mount.get("Name")):
+                continue
+            owners.setdefault(name, [])
+            if service and service not in owners[name]:
+                owners[name].append(service)
 
     return owners
 
 
 def running_services_for_clone(c: Context, source: Path) -> list[str]:
     """
-    Which services in the source environment would have to pause for a consistent copy.
+    Which services must pause for a consistent copy: only those mounting a volume that travels.
 
-    Only the ones actually mounting a volume that travels; the rest of the environment keeps
-    serving. Copying a live postgres data directory would give a torn snapshot.
+    Copying a live postgres data directory would give a torn snapshot; the rest keeps serving.
     """
-    src_project = source.resolve().name
-    running = c.run(
-        f"cd {source} && {DOCKER_COMPOSE} ps -q --status running",
-        hide=True,
-        warn=True,
-        in_stream=False,
-    )
-    if not running or not running.ok or not running.stdout.strip():
+    live = {service_of(container) for container in containers(c, source, running_only=True)}
+    if not live:
         return []
 
-    live = {_service_of(c, container_id) for container_id in running.stdout.split()}
-
+    src_project = source.resolve().name
     services: list[str] = []
-    for volume, owners in _volume_owners(c, source).items():
+    for volume, owners in volume_owners(c, source).items():
         if not dest_volume_name(volume, src_project, "x"):
             continue
         services += [service for service in owners if service in live and service not in services]
@@ -752,13 +709,13 @@ def running_services_for_clone(c: Context, source: Path) -> list[str]:
     return sorted(services)
 
 
-def _clone_volumes(step: Step, c: Context, source: Path, dst: Path) -> None:
+def _clone_volumes(c: Context, step: Step, source: Path, dst: Path) -> None:
     src_project = source.resolve().name
     dst_project = dst.resolve().name
 
     pairs = [
         (volume, target)
-        for volume in _volume_owners(c, source)
+        for volume in volume_owners(c, source)
         if (target := dest_volume_name(volume, src_project, dst_project))
     ]
 
@@ -769,7 +726,7 @@ def _clone_volumes(step: Step, c: Context, source: Path, dst: Path) -> None:
     paused = running_services_for_clone(c, source)
     if paused:
         step.report(f"pausing {', '.join(paused)} in the source")
-        c.run(f"cd {source} && {DOCKER_COMPOSE} stop {' '.join(paused)}", hide=True, warn=True)
+        compose(c, source, "stop", *paused)
 
     try:
         for index, (src_volume, dst_volume) in enumerate(pairs, start=1):
@@ -785,7 +742,7 @@ def _clone_volumes(step: Step, c: Context, source: Path, dst: Path) -> None:
                 raise WorktreeError(f"copying {src_volume} failed: {(copied.stderr if copied else '').strip()[:200]}")
     finally:
         if paused:
-            c.run(f"cd {source} && {DOCKER_COMPOSE} start {' '.join(paused)}", hide=True, warn=True)
+            compose(c, source, "start", *paused)
 
     step.report(f"{len(pairs)} volume(s) cloned" + (f", restarted {', '.join(paused)}" if paused else ""))
 
@@ -794,8 +751,8 @@ async def _step_project_hook(c: Context, run: Run, dst: Path) -> None:
     """
     Give the project the last word, via a `worktree` task in its own tasks.py.
 
-    Called explicitly rather than through `hookable`: hooks are matched on the task name, which
-    here is `add`, and they would be handed this task's arguments.
+    Called explicitly, not via `hookable`: hooks match on the task name (`add` here) and would be
+    handed this task's arguments.
     """
     if not get_task(c, "local.worktree"):
         return
@@ -859,13 +816,7 @@ def show_list(c: Context) -> None:
 
 
 def _running_containers(c: Context, path: Path) -> int:
-    result = c.run(
-        f"cd {path} && {DOCKER_COMPOSE} ps -q --status running",
-        hide=True,
-        warn=True,
-        in_stream=False,
-    )
-    return len(result.stdout.split()) if result and result.ok else 0
+    return len(compose(c, path, "ps -q --status running").split())
 
 
 @task(name="path")
@@ -914,7 +865,7 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
     volumes = _volumes_of(c, path)
 
     cprint(f"Stopping {branch}...", color="blue")
-    c.run(f"cd {path} && {DOCKER_COMPOSE} down -v --remove-orphans", warn=True)
+    compose(c, path, "down -v --remove-orphans")
 
     if volumes:
         cprint(f"Removing {len(volumes)} volume(s)...", color="blue")
@@ -938,18 +889,4 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
 
 def _volumes_of(c: Context, path: Path) -> list[str]:
     """Named volumes attached to this environment's containers, before it is torn down."""
-    ids = c.run(f"cd {path} && {DOCKER_COMPOSE} ps -aq", hide=True, warn=True)
-    if not ids or not ids.ok or not ids.stdout.strip():
-        return []
-
-    names: list[str] = []
-    for container_id in ids.stdout.split():
-        info = c.run(
-            f"docker inspect --format '{{{{range .Mounts}}}}{{{{.Name}}}} {{{{end}}}}' {container_id}",
-            hide=True,
-            warn=True,
-        )
-        if info and info.ok:
-            names += [name for name in info.stdout.split() if name and name not in names]
-
-    return names
+    return list(volume_owners(c, path))

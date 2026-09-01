@@ -1,7 +1,9 @@
 """
-Pure helpers for `ew worktree`: naming, the `[worktree]` config section, and the .env rewrite.
+Pure helpers for `ew worktree`.
 
-Kept free of Context/docker/git so it can be unit tested without a repository.
+The split with `local_tasks/worktree.py` is by side effects: everything here is a plain function of
+its arguments, so it can be tested without a repository, a docker daemon or a terminal. Anything
+that runs git, runs docker, prompts, or prints lives in the task module.
 """
 
 import fnmatch
@@ -40,10 +42,7 @@ COPY_BLOCKLIST = (
 
 def slugify(branch: str) -> str:
     """
-    Branch name to a directory- and docker-safe slug.
-
-    >>> slugify("feature/EW-Worktree")
-    'feature-ew-worktree'
+    Branch name to a directory- and docker-safe slug: "feature/EW-Worktree" -> "feature-ew-worktree".
     """
     slug = branch.strip().lower()
     slug = re.sub(r"[^a-z0-9]+", "-", slug)
@@ -52,12 +51,11 @@ def slugify(branch: str) -> str:
 
 def worktree_dirname(repo: str, branch: str) -> str:
     """
-    Directory name for a worktree: `<repo>-<slug>`, slugified.
+    Directory name for a worktree: `<repo>-<slug>`.
 
-    Flat rather than `<repo>/<slug>` so a shell prompt showing only the basename still says which
-    project you are in. Slugified because compose derives its project name from this directory and
-    lowercases it - keeping them identical is what makes $PROJECT, the compose project, the volume
-    prefix and the container prefix all agree.
+    Flat, so a prompt showing only the basename still names the project. Slugified because compose
+    derives its (lowercased) project name from this directory, and keeping the two identical makes
+    $PROJECT, the compose project and the volume/container prefixes agree.
     """
     return f"{slugify(repo)}-{slugify(branch)}"
 
@@ -88,8 +86,8 @@ class WorktreeConfig:
         """
         Read the [worktree] section, falling back to defaults for anything absent.
 
-        Values are coerced to plain str/list/dict: read_toml_config hands back tomlkit objects,
-        which subclass str but do not survive yaml/json serialisation.
+        Values are coerced to plain str/list/dict, since read_toml_config hands back tomlkit
+        objects that subclass str but do not survive serialisation.
         """
         section = (config or {}).get("worktree") or {}
         return cls(
@@ -115,13 +113,50 @@ class WorktreeConfig:
         return Path(self.root).expanduser() if self.root else worktree_root()
 
 
+ENV_VAR_RE = re.compile(r"\$\{?(\w+)")
+
+
+def env_vars_in_host_labels(compose: t.Mapping[str, t.Any]) -> list[str]:
+    """
+    Which .env keys the traefik Host() rules depend on, and so decide hostname collisions.
+    """
+    found: list[str] = []
+    for service in (compose.get("services") or {}).values():
+        for label, value in (service.get("labels") or {}).items():
+            if "Host" not in str(value):
+                continue
+            for name in ENV_VAR_RE.findall(f"{label}{value}"):
+                if name not in found:
+                    found.append(name)
+    return found
+
+
+def check_reset_took_effect(
+    source_env: t.Mapping[str, str],
+    new_env: t.Mapping[str, str],
+    reset: t.Collection[str],
+) -> list[str]:
+    """
+    Which reset keys came back with the source's value anyway.
+
+    Deleting a key only helps when local.setup derives its default from the environment
+    (`next_value`, the cwd). A constant default like "localhost" regenerates the same value, and
+    both environments silently share it; such keys need a [worktree.env] template instead.
+    """
+    return [
+        key
+        for key in keys_to_reset(source_env, reset)
+        if key in new_env and new_env[key] == source_env[key] and source_env[key]
+    ]
+
+
 def dest_volume_name(volume: str, src_project: str, dst_project: str) -> str | None:
     """
-    The name the same compose volume gets in another project, or None if it does not travel.
+    The name a compose volume gets in another project, or None if it does not travel.
 
-    Compose prefixes declared volumes with the project name (the directory), so `demo_pgdata`
-    becomes `feature-login_pgdata`. Names without that prefix are anonymous volumes (recreated
-    empty anyway) or external ones (shared on purpose) - both must be left alone.
+    Compose prefixes declared volumes with the project name, so `demo_pgdata` becomes
+    `feature-login_pgdata`. Anything without that prefix is anonymous (recreated empty) or external
+    (shared on purpose), and is left alone.
     """
     prefix = f"{src_project}_"
     if not volume.startswith(prefix):
@@ -152,16 +187,16 @@ class TemplateError(ValueError):
 
 def render_template(template: str, *, value: str, repo: str, branch: str, slug: str) -> str:
     """
-    Expand one [worktree.env] template, with an error a human can act on.
+    Expand one [worktree.env] template.
 
-    `str.format` would raise a bare KeyError naming only the bad placeholder, and it would do so
-    while creating a worktree - long after the template was typed.
+    Raises TemplateError rather than the bare KeyError `str.format` would raise while creating a
+    worktree, long after the template was typed.
     """
     try:
         return template.format(value=value, repo=repo, branch=branch, slug=slug)
     except KeyError as e:
         known = ", ".join(f"{{{name}}}" for name in PLACEHOLDERS)
-        raise TemplateError(f"unknown placeholder {{{e.args[0]}}} - available: {known}") from e
+        raise TemplateError(f"unknown placeholder {{{e.args[0]}}}; available: {known}") from e
     except (IndexError, ValueError) as e:
         raise TemplateError(f"malformed template ({e}); use {{value}}, or {{{{ for a literal brace") from e
 
@@ -182,9 +217,8 @@ def render_env_templates(
     """
     Expand the [worktree.env] templates against the source .env.
 
-    {value} is the value the key had in the source; a key absent there resolves {value} to "".
-    Templates for keys that do not exist in the source are still applied, so a project can
-    introduce a key that only worktrees have.
+    {value} is the source value, or "" for a key the source lacks; such keys are still written, so
+    a project can introduce one that only worktrees have.
     """
     return {
         key: render_template(template, value=env.get(key, ""), repo=repo, branch=branch, slug=slug)
@@ -214,17 +248,12 @@ def classify_env_keys(
     """
     Work out which .env keys have to be regenerated per environment.
 
-    Three signals, cheapest first:
+    Three signals: a published port cannot be bound twice; a value that differs across the
+    environments already on this machine is per-environment by construction; one that is identical
+    everywhere is shared config. Keys handled by [worktree.env] are listed but never suggested,
+    since rewriting and resetting the same key would fight.
 
-    * the key is a published port in docker-compose -> two environments cannot both bind it;
-    * its value differs across the environments already on this machine -> it is per-environment
-      by construction, and this reads back the judgement calls already made by hand;
-    * it is identical everywhere -> shared config, copy it verbatim.
-
-    Keys already handled by [worktree.env] are listed but never suggested: rewriting and resetting
-    the same key would fight each other.
-
-    Candidates come back most-likely first, so the picker can show the interesting ones on screen.
+    Most-likely candidates come first, so the picker shows the interesting ones on screen.
     """
     others = [dict(other) for other in others]
 
@@ -259,10 +288,9 @@ def classify_env_keys(
 
 def published_port_keys(compose: t.Mapping[str, t.Any]) -> set[str]:
     """
-    .env keys used on the *host* side of a `ports:` mapping.
+    .env keys on the *host* side of a `ports:` mapping: "${WEB_PORT}:80" -> {"WEB_PORT"}.
 
-    "${WEB_PORT}:80" -> {"WEB_PORT"}; "8000" or "80" alone publish a fixed port and cannot be made
-    unique per environment, so they are not reported.
+    A bare "8000" publishes a fixed port that cannot be made unique, so it is not reported.
     """
     found: set[str] = set()
 
@@ -274,18 +302,17 @@ def published_port_keys(compose: t.Mapping[str, t.Any]) -> set[str]:
             else:
                 host_side = str(mapping).rsplit(":", 1)[0] if ":" in str(mapping) else ""
 
-            found.update(re.findall(r"\$\{?(\w+)", host_side))
+            found.update(ENV_VAR_RE.findall(host_side))
 
     return found
 
 
 def collapse_to_globs(selected: t.Collection[str], all_keys: t.Collection[str]) -> list[str]:
     """
-    Rewrite a concrete selection as globs, but only where a glob means exactly the selection.
+    Rewrite a selection as globs, but only where a glob means exactly that selection.
 
-    `*_PORT` is only used when every key ending in _PORT was selected; otherwise the literal names
-    are kept. That way a port added next month is caught automatically, without a glob silently
-    picking up a key that should have been copied verbatim.
+    `*_PORT` is used only when every _PORT key was selected, so a port added later is caught too
+    without a glob silently picking up a key that should have been copied verbatim.
     """
     selected = set(selected)
     remaining = set(selected)
@@ -303,11 +330,10 @@ def collapse_to_globs(selected: t.Collection[str], all_keys: t.Collection[str]) 
 
 def suggest_copy_entries(gitignore: str, root: Path) -> list[str]:
     """
-    Propose which gitignored paths to carry into a worktree.
+    Propose which gitignored paths to carry into a worktree: the ones holding secrets and state.
 
-    Only entries that exist on disk right now and are not obvious build junk; those are the ones
-    holding secrets and state. Negations and comments are skipped, as are globs, which cannot be
-    copied as a single path.
+    Only entries that exist on disk and are not obvious build junk. Comments, negations and globs
+    are skipped, the last because they are not a single copyable path.
     """
     suggestions: list[str] = []
 
