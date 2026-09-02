@@ -84,7 +84,9 @@ class Run:
 
     def __init__(self, max_parallel: int = DEFAULT_MAX_PARALLEL) -> None:
         self.steps: list[Step] = []
-        self.on_change: t.Callable[[], None] = lambda: None
+        # called after every change, with the step that changed, or None when the queue itself
+        # changed: on_change=lambda step: ...
+        self.on_change: t.Callable[["Step | None"], None] = lambda _: None
         self.group = 0
         self.done = False
         self.started = time.perf_counter()
@@ -118,9 +120,10 @@ class Run:
 
     def _queue(self, names: t.Iterable[str]) -> list[Step]:
         self.group += 1
-        steps = [Step(name, self.group, on_change=lambda _: self.on_change()) for name in names]
+        # looked up lazily, because a renderer replaces `self.on_change` after the Run is built
+        steps = [Step(name, self.group, on_change=lambda step: self.on_change(step)) for name in names]
         self.steps.extend(steps)
-        self.on_change()
+        self.on_change(None)
         return steps
 
     async def _gather(self, work: list[t.Coroutine[t.Any, t.Any, None]]) -> None:
@@ -165,7 +168,7 @@ class Run:
         step = self._queue([name])[0]
         step.state = "skipped"
         step.status = reason
-        self.on_change()
+        self.on_change(step)
         return step
 
     # -- execution ------------------------------------------------------------------------
@@ -174,7 +177,7 @@ class Run:
         step.state = "running"
         step.started = time.perf_counter()
         step.status = "starting"
-        self.on_change()
+        self.on_change(step)
 
     def _finish(self, step: Step, state: T_State, status: str = "") -> None:
         step.ended = time.perf_counter()
@@ -183,7 +186,7 @@ class Run:
             step.status = status
         elif not step.status or step.status == "starting":
             step.status = "ok" if state == "done" else state
-        self.on_change()
+        self.on_change(step)
 
     async def _exec(self, step: Step, cmd: str, cwd: str | Path | None, env: dict[str, str] | None) -> None:
         self._start(step)
@@ -208,7 +211,7 @@ class Run:
                 step.out += line + "\n"
                 if line.startswith("::"):
                     step.status = line[2:].strip()
-                    self.on_change()
+                    self.on_change(step)
                 elif line:
                     step.log(line)
 
@@ -238,7 +241,7 @@ async def drive(
 ) -> Run:
     """Run `pipeline`, redrawing at a fixed framerate. Returns the Run, even if it failed."""
     run = Run(max_parallel=max_parallel)
-    run.on_change = lambda: None  # the ticker drives redraws; per-event redraws would thrash
+    run.on_change = lambda _: None  # the ticker drives redraws; per-event redraws would thrash
     stop = asyncio.Event()
 
     async def ticker() -> None:
