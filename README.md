@@ -117,17 +117,17 @@ replaces the built-in task.
 
 ## Worktrees
 
-`ew worktree <branch>` builds a second, isolated environment for a branch: a git worktree plus the
-gitignored config, its own ports and hostnames, and a seeded database. `ew worktree.rm <branch>`
+`edwh worktree <branch>` builds a second, isolated environment for a branch: a git worktree plus the
+gitignored config, its own ports and hostnames, and a seeded database. `edwh worktree.rm <branch>`
 removes it again, containers and volumes included.
 
 ```bash
-ew worktree.setup                  # configure this project once (writes [worktree] to .toml)
-ew worktree feature/login          # create + start
-ew worktree feature/login --no-up  # create, do not start
-ew worktree.list                   # branches, paths, ports, running containers
-cd $(ew worktree.path feature/login)
-ew worktree.rm feature/login       # containers, volumes, directory and branch
+edwh worktree.setup                  # configure this project once (writes [worktree] to .toml)
+edwh worktree feature/login          # create + start
+edwh worktree feature/login --no-up  # create, do not start
+edwh worktree.list                   # branches, slugs, paths, ports, running containers
+cd $(edwh worktree.path feature/login)
+edwh worktree.rm feature/login       # containers, volumes, directory and branch
 ```
 
 Worktrees live under `~/.cache/edwh/worktrees/<repo>-<slug>`; override with `$EDWH_WORKTREE_ROOT`
@@ -137,7 +137,7 @@ volume/container prefixes identical.
 ### How it works
 
 `worktree` copies the `.env`, deletes the keys that must be unique, and reruns
-`ew setup --non-interactive` so your `local.setup` regenerates them via `next_value` /
+`edwh setup --non-interactive` so your `local.setup` regenerates them via `next_value` /
 `next_available_port`. Port allocation also scans `git worktree list`, so environments find each
 other even though they are not adjacent directories.
 
@@ -194,10 +194,10 @@ checkout and refuses to `up` on an overlap. `--force` starts it anyway.
 Commands are loaded in the following order:
 
 1. **EDWH Package**:
-    - Loaded into the global namespace and its own namespaces (like `ew plugins.`).
+    - Loaded into the global namespace and its own namespaces (like `edwh plugins.`).
 
 2. **Plugins**:
-    - Loaded into their own namespaces (like `ew mp.`).
+    - Loaded into their own namespaces (like `edwh mp.`).
 
 3. **Current Directory**:
     - Loaded into the `local.` namespace. If it doesn't exist, it traverses up the directory tree
