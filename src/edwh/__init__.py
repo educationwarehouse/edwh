@@ -51,6 +51,14 @@ from .helpers import (  # noqa E402 - must be below monkeypatch
     yaml_loads,
 )
 from .meta import is_installed  # noqa E402 - must be below monkeypatch
+from .pipeline import (  # noqa E402 - must be below monkeypatch
+    Run,
+    Step,
+    StepFailedError,
+    T_Render,
+    T_State,
+    drive,
+)
 from .tasks import (  # noqa E402 - must be below monkeypatch
     TomlConfig,
     adjacent_env_paths,
@@ -62,6 +70,7 @@ from .tasks import (  # noqa E402 - must be below monkeypatch
     set_env_value,
     task_for_namespace,
 )
+from .tui import lane_board, plain, renderer_for  # noqa E402 - must be below monkeypatch
 
 ImprovedTask = Task
 improved_task = task
@@ -77,6 +86,11 @@ __all__ = [
     "ImprovedTask",
     "Logger",
     "NoopLogger",
+    "Run",
+    "Step",
+    "StepFailedError",
+    "T_Render",
+    "T_State",
     "Task",
     "TomlConfig",
     "VerboseLogger",
@@ -87,6 +101,7 @@ __all__ = [
     "confirm",
     "dc_config",
     "docker_inspect",
+    "drive",
     "dump_set_as_list",
     "executes_correctly",
     "execution_fails",
@@ -106,10 +121,13 @@ __all__ = [
     "invalidate_dotenv_cache",
     "is_installed",
     "kwargs_to_options",
+    "lane_board",
     "noop",
+    "plain",
     "print_aligned",
     "print_box",
     "read_dotenv",
+    "renderer_for",
     "set_env_value",
     "shorten",
     "task",
