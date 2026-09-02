@@ -9,8 +9,8 @@ database.
 Deleting a key is enough because `check_env` leaves existing values alone, so the project's own
 `next_value` / `next_available_port` defaults do the work.
 
-Anything here may run git or docker, read the filesystem, prompt, or print. `edwh.worktree_config`
-holds the counterpart: functions of their arguments only, with no I/O at all.
+`edwh.worktree_config` holds the counterpart to this module: functions of their arguments only,
+with no I/O at all.
 """
 
 import asyncio
@@ -115,14 +115,14 @@ def worktrees(c: Context) -> list[dict[str, str]]:
 
 
 def find_worktree(c: Context, branch: str) -> dict[str, str] | None:
-    """Locate a worktree by branch name, or by the directory a previous version of edwh gave it."""
+    """Locate a worktree by branch name, or by its directory name."""
     slug = slugify(branch)
     expected = worktree_dirname(repo_root(c).name, branch)
 
     for entry in worktrees(c):
-        # `slug` alone covers worktrees created before directories became `<repo>-<slug>`
         if entry["branch"] == branch or slugify(entry["branch"]) == slug:
             return entry
+        # `slug` on its own also matches a directory someone named after the branch by hand
         if Path(entry["worktree"]).name in (expected, slug):
             return entry
 
