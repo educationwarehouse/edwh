@@ -1,3 +1,4 @@
+import asyncio
 import os
 import subprocess
 import typing as t
@@ -5,10 +6,12 @@ from pathlib import Path
 
 import invoke
 import pytest
+import yaml
 from ewok import Context
 
 from src.edwh.helpers import viewport
-from src.edwh.local_tasks.worktree import _ask_template
+from src.edwh.local_tasks.worktree import _ask_template, _step_git_add, branch_exists, owned_volume_names
+from src.edwh.pipeline import Run
 from src.edwh.tasks import (
     _dotenv_settings,
     adjacent_env_paths,
@@ -226,7 +229,8 @@ def test_invalidate_dotenv_cache_clears_every_spelling(tmp_path: Path):
 
 def _ctx() -> Context:
     """A bare local context, the same cast `TomlConfig.load` uses."""
-    return t.cast(Context, invoke.Context())
+    # in_stream=False: pytest captures stdin, and invoke would otherwise try to read it
+    return t.cast(Context, invoke.Context(invoke.Config(overrides={"run": {"in_stream": False}})))
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -565,3 +569,59 @@ def test_check_reset_took_effect_ignores_keys_that_stayed_absent():
 def test_check_reset_took_effect_ignores_empty_values():
     """An empty value matching an empty value tells us nothing."""
     assert check_reset_took_effect({"BLANK": ""}, {"BLANK": ""}, ["BLANK"]) == []
+
+
+# -- shell quoting ------------------------------------------------------------------------
+
+
+def test_branch_exists_does_not_execute_a_branch_name(repo_with_worktree, monkeypatch, tmp_path: Path):
+    """git allows `;` in a refname, and these commands go through a shell."""
+    main, _, _ = repo_with_worktree
+    monkeypatch.chdir(main)
+    canary = tmp_path / "pwned"
+
+    assert branch_exists(_ctx(), f"main; touch {canary}") is False
+    assert not canary.exists(), "the branch name was interpolated into a shell command unquoted"
+
+
+def test_git_worktree_add_quotes_every_argument(repo_with_worktree, monkeypatch, tmp_path: Path):
+    main, _, _ = repo_with_worktree
+    monkeypatch.chdir(main)
+    canary = tmp_path / "pwned"
+    branch = f"feature; touch {canary}"
+    dst = tmp_path / "wt"
+
+    async def go() -> None:
+        run = Run()
+        await _step_git_add(_ctx(), run, repo=main, branch=branch, from_ref="", dst=dst)
+
+    asyncio.run(go())
+
+    assert not canary.exists(), "the branch name reached the shell unquoted"
+
+
+# -- volume ownership ---------------------------------------------------------------------
+
+# verbatim `docker compose config` output for a project mounting one external, one plain and one
+# renamed volume; compose reports the real docker name and `external` for each
+RESOLVED_VOLUMES = yaml.safe_load(
+    """
+    myproj_shared:
+      name: myproj_shared
+      external: true
+    own:
+      name: myproj_own
+    renamed:
+      name: myproj_custom
+    """
+)
+
+
+def test_owned_volume_names_excludes_external_even_with_the_project_prefix():
+    """The prefix says nothing: an external volume may legitimately be called myproj_something."""
+    assert owned_volume_names({"volumes": RESOLVED_VOLUMES}) == {"myproj_own", "myproj_custom"}
+
+
+def test_owned_volume_names_is_empty_when_compose_could_not_be_read():
+    """Fail closed: an unreadable compose config must never authorise a `docker volume rm`."""
+    assert owned_volume_names({}) == set()

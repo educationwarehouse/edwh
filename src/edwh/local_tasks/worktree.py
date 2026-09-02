@@ -82,7 +82,7 @@ class WorktreeError(Exception):
 
 
 def _git(c: Context, command: str, cwd: Path | None = None, warn: bool = False) -> str:
-    prefix = f"git -C {cwd} " if cwd else "git "
+    prefix = f"git -C {shlex.quote(str(cwd))} " if cwd else "git "
     result = c.run(prefix + command, hide=True, warn=warn)
     return result.stdout.strip() if result else ""
 
@@ -130,7 +130,7 @@ def find_worktree(c: Context, branch: str) -> dict[str, str] | None:
 
 
 def branch_exists(c: Context, branch: str) -> bool:
-    return bool(_git(c, f"rev-parse --verify --quiet refs/heads/{branch}", warn=True))
+    return bool(_git(c, f"rev-parse --verify --quiet {shlex.quote(f'refs/heads/{branch}')}", warn=True))
 
 
 def has_unpushed_work(c: Context, path: Path) -> str:
@@ -208,8 +208,9 @@ def compose_config(c: Context, cwd: Path | None = None) -> AnyDict:
     """
     The fully resolved compose config for a directory, or {} when it cannot be read.
 
-    Soft failure on purpose: this runs before `edwh setup` restores the reset keys, so interpolation
-    can legitimately fail.
+    Soft failure on purpose: a caller may look at an environment whose .env is still incomplete
+    (during `worktree.setup`, or before `edwh setup` has restored the reset keys), so interpolation
+    can legitimately fail. Callers that need real values must run after setup.
     """
     dc_path = (cwd or Path.cwd()) / "docker-compose.yml"
     try:
@@ -436,13 +437,15 @@ def add(
         )
         run.check()
 
-        await run.fn("check hostnames", lambda step: _check_hosts(c, step, dst, collisions))
-
         setup_step = await run.ew("setup", "setup", "--non-interactive", cwd=dst, env={"EDWH_NON_INTERACTIVE": "1"})
         _fail_on_broken_hook(setup_step)
         run.check()
 
         await run.fn("verify .env", lambda step: _verify_reset(step, source, dst, config))
+
+        # only meaningful once setup has restored the reset keys: before that compose cannot
+        # interpolate the host variables, so every Host() rule would look empty and unique
+        await run.fn("check hostnames", lambda step: _check_hosts(c, step, dst, collisions))
 
         if no_up:
             run.skip("up", "--no-up")
@@ -487,11 +490,15 @@ async def _step_git_add(c: Context, run: Run, *, repo: Path, branch: str, from_r
         run.skip("git worktree add", "worktree already exists")
         return
 
+    # every argument is quoted: git allows `;` and other shell metacharacters in a refname, and
+    # these commands go through a shell
+    where = shlex.quote(str(repo))
+    target = shlex.quote(str(dst))
     if branch_exists(c, branch):
-        cmd = f"git -C {repo} worktree add {dst} {branch}"
+        cmd = f"git -C {where} worktree add {target} {shlex.quote(branch)}"
     else:
-        base = from_ref or "HEAD"
-        cmd = f"git -C {repo} worktree add -b {branch} {dst} {base}"
+        base = shlex.quote(from_ref or "HEAD")
+        cmd = f"git -C {where} worktree add -b {shlex.quote(branch)} {target} {base}"
 
     await run.sh("git worktree add", cmd)
 
@@ -676,6 +683,28 @@ def volume_owners(c: Context, path: Path) -> dict[str, list[str]]:
     return owners
 
 
+def declared_volumes(c: Context, path: Path) -> set[str]:
+    """
+    The docker volume names an environment actually owns, from its resolved compose config.
+
+    `docker compose config` reports both the real name and `external` for every declared volume, so
+    this is the only reliable answer: an `external: true` volume is shared on purpose and may well
+    carry the project prefix (`myproj_shared`), which makes any name-based heuristic unsafe. A
+    volume declared under a `name:` of its own is included even when the prefix does not match.
+
+    Empty when compose cannot be read, which makes every caller here fail closed.
+    """
+    return owned_volume_names(compose_config(c, path))
+
+
+def owned_volume_names(compose: AnyDict) -> set[str]:
+    """The non-external volume names in a resolved `docker compose config` payload."""
+    volumes = compose.get("volumes") or {}
+    return {
+        spec.get("name") or key for key, spec in volumes.items() if isinstance(spec, dict) and not spec.get("external")
+    }
+
+
 def running_services_for_clone(c: Context, source: Path) -> list[str]:
     """
     Which services must pause for a consistent copy: only those mounting a volume that travels.
@@ -687,9 +716,10 @@ def running_services_for_clone(c: Context, source: Path) -> list[str]:
         return []
 
     src_project = source.resolve().name
+    owned = declared_volumes(c, source)
     services: list[str] = []
     for volume, owners in volume_owners(c, source).items():
-        if not dest_volume_name(volume, src_project, "x"):
+        if volume not in owned or not dest_volume_name(volume, src_project, "x"):
             continue
         services += [service for service in owners if service in live and service not in services]
 
@@ -700,10 +730,12 @@ def _clone_volumes(c: Context, step: Step, source: Path, dst: Path) -> None:
     src_project = source.resolve().name
     dst_project = dst.resolve().name
 
+    # external volumes keep their name in the new project, so there is nothing to copy them into
+    owned = declared_volumes(c, source)
     pairs = [
         (volume, target)
         for volume in volume_owners(c, source)
-        if (target := dest_volume_name(volume, src_project, dst_project))
+        if volume in owned and (target := dest_volume_name(volume, src_project, dst_project))
     ]
 
     if not pairs:
@@ -872,9 +904,9 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
 
     if volumes:
         cprint(f"Removing {len(volumes)} volume(s)...", color="blue")
-        c.run("docker volume rm " + " ".join(volumes), warn=True, hide=True)
+        c.run("docker volume rm " + " ".join(shlex.quote(volume) for volume in volumes), warn=True, hide=True)
 
-    _git(c, f"worktree remove --force {path}", cwd=repo, warn=True)
+    _git(c, f"worktree remove --force {shlex.quote(str(path))}", cwd=repo, warn=True)
     _git(c, "worktree prune", cwd=repo, warn=True)
     if path.exists():
         shutil.rmtree(path, ignore_errors=True)
@@ -890,7 +922,7 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
         cprint("Removed worktree; it had no branch.", color="green")
         return
 
-    deleted = c.run(f"git -C {repo} branch -d {branch}", hide=True, warn=True)
+    deleted = c.run(f"git -C {shlex.quote(str(repo))} branch -d {shlex.quote(branch)}", hide=True, warn=True)
     if deleted and deleted.ok:
         cprint(f"Removed worktree and branch {branch}.", color="green")
     else:
@@ -898,5 +930,12 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
 
 
 def _volumes_of(c: Context, path: Path) -> list[str]:
-    """Named volumes attached to this environment's containers, before it is torn down."""
-    return list(volume_owners(c, path))
+    """
+    This environment's *own* named volumes, before it is torn down.
+
+    Intersected with what the compose config declares as non-external: `compose down -v` deliberately
+    leaves external volumes alone, so anything left over for `docker volume rm` is exactly the set
+    that may belong to someone else, and removing it would silently destroy their data.
+    """
+    owned = declared_volumes(c, path)
+    return [volume for volume in volume_owners(c, path) if volume in owned]
