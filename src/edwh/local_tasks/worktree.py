@@ -1,25 +1,26 @@
 """
-Parallel dev environments per branch: `ew worktree <branch>`.
+Parallel dev environments per branch: `edwh worktree <branch>`.
 
 A git worktree lacks the gitignored secrets, the generated .toml and the database that an
 environment needs. This module adds those: it copies the config a project declares, deletes the
-keys that must be unique, runs `ew setup` so `local.setup` regenerates them, and seeds the database.
+keys that must be unique, runs `edwh setup` so `local.setup` regenerates them, then seeds the
+database.
 
 Deleting a key is enough because `check_env` leaves existing values alone, so the project's own
 `next_value` / `next_available_port` defaults do the work.
 
-Side-effecting code lives here; pure helpers live in `edwh.worktree_config`.
+Anything here may run git or docker, read the filesystem, prompt, or print. `edwh.worktree_config`
+holds the counterpart: functions of their arguments only, with no I/O at all.
 """
 
 import asyncio
 import shlex
 import shutil
-import sys
 import typing as t
 from pathlib import Path
 
 import invoke
-import tomlkit
+import tabulate
 import yaml
 from ewok import Context, task
 from termcolor import colored, cprint
@@ -27,7 +28,11 @@ from termcolor import colored, cprint
 from ..constants import DEFAULT_DOTENV_PATH, DEFAULT_TOML_NAME, DOCKER_COMPOSE, AnyDict
 from ..discover import get_hosts_for_service
 from ..health import docker_inspect
-from ..helpers import confirm, interactive_selected_checkbox_values, interactive_selected_radio_value
+from ..helpers import (
+    confirm,
+    interactive_selected_checkbox_values,
+    interactive_selected_radio_value,
+)
 from ..pipeline import Run, Step, drive
 from ..tasks import (
     adjacent_env_paths,
@@ -49,16 +54,19 @@ from ..worktree_config import (
     SEEDS,
     TemplateError,
     WorktreeConfig,
+    as_toml,
     check_reset_took_effect,
     classify_env_keys,
     collapse_to_globs,
     dest_volume_name,
     env_vars_in_host_labels,
     example_values,
+    hostingdomains,
     keys_to_reset,
     published_port_keys,
     render_env_templates,
     render_template,
+    service_of,
     slugify,
     suggest_copy_entries,
     worktree_dirname,
@@ -68,20 +76,6 @@ from ..worktree_config import (
 
 class WorktreeError(Exception):
     """Something went wrong that the user has to resolve."""
-
-
-def ew_command() -> str:
-    """
-    How to invoke *this* edwh in a subprocess.
-
-    Resolved next to sys.executable, not via PATH, which may point at a different installation and
-    would set the worktree up with another version than the one being run.
-    """
-    sibling = Path(sys.executable).parent / "edwh"
-    if sibling.is_file():
-        return shlex.quote(str(sibling))
-
-    return f"{shlex.quote(sys.executable)} -m edwh"
 
 
 # -- git ----------------------------------------------------------------------------------
@@ -202,7 +196,7 @@ def _reread_env(path: Path) -> dict[str, str]:
     """
     Read a worktree's .env, ignoring the cache.
 
-    `ew setup` runs as a subprocess, so the keys it regenerates are invisible to this process's
+    `edwh setup` runs as a subprocess, so the keys it regenerates are invisible to this process's
     read_dotenv cache, which would still show the stripped-but-not-yet-restored state.
     """
     env_path = (path / DEFAULT_DOTENV_PATH).resolve()
@@ -214,7 +208,7 @@ def compose_config(c: Context, cwd: Path | None = None) -> AnyDict:
     """
     The fully resolved compose config for a directory, or {} when it cannot be read.
 
-    Soft failure on purpose: this runs before `ew setup` restores the reset keys, so interpolation
+    Soft failure on purpose: this runs before `edwh setup` restores the reset keys, so interpolation
     can legitimately fail.
     """
     dc_path = (cwd or Path.cwd()) / "docker-compose.yml"
@@ -264,10 +258,6 @@ def _pick_reset_keys(c: Context, env: dict[str, str], compose: dict[str, t.Any],
     return list(chosen or [])
 
 
-def _as_toml(config: WorktreeConfig) -> str:
-    return tomlkit.dumps({"worktree": config.to_toml()})
-
-
 def save_config(config: WorktreeConfig, toml_path: Path = Path(DEFAULT_TOML_NAME)) -> None:
     toml_path.touch(exist_ok=True)
     existing = read_toml_config(toml_path)
@@ -289,25 +279,25 @@ def compose_hosts(c: Context, cwd: Path) -> set[str]:
 
 @task(
     name="setup",
-    # never run as a hook of core `ew setup`: this is an interactive wizard, not project setup
+    # never run as a hook of core `edwh setup`: this is an interactive wizard, not project setup
     hookable=False,
     help={"show": "Print the current configuration and exit."},
 )
 def setup_worktree(c: Context, show: bool = False) -> None:
     """
-    Configure how `ew worktree` should build an environment for this project.
+    Configure how `edwh worktree` should build an environment for this project.
 
-    Writes [worktree] to .toml, like `ew setup` does. A project can ship team defaults by putting
+    Writes [worktree] to .toml, like `edwh setup` does. A project can ship team defaults by putting
     the section in default.toml instead.
     """
     root = Path.cwd()
     current = load_config() or WorktreeConfig()
 
     if show:
-        print(_as_toml(current))
+        print(as_toml(current))
         return
 
-    cprint("Configuring `ew worktree` for this project.\n", color="blue")
+    cprint("Configuring `edwh worktree` for this project.\n", color="blue")
 
     # 1. where worktrees live
     default_root = current.root or str(worktree_root())
@@ -379,7 +369,7 @@ def setup_worktree(c: Context, show: bool = False) -> None:
 
     save_config(current)
     cprint(f"\nWritten [worktree] to {DEFAULT_TOML_NAME}.", color="green")
-    print(_as_toml(current))
+    print(as_toml(current))
 
 
 @task(
@@ -429,7 +419,7 @@ def add(
     dst = config.root_path() / worktree_dirname(repo.name, branch)
 
     if dst.exists() and not force:
-        raise WorktreeError(f"{dst} already exists. Use --force to reuse it, or `ew worktree.rm {branch}` first.")
+        raise WorktreeError(f"{dst} already exists. Use --force to reuse it, or `edwh worktree.rm {branch}` first.")
 
     collisions: dict[str, set[str]] = {}
 
@@ -448,12 +438,7 @@ def add(
 
         await run.fn("check hostnames", lambda step: _check_hosts(c, step, dst, collisions))
 
-        setup_step = await run.sh(
-            "setup",
-            f"{ew_command()} setup --non-interactive",
-            cwd=dst,
-            env={"EDWH_NON_INTERACTIVE": "1"},
-        )
+        setup_step = await run.ew("setup", "setup", "--non-interactive", cwd=dst, env={"EDWH_NON_INTERACTIVE": "1"})
         _fail_on_broken_hook(setup_step)
         run.check()
 
@@ -474,7 +459,7 @@ def add(
         await _step_seed_before_up(c, run, config.seed, source, dst)
         run.check()
 
-        await run.sh("up", f"{ew_command()} up --wait", cwd=dst)
+        await run.ew("up", "up", "--wait", cwd=dst)
         run.check()
 
         await _step_seed_after_up(c, run, config.seed, dst)
@@ -529,7 +514,8 @@ def _fail_on_broken_hook(step: Step) -> None:
 
 
 def _copy_config(step: Step, source: Path, dst: Path, entries: list[str]) -> None:
-    copied, missing = 0, []
+    copied = 0
+    missing: list[str] = []
 
     for entry in entries:
         src_path = source / entry.rstrip("/")
@@ -650,12 +636,17 @@ async def _step_seed_after_up(c: Context, run: Run, seed: str, dst: Path) -> Non
         run.skip("seed database", "edwh-devdb-plugin is not installed")
         return
 
-    await run.sh("seed database", f"{ew_command()} devdb.recover", cwd=dst)
+    await run.ew("seed database", "devdb.recover", cwd=dst)
+
+
+def compose_result(c: Context, path: Path, *args: str) -> invoke.Result | None:
+    """Run docker compose in another environment's directory, without raising."""
+    return c.run(f"cd {shlex.quote(str(path))} && {DOCKER_COMPOSE} {' '.join(args)}", hide=True, warn=True)
 
 
 def compose(c: Context, path: Path, *args: str) -> str:
-    """Run docker compose in another environment's directory and return its stdout."""
-    result = c.run(f"cd {shlex.quote(str(path))} && {DOCKER_COMPOSE} {' '.join(args)}", hide=True, warn=True)
+    """Stdout of a docker compose command, or "" when it failed."""
+    result = compose_result(c, path, *args)
     return result.stdout.strip() if result and result.ok else ""
 
 
@@ -667,10 +658,6 @@ def containers(c: Context, path: Path, running_only: bool = False) -> list[AnyDi
 
     info = docker_inspect(c, " ".join(ids))
     return info if isinstance(info, list) else [info]
-
-
-def service_of(container: AnyDict) -> str:
-    return container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service", "")
 
 
 def volume_owners(c: Context, path: Path) -> dict[str, list[str]]:
@@ -757,7 +744,7 @@ async def _step_project_hook(c: Context, run: Run, dst: Path) -> None:
     if not get_task(c, "local.worktree"):
         return
 
-    await run.sh("local.worktree", f"{ew_command()} local.worktree", cwd=dst)
+    await run.ew("local.worktree", "local.worktree", cwd=dst)
 
 
 def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
@@ -768,7 +755,7 @@ def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
             for line in step.lines[-10:]:
                 print(f"    {line}")
         cprint(f"\nWorktree left at {dst} so you can inspect it.", color="yellow")
-        cprint(f"Remove it with: ew worktree.rm {branch}", color="yellow")
+        cprint(f"Remove it with: edwh worktree.rm {branch}", color="yellow")
         return
 
     for step in run.steps:
@@ -781,7 +768,7 @@ def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
     print(f"  PROJECT   {env.get('PROJECT', '?')}")
     if ports := {key: value for key, value in env.items() if key.endswith("_PORT")}:
         print("  ports     " + ", ".join(f"{key}={value}" for key, value in sorted(ports.items())))
-    for host in sorted(compose_hosts(c, dst)):
+    for host in sorted(compose_hosts(c, dst) or hostingdomains(env)):
         print(f"  {colored('https://' + host, 'blue')}")
     print(f"\n  cd {dst}")
 
@@ -789,8 +776,6 @@ def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
 @task(name="list", aliases=("ls",))
 def show_list(c: Context) -> None:
     """Show every worktree of this repository and the state of its environment."""
-    import tabulate
-
     rows = []
     for entry in worktrees(c):
         path = Path(entry["worktree"])
@@ -801,6 +786,8 @@ def show_list(c: Context) -> None:
         rows.append(
             (
                 entry["branch"],
+                # the handle to pass to `edwh worktree.rm` / `.path`
+                path.name,
                 str(path),
                 env.get("PROJECT", "-"),
                 _running_containers(c, path) or "-",
@@ -812,7 +799,7 @@ def show_list(c: Context) -> None:
         cprint("No worktrees found.", color="yellow")
         return
 
-    print(tabulate.tabulate(rows, headers=["Branch", "Path", "Project", "Running", "Ports"], tablefmt="pipe"))
+    print(tabulate.tabulate(rows, headers=["Branch", "Slug", "Path", "Project", "Running", "Ports"], tablefmt="pipe"))
 
 
 def _running_containers(c: Context, path: Path) -> int:
@@ -821,7 +808,7 @@ def _running_containers(c: Context, path: Path) -> int:
 
 @task(name="path")
 def show_path(c: Context, branch: str) -> None:
-    """Print the path of a worktree, for `cd $(ew worktree.path my-branch)`."""
+    """Print the path of a worktree, for `cd $(edwh worktree.path my-branch)`."""
     entry = find_worktree(c, branch)
     if not entry:
         raise WorktreeError(f"No worktree for {branch!r}.")
@@ -844,7 +831,7 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
     """
     entry = find_worktree(c, branch)
     if not entry:
-        raise WorktreeError(f"No worktree for {branch!r}. See `ew worktree.list`.")
+        raise WorktreeError(f"No worktree for {branch!r}. See `edwh worktree.list`.")
 
     path = Path(entry["worktree"])
     repo = repo_root(c)
@@ -865,7 +852,23 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
     volumes = _volumes_of(c, path)
 
     cprint(f"Stopping {branch}...", color="blue")
-    compose(c, path, "down -v --remove-orphans")
+    teardown = compose_result(c, path, "down -v --remove-orphans")
+    # NB: a failed invoke Result is falsy, so this must not be a plain truthiness test
+    if teardown is None or not teardown.ok:
+        # Everything here runs through the worktree's compose file, so if that cannot be read the
+        # containers and volumes stay behind. Leave the directory in place too: deleting it would
+        # take away the compose file needed to clean up.
+        cprint(f"docker compose could not tear {branch} down:", color="red")
+        detail = (teardown.stderr or teardown.stdout) if teardown is not None else ""
+        for line in detail.strip().splitlines()[-5:]:
+            print(f"    {line}")
+        cprint(
+            f"\nIts containers and volumes are still running, and the worktree has been left at\n"
+            f"  {path}\n"
+            f"so you can fix the compose file and run `edwh worktree.rm {branch}` again.",
+            color="yellow",
+        )
+        return
 
     if volumes:
         cprint(f"Removing {len(volumes)} volume(s)...", color="blue")
@@ -876,8 +879,15 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
     if path.exists():
         shutil.rmtree(path, ignore_errors=True)
 
+    # the argument may have been a slug or a directory name, so delete the branch git reported
+    branch = entry["branch"]
+
     if keep_branch:
         cprint(f"Removed worktree, kept branch {branch}.", color="green")
+        return
+
+    if branch == "(detached)":
+        cprint("Removed worktree; it had no branch.", color="green")
         return
 
     deleted = c.run(f"git -C {repo} branch -d {branch}", hide=True, warn=True)

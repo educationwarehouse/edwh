@@ -20,6 +20,7 @@ from src.edwh.tasks import (
 from src.edwh.worktree_config import (
     DEFAULT_COPY,
     DEFAULT_ENV,
+    DEFAULT_RESET,
     EXAMPLE_BRANCH,
     SEEDS,
     TemplateError,
@@ -88,8 +89,8 @@ def test_edwh_worktree_root_overrides_everything(monkeypatch):
 
 def test_config_defaults_when_section_is_absent():
     config = WorktreeConfig.from_toml({})
-    assert config.copy == DEFAULT_COPY
-    assert config.reset == ["*_PORT", "SCHEMA_VERSION", "COMPOSE_PROJECT_NAME"]
+    assert config.copy == list(DEFAULT_COPY)
+    assert config.reset == list(DEFAULT_RESET)
     assert config.env == {"PROJECT": "{repo}-{slug}"}
     assert config.seed == "fresh"
 

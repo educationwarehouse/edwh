@@ -9,6 +9,7 @@ import io
 import itertools
 import os
 import re
+import shlex
 import shutil
 import sys
 import typing as t
@@ -22,6 +23,20 @@ from ewok import Context
 from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE, AnyDict
+
+
+def ew_command() -> str:
+    """
+    How to invoke *this* edwh in a subprocess.
+
+    Resolved next to sys.executable, not via PATH, which may point at a different installation and
+    would run another version than the one being run.
+    """
+    sibling = Path(sys.executable).parent / "edwh"
+    if sibling.is_file():
+        return shlex.quote(str(sibling))
+
+    return f"{shlex.quote(sys.executable)} -m edwh"
 
 
 def confirm(prompt: str, default: bool = False, allowed: set[str] | None = None, strict: bool = False) -> bool:

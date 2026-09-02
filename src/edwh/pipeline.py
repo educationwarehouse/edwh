@@ -12,7 +12,7 @@ Two constraints shape the model:
 
 Two kinds of step:
 
-    await run.sh("setup", "ew setup --non-interactive", cwd=dst)   # streamed subprocess
+    await run.ew("setup", "setup", "--non-interactive", cwd=dst)   # an edwh task, streamed
     await run.fn("copy config", copy_config_files)                 # python, on a worker thread
 
 A `fn` callable receives its own `Step` and must not write to stdout: the renderer owns the
@@ -27,6 +27,8 @@ import time
 import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .helpers import ew_command
 
 T_State = t.Literal["queued", "running", "done", "failed", "skipped"]
 
@@ -45,7 +47,8 @@ class Step:
     out: str = ""  # full stdout of a shell step, for runtime decisions
     error: BaseException | None = None
 
-    _on_change: t.Callable[[], None] = field(default=lambda: None, repr=False)
+    # called after every state or status change, with this step: on_change=lambda step: ...
+    on_change: t.Callable[["Step"], None] = field(default=lambda _: None, repr=False)
 
     @property
     def elapsed(self) -> float:
@@ -64,7 +67,7 @@ class Step:
     def report(self, status: str) -> None:
         """Set the status text shown next to this step. Safe to call from a worker thread."""
         self.status = status
-        self._on_change()
+        self.on_change(self)
 
     def log(self, line: str) -> None:
         """Record a line of output and show it as the current status."""
@@ -115,7 +118,7 @@ class Run:
 
     def _queue(self, names: t.Iterable[str]) -> list[Step]:
         self.group += 1
-        steps = [Step(name, self.group, _on_change=lambda: self.on_change()) for name in names]
+        steps = [Step(name, self.group, on_change=lambda _: self.on_change()) for name in names]
         self.steps.extend(steps)
         self.on_change()
         return steps
@@ -143,6 +146,10 @@ class Run:
         steps = self._queue(name for name, _ in specs)
         await self._gather([self._exec(step, cmd, cwd, env) for step, (_, cmd) in zip(steps, specs)])
         return steps
+
+    async def ew(self, name: str, *args: str, cwd: str | Path | None = None, env: dict[str, str] | None = None) -> Step:
+        """Run an edwh task as a step, through the same edwh that is running."""
+        return await self.sh(name, f"{ew_command()} {' '.join(args)}", cwd=cwd, env=env)
 
     async def fn(self, name: str, func: t.Callable[[Step], t.Any]) -> Step:
         """Run a python callable as a step, on a worker thread so the renderer keeps ticking."""
@@ -194,15 +201,16 @@ class Run:
             self._finish(step, "failed", str(e))
             return
 
-        assert proc.stdout
-        async for raw in proc.stdout:
-            line = raw.decode(errors="replace").rstrip()
-            step.out += line + "\n"
-            if line.startswith("::"):
-                step.status = line[2:].strip()
-                self.on_change()
-            elif line:
-                step.log(line)
+        # stdout is a pipe, so this is set; a command that prints nothing simply yields no lines
+        if proc.stdout:
+            async for raw in proc.stdout:
+                line = raw.decode(errors="replace").rstrip()
+                step.out += line + "\n"
+                if line.startswith("::"):
+                    step.status = line[2:].strip()
+                    self.on_change()
+                elif line:
+                    step.log(line)
 
         rc = await proc.wait()
         self._finish(step, "done" if rc == 0 else "failed", f"exit {rc}" if rc else "")

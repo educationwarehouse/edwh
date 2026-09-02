@@ -49,8 +49,8 @@ def _board(run: Run, tick: int) -> Group:
     rows: list[Text] = []
     for group in run.groups():
         parallel = len(group) > 1
-        for i, step in enumerate(group):
-            branch = ("└─ " if i == len(group) - 1 else "├─ ") if parallel else "   "
+        for idx, step in enumerate(group):
+            branch = ("└─ " if idx == len(group) - 1 else "├─ ") if parallel else "   "
             rows.append(_row(step, tick, branch))
 
     if not run.done:
@@ -104,4 +104,5 @@ def renderer_for(title: str = "", tui: bool = True) -> t.ContextManager[T_Render
     """The lane board when a terminal is available and wanted, plain output otherwise."""
     if tui and sys.stdout.isatty():
         return lane_board(title)
-    return plain(title)
+    else:
+        return plain(title)

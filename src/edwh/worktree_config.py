@@ -1,9 +1,12 @@
 """
-Pure helpers for `ew worktree`.
+Pure helpers for `edwh worktree`.
 
-The split with `local_tasks/worktree.py` is by side effects: everything here is a plain function of
-its arguments, so it can be tested without a repository, a docker daemon or a terminal. Anything
-that runs git, runs docker, prompts, or prints lives in the task module.
+The [worktree] config plus the data transformations it drives: naming, .env keys, volume names,
+templates. Every function here takes its inputs as arguments and does no I/O, so it is testable
+without a repository or a docker daemon.
+
+`local_tasks/worktree.py` holds the tasks themselves and everything that talks to git, docker, the
+terminal, or the step pipeline.
 """
 
 import fnmatch
@@ -13,9 +16,11 @@ import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DEFAULT_COPY = [".env", ".toml"]
+import tomlkit
+
+DEFAULT_COPY = (".env", ".toml")
 # COMPOSE_PROJECT_NAME beats the directory name, so a copied one would fuse the two environments
-DEFAULT_RESET = ["*_PORT", "SCHEMA_VERSION", "COMPOSE_PROJECT_NAME"]
+DEFAULT_RESET = ("*_PORT", "SCHEMA_VERSION", "COMPOSE_PROJECT_NAME")
 DEFAULT_ENV = {"PROJECT": "{repo}-{slug}"}
 DEFAULT_SEED = "fresh"
 
@@ -24,6 +29,10 @@ CLONE_IMAGE = "alpine"
 
 T_Seed = t.Literal["fresh", "clone", "devdb"]
 SEEDS: tuple[str, ...] = t.get_args(T_Seed)
+
+# a branch that shows what slugify does, for illustrating templates before one is chosen
+EXAMPLE_BRANCH = "feature/login"
+PLACEHOLDERS = ("value", "repo", "branch", "slug")
 
 # gitignore entries that are never worth copying into a worktree
 COPY_BLOCKLIST = (
@@ -36,8 +45,12 @@ COPY_BLOCKLIST = (
     ".ipynb_checkpoints",
     "*.pyc",
     "*.swp",
+    "*.bak",
     ".fuse_*",
 )
+
+NON_SLUG_RE = re.compile(r"[^a-z0-9]+")
+ENV_VAR_RE = re.compile(r"\$\{?(\w+)")
 
 
 def slugify(branch: str) -> str:
@@ -45,7 +58,7 @@ def slugify(branch: str) -> str:
     Branch name to a directory- and docker-safe slug: "feature/EW-Worktree" -> "feature-ew-worktree".
     """
     slug = branch.strip().lower()
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = NON_SLUG_RE.sub("-", slug)
     return slug.strip("-")
 
 
@@ -113,7 +126,24 @@ class WorktreeConfig:
         return Path(self.root).expanduser() if self.root else worktree_root()
 
 
-ENV_VAR_RE = re.compile(r"\$\{?(\w+)")
+def service_of(container: t.Mapping[str, t.Any]) -> str:
+    """The compose service a docker-inspect payload belongs to."""
+    return container.get("Config", {}).get("Labels", {}).get("com.docker.compose.service", "")
+
+
+def hostingdomains(env: t.Mapping[str, str]) -> set[str]:
+    """
+    HOSTINGDOMAIN(S) from a .env, as a fallback for projects that do not route through traefik.
+
+    Plural because projects disagree on the key name, and the value may be a comma separated list.
+    """
+    raw = env.get("HOSTINGDOMAIN") or env.get("HOSTINGDOMAINS") or ""
+    return {domain.strip() for domain in raw.split(",") if domain.strip()}
+
+
+def as_toml(config: WorktreeConfig) -> str:
+    """Render a [worktree] section as TOML, for showing back to the user."""
+    return tomlkit.dumps({"worktree": config.to_toml()})
 
 
 def env_vars_in_host_labels(compose: t.Mapping[str, t.Any]) -> list[str]:
@@ -175,12 +205,6 @@ def keys_to_reset(env: t.Mapping[str, str], patterns: t.Iterable[str]) -> list[s
     return [key for key in env if matches_reset(key, patterns)]
 
 
-# a branch that shows what slugify does, for illustrating templates before one has been chosen
-EXAMPLE_BRANCH = "feature/login"
-
-PLACEHOLDERS = ("value", "repo", "branch", "slug")
-
-
 class TemplateError(ValueError):
     """A [worktree.env] template a user typed does not make sense."""
 
@@ -198,7 +222,8 @@ def render_template(template: str, *, value: str, repo: str, branch: str, slug: 
         known = ", ".join(f"{{{name}}}" for name in PLACEHOLDERS)
         raise TemplateError(f"unknown placeholder {{{e.args[0]}}}; available: {known}") from e
     except (IndexError, ValueError) as e:
-        raise TemplateError(f"malformed template ({e}); use {{value}}, or {{{{ for a literal brace") from e
+        hint = "use {value}, or {{ for a literal brace"
+        raise TemplateError(f"malformed template ({e}); {hint}") from e
 
 
 def example_values(repo: str, current_value: str = "<current value>", branch: str = EXAMPLE_BRANCH) -> dict[str, str]:
@@ -338,8 +363,9 @@ def suggest_copy_entries(gitignore: str, root: Path) -> list[str]:
     suggestions: list[str] = []
 
     for raw in gitignore.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line or line.startswith("!"):
+        line = raw.strip()
+        # '#' only comments out a whole line in .gitignore, and '!' re-includes a path
+        if not line or line.startswith(("#", "!")):
             continue
 
         entry = line.lstrip("/").rstrip("/")
