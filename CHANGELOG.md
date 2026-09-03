@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.16.1 (2026-09-03)
+
+### Fix
+* **cli:** activate the edwh virtualenv before command execution
+
 ## v1.16.0 (2026-08-24)
 
 ### Feature
