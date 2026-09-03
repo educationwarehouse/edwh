@@ -1,7 +1,9 @@
 import atexit
+import os
 import signal
 import sys
 import typing as t
+from pathlib import Path
 
 import ewok
 
@@ -12,6 +14,18 @@ from .__about__ import __version__
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
 class EddieApp(ewok.App):
     # = fabric.Fab = invoke.Program
+
+    @staticmethod
+    def _activate_own_venv() -> None:
+        """Activate the virtual environment that provides the edwh executable."""
+        if sys.prefix == sys.base_prefix:
+            return
+
+        os.environ["VIRTUAL_ENV"] = sys.prefix
+        bin_dir = str(Path(sys.executable).parent)
+        path = os.environ.get("PATH", "")
+        path_parts = (part for part in path.split(os.pathsep) if part != bin_dir)
+        os.environ["PATH"] = os.pathsep.join(filter(None, (bin_dir, *path_parts)))
 
     def _fix_invoke_terminal_corruption(self) -> None:
         """
@@ -47,6 +61,7 @@ class EddieApp(ewok.App):
 
     def run(self, argv: list[str] | None = None, exit: bool = True) -> None:  # noqa: A002
         """Run the application with terminal‑safety fixes enabled."""
+        self._activate_own_venv()
         self._fix_invoke_terminal_corruption()
         return super().run(argv=argv, exit=exit)
 
@@ -57,6 +72,7 @@ class EddieApp(ewok.App):
         - `ew-fmt file1` == `ew fmt --file file1`
         - `ew-fmt file1 file2` == `ew fmt --file file1 fmt --file file2`
         """
+        self._activate_own_venv()
         argv = argv or sys.argv[1:]
 
         # Filter out any 'fmt' arguments to prevent duplicates
