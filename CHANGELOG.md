@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.1 (2026-09-04)
+
+### Fix
+* **worktree:** prompt for reset hostnames and improve listing
+
 ## v1.17.0 (2026-09-04)
 
 ### Features
