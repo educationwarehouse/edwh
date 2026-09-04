@@ -153,7 +153,6 @@ seed = "clone"                             # fresh | clone | devdb
 [worktree.env]
 # rewritten instead of regenerated; {value} {repo} {branch} {slug} available. All fields have defaults.
 PROJECT = "{repo}-{slug}"
-HOSTINGDOMAIN = "{slug}.{value}"
 ```
 
 `worktree.setup` proposes both lists: `copy` comes from `.gitignore`, and `reset` is detected from
@@ -170,6 +169,12 @@ Resetting only produces a new value when `local.setup`'s default is environment-
 (`next_value`, ports, `os.getcwd()`). With a constant default like `"localhost"` it silently
 rewrites the same value, and both environments share it. Those keys need a `[worktree.env]`
 template instead; after `setup`, `worktree` warns about any reset that came back identical.
+
+`HOSTINGDOMAIN` and `HOSTINGDOMAINS` are the exception: when either is in `reset`, `worktree`
+asks for its replacement before it creates anything. It never copies the source value or accepts
+an empty answer. Scripts can provide the answer with `--env HOSTINGDOMAIN=branch.localhost`
+(repeat `--env` for each requested hostname key). Do not also put a prompted hostname in
+`[worktree.env]`: that section is only for automatic templates.
 
 Seeding:
 

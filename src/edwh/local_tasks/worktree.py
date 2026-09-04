@@ -16,13 +16,17 @@ with no I/O at all.
 import asyncio
 import shlex
 import shutil
+import sys
 import typing as t
 from pathlib import Path
 
 import invoke
-import tabulate
 import yaml
 from ewok import Context, task
+from rich import box
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 from termcolor import colored, cprint
 
 from ..constants import DEFAULT_DOTENV_PATH, DEFAULT_TOML_NAME, DOCKER_COMPOSE, AnyDict
@@ -50,6 +54,7 @@ from ..worktree_config import (
     DEFAULT_ENV,
     DEFAULT_RESET,
     EXAMPLE_BRANCH,
+    HOSTINGDOMAIN_KEYS,
     PLACEHOLDERS,
     SEEDS,
     TemplateError,
@@ -63,6 +68,7 @@ from ..worktree_config import (
     example_values,
     hostingdomains,
     keys_to_reset,
+    matches_reset,
     published_port_keys,
     render_env_templates,
     render_template,
@@ -76,6 +82,52 @@ from ..worktree_config import (
 
 class WorktreeError(Exception):
     """Something went wrong that the user has to resolve."""
+
+
+def _prompted_hostname_keys(config: WorktreeConfig) -> list[str]:
+    """Hostname keys that reset requires the caller to replace manually."""
+    return [key for key in HOSTINGDOMAIN_KEYS if matches_reset(key, config.reset)]
+
+
+def _resolve_hostname_values(
+    config: WorktreeConfig,
+    source_env: t.Mapping[str, str],
+    assignments: t.Iterable[str] = (),
+) -> dict[str, str]:
+    """Collect replacement values for reset hostnames before creating a worktree."""
+    prompted = _prompted_hostname_keys(config)
+    conflicting = sorted(key for key in prompted if key in config.env)
+    if conflicting:
+        raise WorktreeError(
+            f"{', '.join(conflicting)} is both reset and configured in [worktree.env]; remove it from one of them"
+        )
+
+    values: dict[str, str] = {}
+    for assignment in assignments:
+        key, separator, value = assignment.partition("=")
+        if not separator or not key:
+            raise WorktreeError(f"Invalid --env value {assignment!r}; use KEY=VALUE.")
+        if key not in prompted:
+            allowed = ", ".join(prompted) or "no keys"
+            raise WorktreeError(f"--env {key} is not requested by reset; expected: {allowed}.")
+        if key in values:
+            raise WorktreeError(f"--env {key} was supplied more than once.")
+        if not value:
+            raise WorktreeError(f"--env {key} must not be empty.")
+        values[key] = value
+
+    for key in prompted:
+        if key in values:
+            continue
+        if not sys.stdin.isatty():
+            raise WorktreeError(f"{key} must be supplied as --env {key}=VALUE when stdin is not interactive.")
+        source_value = source_env.get(key, "not set")
+        value = input(f"{key} (source: {source_value}): ").strip()
+        if not value:
+            raise WorktreeError(f"{key} must not be empty.")
+        values[key] = value
+
+    return values
 
 
 # -- git ----------------------------------------------------------------------------------
@@ -265,7 +317,7 @@ def _pick_reset_keys(c: Context, env: dict[str, str], compose: dict[str, t.Any],
         env,
         others,
         published_ports=published_port_keys(compose),
-        hostname_keys=[*env_vars_in_host_labels(compose), "HOSTINGDOMAIN", "HOSTINGDOMAINS"],
+        hostname_keys=[*env_vars_in_host_labels(compose), *HOSTINGDOMAIN_KEYS],
         rewritten=current.env,
     )
 
@@ -407,11 +459,13 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     name="add",
     default=True,
     aliases=("new", "create"),
+    iterable=["env"],
     flags={"no_up": ("no-up",), "no_tui": ("no-tui",), "from_ref": ("from", "f")},
     help={
         "branch": "Branch to work on. An existing upstream branch is checked out with tracking.",
         "from_ref": "Base for a new branch (default: HEAD of the current checkout).",
         "seed": f"Override the configured database seeding strategy ({'|'.join(SEEDS)}).",
+        "env": "Supply a requested reset hostname as KEY=VALUE; can be used multiple times.",
         "no_up": "Set the environment up but do not start it.",
         "yes": "Do not ask for confirmation (e.g. before pausing services to clone volumes).",
         "no_tui": "Plain line output instead of the live board.",
@@ -427,6 +481,7 @@ def add(
     no_tui: bool = False,
     force: bool = False,
     yes: bool = False,
+    env: t.Collection[str] | None = None,
 ) -> None:
     """
     Create a worktree for `branch` with its own config, ports, hostnames and database.
@@ -452,6 +507,8 @@ def add(
     if dst.exists() and not force:
         raise WorktreeError(f"{dst} already exists. Use --force to reuse it, or `edwh worktree.rm {branch}` first.")
 
+    hostname_values = _resolve_hostname_values(config, read_dotenv(source / DEFAULT_DOTENV_PATH), env or ())
+
     collisions: dict[str, set[str]] = {}
 
     async def pipeline(run: Run) -> None:
@@ -462,7 +519,14 @@ def add(
         await run.fn(
             "rewrite .env",
             lambda step: _rewrite_env(
-                step, source=source, dst=dst, config=config, repo=slugify(repo.name), branch=branch, slug=slug
+                step,
+                source=source,
+                dst=dst,
+                config=config,
+                repo=slugify(repo.name),
+                branch=branch,
+                slug=slug,
+                values=hostname_values,
             ),
         )
         run.check()
@@ -594,6 +658,7 @@ def _rewrite_env(
     repo: str,
     branch: str,
     slug: str,
+    values: t.Mapping[str, str] | None = None,
 ) -> None:
     env_path = (dst / DEFAULT_DOTENV_PATH).resolve()
     if not env_path.exists():
@@ -609,13 +674,18 @@ def _rewrite_env(
     rewritten = render_env_templates(env, config.env, repo=repo, branch=branch, slug=slug)
     for key, value in rewritten.items():
         set_env_value(env_path, key, value)
+    for key, value in (values or {}).items():
+        set_env_value(env_path, key, value)
 
     # values pointing back into the source checkout would silently share state
     leaking = [key for key, value in read_dotenv(env_path).items() if str(source.resolve()) in value]
     if leaking:
         step.lines.append(f"warning: {', '.join(leaking)} still point at {source}")
 
-    step.report(f"-{len(removed)} keys, ={len(rewritten)} rewritten" + (f", {len(leaking)} suspect" if leaking else ""))
+    step.report(
+        f"-{len(removed)} keys, ={len(rewritten)} rewritten, ={len(values or {})} supplied"
+        + (f", {len(leaking)} suspect" if leaking else "")
+    )
 
 
 def _verify_reset(step: Step, source: Path, dst: Path, config: WorktreeConfig) -> None:
@@ -860,12 +930,13 @@ def show_list(c: Context) -> None:
         rows.append(
             (
                 entry["branch"],
-                # the handle to pass to `edwh worktree.rm` / `.path`
-                path.name,
-                str(path),
-                env.get("PROJECT", "-"),
-                _running_containers(c, path) or "-",
-                ", ".join(f"{key}={value}" for key, value in sorted(env.items()) if key.endswith("_PORT")) or "-",
+                _running_containers(c, path),
+                " · ".join(
+                    f"{key.removesuffix('_PORT').lower()} {value}"
+                    for key, value in sorted(env.items())
+                    if key.endswith("_PORT")
+                )
+                or "-",
             )
         )
 
@@ -873,7 +944,13 @@ def show_list(c: Context) -> None:
         cprint("No worktrees found.", color="yellow")
         return
 
-    print(tabulate.tabulate(rows, headers=["Branch", "Slug", "Path", "Project", "Running", "Ports"], tablefmt="pipe"))
+    table = Table(box=box.SIMPLE_HEAVY, show_edge=False, pad_edge=False)
+    table.add_column("Branch", style="bold cyan")
+    table.add_column("Running", justify="right")
+    table.add_column("Ports", style="dim")
+    for branch, running, ports in rows:
+        table.add_row(Text(branch), str(running) if running else "-", Text(ports))
+    Console().print(table)
 
 
 def _running_containers(c: Context, path: Path) -> int:

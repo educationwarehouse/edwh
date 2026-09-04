@@ -23,6 +23,7 @@ DEFAULT_COPY = (".env", ".toml")
 DEFAULT_RESET = ("*_PORT", "SCHEMA_VERSION", "COMPOSE_PROJECT_NAME")
 DEFAULT_ENV = {"PROJECT": "{repo}-{slug}"}
 DEFAULT_SEED = "fresh"
+HOSTINGDOMAIN_KEYS = ("HOSTINGDOMAIN", "HOSTINGDOMAINS")
 
 # tiny image used to copy one volume into another; docker has no native volume clone
 CLONE_IMAGE = "alpine"
@@ -138,7 +139,7 @@ def hostingdomains(env: t.Mapping[str, str]) -> set[str]:
 
     Plural because projects disagree on the key name, and the value may be a comma separated list.
     """
-    raw = env.get("HOSTINGDOMAIN") or env.get("HOSTINGDOMAINS") or ""
+    raw = next((env.get(key) for key in HOSTINGDOMAIN_KEYS if env.get(key)), "") or ""
     return {domain.strip() for domain in raw.split(",") if domain.strip()}
 
 
