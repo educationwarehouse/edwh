@@ -236,6 +236,7 @@ def _pick_reset_keys(c: Context, env: dict[str, str], compose: dict[str, t.Any],
         env,
         others,
         published_ports=published_port_keys(compose),
+        hostname_keys=[*env_vars_in_host_labels(compose), "HOSTINGDOMAIN", "HOSTINGDOMAINS"],
         rewritten=current.env,
     )
 
@@ -807,10 +808,13 @@ def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
 
 @task(name="list", aliases=("ls",))
 def show_list(c: Context) -> None:
-    """Show every worktree of this repository and the state of its environment."""
+    """Show linked worktrees and the state of their environments."""
     rows = []
+    main = repo_root(c).resolve()
     for entry in worktrees(c):
         path = Path(entry["worktree"])
+        if path.resolve() == main:
+            continue
         env = read_dotenv((path / DEFAULT_DOTENV_PATH).resolve())
 
         # NB: $PROJECT is the project's own naming variable (traefik, container prefixes); compose

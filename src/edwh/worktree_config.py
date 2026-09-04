@@ -51,6 +51,7 @@ COPY_BLOCKLIST = (
 
 NON_SLUG_RE = re.compile(r"[^a-z0-9]+")
 ENV_VAR_RE = re.compile(r"\$\{?(\w+)")
+CADDY_SITE_LABEL_RE = re.compile(r"caddy(?:_\d+)?", re.IGNORECASE)
 
 
 def slugify(branch: str) -> str:
@@ -148,12 +149,17 @@ def as_toml(config: WorktreeConfig) -> str:
 
 def env_vars_in_host_labels(compose: t.Mapping[str, t.Any]) -> list[str]:
     """
-    Which .env keys the traefik Host() rules depend on, and so decide hostname collisions.
+    Which .env keys proxy hostname labels depend on, and so decide hostname collisions.
+
+    Traefik expresses these in a `Host()` rule. Caddy Docker Proxy uses `caddy` or
+    `caddy_<n>` as the site-address label.
     """
     found: list[str] = []
     for service in (compose.get("services") or {}).values():
         for label, value in (service.get("labels") or {}).items():
-            if "Host" not in str(value):
+            is_traefik_host = "Host" in str(value)
+            is_caddy_site = bool(CADDY_SITE_LABEL_RE.fullmatch(str(label)))
+            if not (is_traefik_host or is_caddy_site):
                 continue
             for name in ENV_VAR_RE.findall(f"{label}{value}"):
                 if name not in found:
@@ -268,15 +274,16 @@ def classify_env_keys(
     env: t.Mapping[str, str],
     others: t.Iterable[t.Mapping[str, str]],
     published_ports: t.Collection[str] = (),
+    hostname_keys: t.Collection[str] = (),
     rewritten: t.Collection[str] = (),
 ) -> list[EnvKeyCandidate]:
     """
     Work out which .env keys have to be regenerated per environment.
 
-    Three signals: a published port cannot be bound twice; a value that differs across the
-    environments already on this machine is per-environment by construction; one that is identical
-    everywhere is shared config. Keys handled by [worktree.env] are listed but never suggested,
-    since rewriting and resetting the same key would fight.
+    Four signals: a published port or hostname cannot be shared; a value distinct in every environment
+    already on this machine is likely per-environment; a repeated value is shared or machine-specific
+    config. Keys handled by [worktree.env] are listed but never suggested, since rewriting and
+    resetting the same key would fight.
 
     Most-likely candidates come first, so the picker shows the interesting ones on screen.
     """
@@ -295,13 +302,20 @@ def classify_env_keys(
             candidate.reasons.append("published port")
             candidate.suggested = True
 
+        if key in hostname_keys:
+            candidate.reasons.append("hostname")
+            candidate.suggested = True
+
         elsewhere = [other[key] for other in others if key in other]
         if elsewhere:
-            differing = sum(1 for other in elsewhere if other != value)
-            total = len(elsewhere) + 1
-            if differing:
-                candidate.reasons.append(f"differs in {differing + 1} of {total} envs")
+            values = [value, *elsewhere]
+            total = len(values)
+            distinct = len(set(values))
+            if distinct == total:
+                candidate.reasons.append(f"unique in {total} envs")
                 candidate.suggested = True
+            elif distinct > 1:
+                candidate.reasons.append(f"{distinct} values in {total} envs")
             else:
                 candidate.reasons.append(f"identical in {total} envs")
 

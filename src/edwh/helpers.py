@@ -39,12 +39,46 @@ def ew_command() -> str:
     return f"{shlex.quote(sys.executable)} -m edwh"
 
 
+def is_non_interactive() -> bool:
+    """Whether edwh must use defaults instead of reading input."""
+    return os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
+
+
+def has_controlling_terminal() -> bool:
+    """Whether this process can open its controlling terminal."""
+    try:
+        terminal = os.open(os.ctermid(), os.O_RDONLY)
+    except OSError:
+        return False
+    else:
+        os.close(terminal)
+        return True
+
+
+class NonInteractiveInput(io.TextIOBase):
+    """An input stream that supplies an empty answer to every prompt."""
+
+    def isatty(self) -> bool:
+        return False
+
+    def read(self, _size: int | None = -1, /) -> str:
+        return ""
+
+    def readline(self, _size: int = -1) -> str:
+        return "\n"
+
+
+def use_non_interactive_input() -> None:
+    """Make Python input calls receive an empty answer."""
+    sys.stdin = NonInteractiveInput()
+
+
 def confirm(prompt: str, default: bool = False, allowed: set[str] | None = None, strict: bool = False) -> bool:
     """
     Prompt a user to confirm a (dangerous) action.
     By default, entering nothing (only enter) will result in False, unless 'default' is set to True.
     """
-    if os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1":
+    if is_non_interactive():
         if strict:
             raise RuntimeError(f"Prevented strict `confirm({prompt})` in --non-interactive mode")
         else:
@@ -236,7 +270,7 @@ def viewport(count: int, cursor: int, height: int) -> tuple[int, int]:
 def print_box(label: str, selected: bool, current: bool, number: int, fmt: str = "[%s]", filler: str = "x") -> None:
     box = fmt % (filler if selected else " ")
     indicator = ">" if current else " "
-    click.echo(f"{indicator}{number}. {box} {label}")
+    click.echo(f"{indicator}{number:2}. {box} {label}")
 
 
 def interactive_selected_checkbox_values[H: t.Hashable](

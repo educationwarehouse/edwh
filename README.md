@@ -156,10 +156,12 @@ HOSTINGDOMAIN = "{slug}.{value}"
 ```
 
 `worktree.setup` proposes both lists: `copy` comes from `.gitignore`, and `reset` is detected from
-keys on the host side of a `ports:` mapping or with differing values across existing checkouts on
-this machine (identical everywhere means shared config, copied verbatim). `COMPOSE_PROJECT_NAME` is
-always reset, since a copied value would fuse the environments. Ticked keys collapse back to a glob
-when the glob covers exactly your selection.
+keys on the host side of a `ports:` mapping, a Traefik `Host()` rule, a Caddy `caddy` site-address
+label, or `HOSTINGDOMAIN(S)`, plus keys with a unique value in every existing checkout on this
+machine. Values shared by any checkout are otherwise left unticked, since they are likely shared or
+machine-specific config.
+`COMPOSE_PROJECT_NAME` is always reset, since a copied value would fuse the environments. Ticked
+keys collapse back to a glob when the glob covers exactly your selection.
 
 ### reset or template?
 
