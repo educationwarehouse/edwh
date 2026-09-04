@@ -133,6 +133,35 @@ def branch_exists(c: Context, branch: str) -> bool:
     return bool(_git(c, f"rev-parse --verify --quiet {shlex.quote(f'refs/heads/{branch}')}", warn=True))
 
 
+def remote_names(c: Context) -> list[str]:
+    """Configured remotes, in Git's configured order."""
+    return _git(c, "remote", warn=True).splitlines()
+
+
+def upstream_branch(c: Context, branch: str, remotes: list[str]) -> str | None:
+    """Find the remote-tracking branch to use for a missing local branch."""
+    matches = [
+        remote
+        for remote in remotes
+        if _git(c, f"rev-parse --verify --quiet {shlex.quote(f'refs/remotes/{remote}/{branch}')}", warn=True)
+    ]
+    if "origin" in matches:
+        return f"origin/{branch}"
+    if len(matches) == 1:
+        return f"{matches[0]}/{branch}"
+    if len(matches) > 1:
+        candidates = ", ".join(f"{remote}/{branch}" for remote in matches)
+        raise WorktreeError(f"Multiple upstream branches match {branch!r}: {candidates}. Add a local branch first.")
+    return None
+
+
+def fetch_origin(c: Context, step: Step, repo: Path) -> None:
+    """Refresh origin when possible, retaining cached refs for offline use."""
+    result = c.run(f"git -C {shlex.quote(str(repo))} fetch origin --quiet", hide=True, warn=True)
+    if result.failed:
+        step.report("failed; using cached remote refs")
+
+
 def has_unpushed_work(c: Context, path: Path) -> str:
     """Empty string when the worktree is safe to discard, else a description of what would be lost."""
     reasons = []
@@ -380,7 +409,7 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     aliases=("new", "create"),
     flags={"no_up": ("no-up",), "no_tui": ("no-tui",), "from_ref": ("from", "f")},
     help={
-        "branch": "Branch to work on. Created from --from when it does not exist yet.",
+        "branch": "Branch to work on. An existing upstream branch is checked out with tracking.",
         "from_ref": "Base for a new branch (default: HEAD of the current checkout).",
         "seed": f"Override the configured database seeding strategy ({'|'.join(SEEDS)}).",
         "no_up": "Set the environment up but do not start it.",
@@ -498,8 +527,17 @@ async def _step_git_add(c: Context, run: Run, *, repo: Path, branch: str, from_r
     if branch_exists(c, branch):
         cmd = f"git -C {where} worktree add {target} {shlex.quote(branch)}"
     else:
-        base = shlex.quote(from_ref or "HEAD")
-        cmd = f"git -C {where} worktree add -b {shlex.quote(branch)} {target} {base}"
+        remotes = remote_names(c)
+        if "origin" in remotes:
+            await run.fn("fetch origin", lambda step: fetch_origin(c, step, repo))
+        else:
+            run.skip("fetch origin", "no origin remote")
+
+        if upstream := upstream_branch(c, branch, remotes):
+            cmd = f"git -C {where} worktree add --track -b {shlex.quote(branch)} {target} {shlex.quote(upstream)}"
+        else:
+            base = shlex.quote(from_ref or "HEAD")
+            cmd = f"git -C {where} worktree add -b {shlex.quote(branch)} {target} {base}"
 
     await run.sh("git worktree add", cmd)
 

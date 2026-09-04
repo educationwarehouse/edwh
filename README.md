@@ -119,7 +119,8 @@ replaces the built-in task.
 
 `edwh worktree <branch>` builds a second, isolated environment for a branch: a git worktree plus the
 gitignored config, its own ports and hostnames, and a seeded database. `edwh worktree.rm <branch>`
-removes it again, containers and volumes included.
+removes it again, containers and volumes included. If no local branch exists, it checks fetched
+upstream branches first and creates a tracking branch when it finds one.
 
 ```bash
 edwh worktree.setup                  # configure this project once (writes [worktree] to .toml)
