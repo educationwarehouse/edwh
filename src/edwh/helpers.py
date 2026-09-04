@@ -88,7 +88,8 @@ def confirm(prompt: str, default: bool = False, allowed: set[str] | None = None,
     if default:
         allowed.add(" ")
 
-    answer = input(prompt).lower().strip()
+    print(prompt, end="", flush=True)
+    answer = input().lower().strip()
     answer += " "
 
     confirmed = answer.strip() in allowed or answer[0] in allowed

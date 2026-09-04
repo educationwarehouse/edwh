@@ -927,7 +927,12 @@ def load_dockercompose_with_includes(
     if not dc_path.exists():
         raise FileNotFoundError(dc_path)
 
-    if ran := c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
+    dc_path = dc_path.resolve()
+    command = f"cd {shlex.quote(str(dc_path.parent))} && {DOCKER_COMPOSE} -f {shlex.quote(dc_path.name)} config"
+    dotenv = {
+        key: value for key, value in dotenv_values(dc_path.parent / DEFAULT_DOTENV_PATH).items() if value is not None
+    }
+    if ran := c.run(command, hide=True, env=dotenv):
         processed_config = ran.stdout.strip()
         # mimic a file to load the yaml from
         fake_file = io.StringIO(processed_config)

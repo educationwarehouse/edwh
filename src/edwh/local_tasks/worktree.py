@@ -14,6 +14,7 @@ with no I/O at all.
 """
 
 import asyncio
+import readline  # noqa F401 - enables libedit-backed navigation for input()
 import shlex
 import shutil
 import sys
@@ -285,6 +286,11 @@ def _reread_env(path: Path) -> dict[str, str]:
     return read_dotenv(env_path)
 
 
+def _worktree_env(path: Path, **extra: str) -> dict[str, str]:
+    """Environment for a worktree subprocess, shielding its .env from inherited source values."""
+    return _reread_env(path) | extra
+
+
 def compose_config(c: Context, cwd: Path | None = None) -> AnyDict:
     """
     The fully resolved compose config for a directory, or {} when it cannot be read.
@@ -460,7 +466,7 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     default=True,
     aliases=("new", "create"),
     iterable=["env"],
-    flags={"no_up": ("no-up",), "no_tui": ("no-tui",), "from_ref": ("from", "f")},
+    flags={"no_up": ("no-up",), "no_tui": ("no-tui",), "from_ref": ("from",), "force": ("force", "f")},
     help={
         "branch": "Branch to work on. An existing upstream branch is checked out with tracking.",
         "from_ref": "Base for a new branch (default: HEAD of the current checkout).",
@@ -531,10 +537,14 @@ def add(
         )
         run.check()
 
-        setup_step = await run.ew("setup", "setup", "--non-interactive", cwd=dst, env={"EDWH_NON_INTERACTIVE": "1"})
+        setup_step = await run.ew(
+            "setup", "setup", "--non-interactive", cwd=dst, env=_worktree_env(dst, EDWH_NON_INTERACTIVE="1")
+        )
         _fail_on_broken_hook(setup_step)
         run.check()
 
+        if hostname_values:
+            await run.fn("apply supplied hostnames", lambda step: _apply_env_values(step, dst, hostname_values))
         await run.fn("verify .env", lambda step: _verify_reset(step, source, dst, config))
 
         # only meaningful once setup has restored the reset keys: before that compose cannot
@@ -546,17 +556,17 @@ def add(
             run.skip("seed database", "--no-up")
             return
 
+        await _step_seed_before_up(c, run, config.seed, source, dst)
+        run.check()
+
         if collisions and not force:
             # starting it now would give traefik two routers for the same Host() rule, and it
             # picks one at random, which silently breaks the *existing* environment too.
             run.skip("up", f"hostname collision with {', '.join(collisions)}")
-            run.skip("seed database", "not started")
+            run.skip("seed database", "already seeded by volume clone" if config.seed == "clone" else "not started")
             return
 
-        await _step_seed_before_up(c, run, config.seed, source, dst)
-        run.check()
-
-        await run.ew("up", "up", "--wait", cwd=dst)
+        await run.ew("up", "up", "--wait", cwd=dst, env=_worktree_env(dst))
         run.check()
 
         await _step_seed_after_up(c, run, config.seed, dst)
@@ -574,7 +584,9 @@ def add(
     with renderer_for(f"edwh worktree {branch}", tui=not no_tui) as render:
         run = asyncio.run(drive(pipeline, render))
 
-    _report(c, run, branch, dst)
+    _report(c, run, branch, dst, collisions, force=force)
+    if run.failed:
+        raise invoke.exceptions.Exit(code=1) from None
 
 
 async def _step_git_add(c: Context, run: Run, *, repo: Path, branch: str, from_ref: str, dst: Path) -> None:
@@ -688,6 +700,14 @@ def _rewrite_env(
     )
 
 
+def _apply_env_values(step: Step, dst: Path, values: t.Mapping[str, str]) -> None:
+    """Make explicitly supplied values win after project setup has generated .env."""
+    env_path = (dst / DEFAULT_DOTENV_PATH).resolve()
+    for key, value in values.items():
+        set_env_value(env_path, key, value)
+    step.report(f"{len(values)} supplied hostname(s) applied")
+
+
 def _verify_reset(step: Step, source: Path, dst: Path, config: WorktreeConfig) -> None:
     source_env = read_dotenv((source / DEFAULT_DOTENV_PATH).resolve())
     new_env = _reread_env(dst)
@@ -752,7 +772,7 @@ async def _step_seed_after_up(c: Context, run: Run, seed: str, dst: Path) -> Non
         run.skip("seed database", "edwh-devdb-plugin is not installed")
         return
 
-    await run.ew("seed database", "devdb.recover", cwd=dst)
+    await run.ew("seed database", "devdb.recover", cwd=dst, env=_worktree_env(dst))
 
 
 def compose_result(c: Context, path: Path, *args: str) -> invoke.Result | None:
@@ -816,9 +836,11 @@ def owned_volume_names(compose: AnyDict) -> set[str]:
 
 def running_services_for_clone(c: Context, source: Path) -> list[str]:
     """
-    Which services must pause for a consistent copy: only those mounting a volume that travels.
+    Which services must pause for a consistent copy.
 
-    Copying a live postgres data directory would give a torn snapshot; the rest keeps serving.
+    Copying a live postgres data directory would give a torn snapshot. Pause the full source stack:
+    stopping only Postgres makes dependent services fail, and restarting the original service set
+    afterwards restores the environment to its previous state.
     """
     live = {service_of(container) for container in containers(c, source, running_only=True)}
     if not live:
@@ -826,30 +848,34 @@ def running_services_for_clone(c: Context, source: Path) -> list[str]:
 
     src_project = source.resolve().name
     owned = declared_volumes(c, source)
-    services: list[str] = []
+    has_cloned_volume = False
     for volume, owners in volume_owners(c, source).items():
         if volume not in owned or not dest_volume_name(volume, src_project, "x"):
             continue
-        services += [service for service in owners if service in live and service not in services]
+        if any(service in live for service in owners):
+            has_cloned_volume = True
 
-    return sorted(services)
+    return sorted(live) if has_cloned_volume else []
 
 
 def _clone_volumes(c: Context, step: Step, source: Path, dst: Path) -> None:
     src_project = source.resolve().name
     dst_project = dst.resolve().name
 
-    # external volumes keep their name in the new project, so there is nothing to copy them into
+    # external volumes keep their name in the new project, so there is nothing to copy them into.
+    # Use the resolved compose config rather than container mounts: a stopped source database still
+    # has valid data in its named volume and is exactly what a clone should be able to restore.
     owned = declared_volumes(c, source)
-    pairs = [
-        (volume, target)
-        for volume in volume_owners(c, source)
-        if volume in owned and (target := dest_volume_name(volume, src_project, dst_project))
-    ]
+    pairs = [(volume, target) for volume in owned if (target := dest_volume_name(volume, src_project, dst_project))]
 
     if not pairs:
         step.report("no named volumes to clone")
         return
+
+    for src_volume, _ in pairs:
+        source_volume = c.run(f"docker volume inspect {shlex.quote(src_volume)}", hide=True, warn=True)
+        if not source_volume or not source_volume.ok:
+            raise WorktreeError(f"source volume {src_volume} does not exist")
 
     paused = running_services_for_clone(c, source)
     if paused:
@@ -859,9 +885,11 @@ def _clone_volumes(c: Context, step: Step, source: Path, dst: Path) -> None:
     try:
         for index, (src_volume, dst_volume) in enumerate(pairs, start=1):
             step.report(f"{index}/{len(pairs)} {src_volume} -> {dst_volume}")
-            c.run(f"docker volume create {dst_volume}", hide=True, warn=True)
+            created = c.run(f"docker volume create {shlex.quote(dst_volume)}", hide=True, warn=True)
+            if not created or not created.ok:
+                raise WorktreeError(f"creating destination volume {dst_volume} failed")
             copied = c.run(
-                f"docker run --rm -v {src_volume}:/from:ro -v {dst_volume}:/to {CLONE_IMAGE} "
+                f"docker run --rm -v {shlex.quote(src_volume)}:/from:ro -v {shlex.quote(dst_volume)}:/to {CLONE_IMAGE} "
                 f"sh -c 'cd /from && cp -a . /to/'",
                 hide=True,
                 warn=True,
@@ -885,11 +913,23 @@ async def _step_project_hook(c: Context, run: Run, dst: Path) -> None:
     if not get_task(c, "local.worktree"):
         return
 
-    await run.ew("local.worktree", "local.worktree", cwd=dst)
+    await run.ew("local.worktree", "local.worktree", cwd=dst, env=_worktree_env(dst))
 
 
-def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
+def _report(
+    c: Context, run: Run, branch: str, dst: Path, collisions: t.Mapping[str, set[str]], force: bool = False
+) -> None:
     print()
+    if collisions:
+        heading = (
+            "Hostname collision overridden with --force:"
+            if force
+            else "Not started because these hostnames are already in use:"
+        )
+        cprint(heading, color="yellow")
+        for other, hosts in sorted(collisions.items()):
+            print(f"  {other}: {', '.join(sorted(hosts))}")
+
     if failures := run.failed:
         for step in failures:
             cprint(f"{step.name} failed: {step.status}", color="red")
@@ -901,11 +941,13 @@ def _report(c: Context, run: Run, branch: str, dst: Path) -> None:
 
     for step in run.steps:
         for line in step.lines:
-            if line.startswith("warning:") or "COLLISION" in line or "collision" in line:
+            if line.startswith("warning:"):
                 cprint(f"! {line}", color="yellow")
 
     env = _reread_env(dst)
-    cprint(f"Worktree ready at {dst}", color="green")
+    blocked = bool(collisions) and not force
+    state = "prepared but not started" if blocked else "ready"
+    cprint(f"Worktree {state} at {dst}", color="yellow" if blocked else "green")
     print(f"  PROJECT   {env.get('PROJECT', '?')}")
     if ports := {key: value for key, value in env.items() if key.endswith("_PORT")}:
         print("  ports     " + ", ".join(f"{key}={value}" for key, value in sorted(ports.items())))
@@ -980,12 +1022,19 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
     """
     Tear a worktree down: containers, volumes, directory and (unless --keep-branch) the branch.
     """
+    repo = repo_root(c)
     entry = find_worktree(c, branch)
+    orphaned = False
     if not entry:
-        raise WorktreeError(f"No worktree for {branch!r}. See `edwh worktree.list`.")
+        config = load_config()
+        path = config.root_path() / worktree_dirname(repo.name, branch) if config else None
+        if path is None or not path.exists():
+            raise WorktreeError(f"No worktree for {branch!r}. See `edwh worktree.list`.")
+        cprint(f"Found unregistered worktree directory at {path}; cleaning it up.", color="yellow")
+        entry = {"worktree": str(path), "branch": branch}
+        orphaned = True
 
     path = Path(entry["worktree"])
-    repo = repo_root(c)
     if path.resolve() == repo.resolve():
         raise WorktreeError("Refusing to remove the main checkout.")
 
@@ -1026,9 +1075,18 @@ def rm(c: Context, branch: str, yes: bool = False, keep_branch: bool = False) ->
         c.run("docker volume rm " + " ".join(shlex.quote(volume) for volume in volumes), warn=True, hide=True)
 
     _git(c, f"worktree remove --force {shlex.quote(str(path))}", cwd=repo, warn=True)
-    _git(c, "worktree prune", cwd=repo, warn=True)
     if path.exists():
         shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        cprint(f"Removing Docker-owned files from {path}...", color="blue")
+        removed = c.sudo(f"rm -rf -- {shlex.quote(str(path))}", warn=True, hide=True)
+        if (removed is not None and not removed.ok) or path.exists():
+            raise WorktreeError(f"Could not remove {path}; it is still registered as a worktree.")
+    _git(c, "worktree prune", cwd=repo, warn=True)
+
+    if orphaned:
+        cprint(f"Removed unregistered worktree directory; branch {branch} was left untouched.", color="green")
+        return
 
     # the argument may have been a slug or a directory name, so delete the branch git reported
     branch = entry["branch"]
