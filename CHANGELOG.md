@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.2 (2026-09-04)
+
+### Fix
+* **worktree:** isolate environment setup and harden lifecycle cleanup
+
 ## v1.17.1 (2026-09-04)
 
 ### Fix
