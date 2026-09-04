@@ -73,8 +73,10 @@ from .helpers import (  # noqa F401 - import for export
     fabric_read,
     fabric_write,
     flatten,
+    has_controlling_terminal,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
+    is_non_interactive,
     noop,
     parse_regex,
     print_aligned,
@@ -82,6 +84,7 @@ from .helpers import (  # noqa F401 - import for export
     run_pty,
     run_pty_ok,
     shorten,
+    use_non_interactive_input,
 )
 from .helpers import generate_password as _generate_password
 
@@ -629,7 +632,7 @@ def check_env(
     if callable(default):
         default = default()  # type: ignore
 
-    non_interactive = os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
+    non_interactive = is_non_interactive()
     from_env = os.environ.get("EDWH_FROM_ENV", "0") == "1"
 
     if force_default:
@@ -1020,21 +1023,34 @@ def require_sudo(c: Context) -> bool:
     """
     use_configured_ssh_agent_keyring()
 
+    with contextlib.suppress(Exception):
+        if current := keyring.get_password("edwh", "sudo"):
+            c.config.sudo.password = current
+
     ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
     if ran and ran.ok:
         # prima
         return True
 
-    with contextlib.suppress(Exception):
-        if current := keyring.get_password("edwh", "sudo"):
-            c.config.sudo.password = current
-            return True
+    if c.config.sudo.password:
+        return True
 
     if prompt_validate_sudo_pass(c):
         return True
     else:
         cprint("Stopping now.")
         exit(1)
+
+
+def configure_non_interactive_sudo(c: Context) -> None:
+    """Keep Fabric's sudo responder active without mirroring stdin."""
+    sudo = c.sudo
+
+    def non_interactive_sudo(command: str, **kwargs: t.Any) -> t.Any:
+        kwargs.setdefault("in_stream", False)
+        return sudo(command, **kwargs)
+
+    c.sudo = non_interactive_sudo
 
 
 def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
@@ -1112,6 +1128,18 @@ def setup(
         os.environ["EDWH_FROM_ENV"] = "1"
     elif non_interactive:
         os.environ["EDWH_NON_INTERACTIVE"] = "1"
+
+    if is_non_interactive() and has_controlling_terminal():
+        result = subprocess.run(
+            [sys.executable, "-m", "edwh", *sys.argv[1:]],
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        raise SystemExit(result.returncode)
+
+    if is_non_interactive():
+        use_non_interactive_input()
+        configure_non_interactive_sudo(c)
 
     if (
         new_config_toml
@@ -1217,8 +1245,8 @@ def next_value(c: Context, key: list[str] | str, lowest: int, silent: bool = Tru
 def next_available_port(c: Context, port_or_key: str, silent: bool = True) -> int:
     """Print the next available port from a starting port or environment key.
 
-    ``next-available-port 5432`` uses 5432 as the lower bound.
-    ``next-available-port PGPOOL_PORT`` uses the local value for that key.
+    `next-available-port 5432` uses 5432 as the lower bound.
+    `next-available-port PGPOOL_PORT` uses the local value for that key.
     """
     reserved = set()
     if port_or_key.isdecimal():
@@ -2599,7 +2627,7 @@ def find_ty() -> str:
 def enabled_lint_tools() -> dict[str, bool]:
     """Return the enabled lint tools for the current project.
 
-    Projects can opt out of either tool independently in ``pyproject.toml``:
+    Projects can opt out of either tool independently in `pyproject.toml`:
 
         [tool.edwh.lint]
         ruff = false
@@ -2687,8 +2715,8 @@ def lint(
     """
     Lint code with `ruff` and `ty`.
 
-    Disable either tool for a project with ``[tool.edwh.lint]`` in
-    ``pyproject.toml``. Both are enabled by default.
+    Disable either tool for a project with `[tool.edwh.lint]` in
+    `pyproject.toml`. Both are enabled by default.
 
     Args:
         ctx: invoke context
