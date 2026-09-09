@@ -997,17 +997,20 @@ def require_sudo(c: Context) -> bool:
     """
     use_configured_ssh_agent_keyring()
 
-    ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
-    if ran and ran.ok:
-        # prima
-        return True
-
     with contextlib.suppress(Exception):
         if current := keyring.get_password("edwh", "sudo"):
             c.config.sudo.password = current
+            c.config.sudo.required_sudo = True
             return True
 
+    ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
+    if ran and ran.ok:
+        # prima
+        c.config.sudo.required_sudo = True
+        return True
+
     if prompt_validate_sudo_pass(c):
+        c.config.sudo.required_sudo = True
         return True
     else:
         cprint("Stopping now.")
@@ -2734,3 +2737,13 @@ def fmt(
         # else, autofix F401 = unused-import
         color = "green" if run_pty_ok(ctx, ruff, f"check --select F401 {target} --fix --quiet") else "red"
         cprint("⬤ ioptimize", color=color)
+
+
+@task()
+def fixme1(c):
+    run_pty_ok(c, "whoami", sudo=True)
+
+
+@task(pre=[require_sudo])
+def fixme2(c):
+    run_pty_ok(c, "whoami", sudo=True)

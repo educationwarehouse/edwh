@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import typing as t
+import warnings
 from pathlib import Path
 
 import click
@@ -60,17 +61,25 @@ def execution_fails(c: Context, argument: str) -> bool:
     return not executes_correctly(c, argument)
 
 
-def run_pty(ctx: Context, *command_parts: str, **options) -> invoke.Result | None:
+def run_pty(ctx: Context, *command_parts: str, sudo: bool = False, **options) -> invoke.Result | None:
+    command = " ".join(command_parts)
+
+    if "required_sudo" not in ctx.config.sudo:
+        warnings.warn(
+            "Tried to run a sudo command without `pre=[require_sudo]` - this could lead to issues", stacklevel=2
+        )
+
+    fn = ctx.sudo if sudo else ctx.run
+
     try:
-        command = " ".join(command_parts)
-        return ctx.run(command, pty=True, **options)
+        return fn(command, pty=True, **options)
     except invoke.exceptions.Failure:
         # error is already printed due to `pty`
         return None
 
 
-def run_pty_ok(ctx: Context, *command_parts: str, **options) -> bool:
-    result = run_pty(ctx, *command_parts, **options)
+def run_pty_ok(ctx: Context, *command_parts: str, sudo: bool = False, **options) -> bool:
+    result = run_pty(ctx, *command_parts, sudo=sudo, **options)
     return bool(result and result.ok)
 
 
