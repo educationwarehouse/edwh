@@ -115,15 +115,97 @@ html = true
 If a project provides its own `test.tasks.py`, edwh warns about the override and that local `test.run`
 replaces the built-in task.
 
+## Worktrees
+
+`edwh worktree <branch>` builds a second, isolated environment for a branch: a git worktree plus the
+gitignored config, its own ports and hostnames, and a seeded database. `edwh worktree.rm <branch>`
+removes it again, containers and volumes included. If no local branch exists, it checks fetched
+upstream branches first and creates a tracking branch when it finds one.
+
+```bash
+edwh worktree.setup                  # configure this project once (writes [worktree] to .toml)
+edwh worktree feature/login          # create + start
+edwh worktree feature/login --no-up  # create, do not start
+edwh worktree.list                   # branches, slugs, paths, ports, running containers
+cd $(edwh worktree.path feature/login)
+edwh worktree.rm feature/login       # containers, volumes, directory and branch
+```
+
+Worktrees live under `~/.cache/edwh/worktrees/<repo>-<slug>`; override with `$EDWH_WORKTREE_ROOT`
+or `root` in the config. The slugified directory name keeps `$PROJECT`, the compose project and the
+volume/container prefixes identical.
+
+### How it works
+
+`worktree` copies the `.env`, deletes the keys that must be unique, and reruns
+`edwh setup --non-interactive` so your `local.setup` regenerates them via `next_value` /
+`next_available_port`. Port allocation also scans `git worktree list`, so environments find each
+other even though they are not adjacent directories.
+
+### Configuration
+
+```toml
+[worktree]
+copy = [".env", ".toml", "shared_keys/"]   # gitignored paths to carry over
+reset = ["*_PORT", "SCHEMA_VERSION"]       # fnmatch globs; deleted so local.setup recomputes them
+seed = "clone"                             # fresh | clone | devdb
+
+[worktree.env]
+# rewritten instead of regenerated; {value} {repo} {branch} {slug} available. All fields have defaults.
+PROJECT = "{repo}-{slug}"
+```
+
+`worktree.setup` proposes both lists: `copy` comes from `.gitignore`, and `reset` is detected from
+keys on the host side of a `ports:` mapping, a Traefik `Host()` rule, a Caddy `caddy` site-address
+label, or `HOSTINGDOMAIN(S)`, plus keys with a unique value in every existing checkout on this
+machine. Values shared by any checkout are otherwise left unticked, since they are likely shared or
+machine-specific config.
+`COMPOSE_PROJECT_NAME` is always reset, since a copied value would fuse the environments. Ticked
+keys collapse back to a glob when the glob covers exactly your selection.
+
+### reset or template?
+
+Resetting only produces a new value when `local.setup`'s default is environment-aware
+(`next_value`, ports, `os.getcwd()`). With a constant default like `"localhost"` it silently
+rewrites the same value, and both environments share it. Those keys need a `[worktree.env]`
+template instead; after `setup`, `worktree` warns about any reset that came back identical.
+
+`HOSTINGDOMAIN` and `HOSTINGDOMAINS` are the exception: when either is in `reset`, `worktree`
+asks for its replacement before it creates anything. It never copies the source value or accepts
+an empty answer. Scripts can provide the answer with `--env HOSTINGDOMAIN=branch.localhost`
+(repeat `--env` for each requested hostname key). Do not also put a prompted hostname in
+`[worktree.env]`: that section is only for automatic templates.
+
+Seeding:
+
+* `fresh` - leave it empty and let `migrate` fill it.
+* `clone` - copy the source's named docker volumes via a throwaway container each. Project-agnostic
+  and current data, but services mounted on a copied volume pause in the source, so `worktree` asks
+  first unless `--yes`. Note it copies everything: N worktrees means N copies of the full volume.
+* `devdb` - run `devdb.recover` after `up` using the trimmed `edwh-devdb-plugin` snapshot (put
+  `migrate/data/snapshot/` in `copy`). Postgres only, much smaller than a clone.
+
+After seeding, a `worktree` task in your project's `tasks.py` runs last, inside the new worktree
+(e.g. `c.run("./bin/load-fixtures")`).
+
+### Hostnames
+
+Traefik routes on `Host()`, so overlapping hostnames make it pick a router at random, breaking both
+environments. Rewriting `HOSTINGDOMAIN` covers all rules, but needs wildcard DNS one label deeper
+and therefore a wildcard certificate (or `CERTRESOLVER=default` locally).
+
+`worktree` compares the traefik `Host()` labels of the new environment against every other
+checkout and refuses to `up` on an overlap. `--force` starts it anyway.
+
 ## Task Load Order
 
 Commands are loaded in the following order:
 
 1. **EDWH Package**:
-    - Loaded into the global namespace and its own namespaces (like `ew plugins.`).
+    - Loaded into the global namespace and its own namespaces (like `edwh plugins.`).
 
 2. **Plugins**:
-    - Loaded into their own namespaces (like `ew mp.`).
+    - Loaded into their own namespaces (like `edwh mp.`).
 
 3. **Current Directory**:
     - Loaded into the `local.` namespace. If it doesn't exist, it traverses up the directory tree

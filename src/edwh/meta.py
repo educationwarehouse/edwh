@@ -2,6 +2,7 @@
 This files contains everything to do with meta-tasks such as self-updating
 """
 
+import asyncio
 import concurrent.futures
 import shlex
 import sys
@@ -15,6 +16,8 @@ from packaging.version import parse as parse_package_version
 from termcolor import cprint
 
 from .helpers import AnyDict
+from .pipeline import Run, drive
+from .tui import renderer_for
 
 PYPI_URL_BASE = yarl.URL("https://pypi.python.org/pypi/")
 
@@ -175,7 +178,28 @@ def plugins(c: Context, verbose: bool = False, changelog: bool = False) -> None:
         return plugin.list_plugins(c, verbose=verbose)
 
 
-def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -> None:
+def _install_command(pip_command: str, plugin: str, version: Version, no_cache: bool) -> str:
+    command = f"{pip_command} install {plugin}=={version}"
+    if no_cache:
+        # In "fresh" mode, also refresh transitive dependencies to newest compatible versions.
+        command = f"{command} --no-cache --upgrade --resolution highest"
+    return command
+
+
+def _report_update(run: Run, total: int) -> None:
+    print()
+    failures = run.failed
+
+    if succeeded := total - len(failures):
+        cprint(f"{succeeded}/{total} updated successfully.", "green")
+
+    for step in failures:
+        cprint(f"{step.name} failed: {step.status}", "red")
+        for line in step.lines[-10:]:
+            print(f"    {line}")
+
+
+def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False, no_tui: bool = False) -> None:
     """
     Wrapper for self-update that can handle type hint Context
     """
@@ -205,43 +229,39 @@ def _self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -
 
     cprint(f"Will try to update {len(target_packages)} packages.", "blue")
 
-    success = []
-    failure = []
-    for plugin, version in target_packages.items():
-        command = f"{pip_command} install {plugin}=={version}"
-        if no_cache:
-            # In "fresh" mode, also refresh transitive dependencies to newest compatible versions.
-            command = f"{command} --no-cache --upgrade --resolution highest"
+    specs = [
+        (plugin, _install_command(pip_command, plugin, version, no_cache))
+        for plugin, version in target_packages.items()
+    ]
 
-        result = c.run(command, warn=True)
+    async def pipeline(run: Run) -> None:
+        await run.shell_group(specs)
 
-        if result and result.return_code == 0:
-            success.append(plugin)
-        else:
-            failure.append(plugin)
+    with renderer_for("edwh self-update", tui=not no_tui) as render:
+        # serialized on purpose: these all install into the *same* environment, and two
+        # concurrent installs sharing a transitive dependency would clobber each other.
+        run = asyncio.run(drive(pipeline, render, max_parallel=1))
 
-    if success:
-        cprint(f"{len(success)}/{len(target_packages)} updated successfully.", "green")
-
-    if failure:
-        cprint(f"{', '.join(failure)} failed updating", "red")
+    _report_update(run, len(target_packages))
 
 
 @task(
     flags={
         "prerelease": ["prerelease", "pre", "pre-release", "p"],
         "no_cache": ["no-cache", "f", "fresh"],
+        "no_tui": ["no-tui"],
     }
 )
-def self_update(c: Context, prerelease: bool = False, no_cache: bool = False) -> None:
+def self_update(c: Context, prerelease: bool = False, no_cache: bool = False, no_tui: bool = False) -> None:
     """Updates `edwh` and all installed plugins.
 
     Args:
         c (Context): invoke ctx
         prerelease (bool, optional): allow non-stable releases? Defaults to False.
         no_cache (bool, optional): download fresh? Defaults to False.
+        no_tui (bool, optional): plain line output instead of the live board. Defaults to False.
     """
-    return _self_update(c, prerelease, no_cache)
+    return _self_update(c, prerelease, no_cache, no_tui=no_tui)
 
 
 def is_installed(ctx: Context, command: str) -> bool:

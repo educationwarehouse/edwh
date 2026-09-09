@@ -6,7 +6,6 @@ import concurrent.futures
 import datetime as dt
 import importlib
 import json
-import os
 import re
 import sys
 import tomllib
@@ -30,6 +29,7 @@ from termcolor import colored, cprint
 from termcolor._types import Color
 
 from .. import confirm, interactive_selected_radio_value, kwargs_to_options
+from ..helpers import is_non_interactive
 from ..meta import (
     Version,
     _gather_package_metadata_threaded,
@@ -789,7 +789,7 @@ def _can_ask() -> bool:
     `confirm` honours EDWH_NON_INTERACTIVE itself, but the radio helper reads
     the terminal directly and would hang or misread without this guard.
     """
-    return os.environ.get("EDWH_NON_INTERACTIVE", "0") != "1" and sys.stdin.isatty()
+    return not is_non_interactive() and sys.stdin.isatty()
 
 
 def _offer_switch(c: Context, backend: Backend, pyproject: Path) -> Backend:

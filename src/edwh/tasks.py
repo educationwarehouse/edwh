@@ -73,8 +73,10 @@ from .helpers import (  # noqa F401 - import for export
     fabric_read,
     fabric_write,
     flatten,
+    has_controlling_terminal,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
+    is_non_interactive,
     noop,
     parse_regex,
     print_aligned,
@@ -82,6 +84,7 @@ from .helpers import (  # noqa F401 - import for export
     run_pty,
     run_pty_ok,
     shorten,
+    use_non_interactive_input,
 )
 from .helpers import generate_password as _generate_password
 
@@ -236,6 +239,23 @@ def get_task(ctx: Context, identifier: str = "") -> Task | None:
 _dotenv_settings: dict[str, dict[str, str]] = {}
 
 
+def invalidate_dotenv_cache(env_path: Path | str | None = None) -> None:
+    """
+    Drop cached .env contents so the next read_dotenv hits disk again.
+
+    Without a path, the whole cache is cleared. Note that read_dotenv caches on the *requested*
+    path, so a relative and an absolute path to the same file are separate entries; both the
+    given spelling and its resolved form are dropped.
+    """
+    if env_path is None:
+        _dotenv_settings.clear()
+        return
+
+    path = Path(env_path)
+    for key in {str(env_path), str(path), str(path.resolve())}:
+        _dotenv_settings.pop(key, None)
+
+
 def _apply_env_vars_to_template(source_lines: list[str], env: dict[str, str]) -> list[str]:
     needle = re.compile(r"# *template:")
 
@@ -329,6 +349,8 @@ class ConfigTomlDict(t.TypedDict, total=True):
 
     services: ServicesTomlConfig
     dotenv: AnyDict
+    # [worktree], written by `ew worktree.setup`; absent until a project configures it
+    worktree: t.NotRequired[AnyDict]
 
 
 def boolish(value: t.Literal["y", "yes", "t", "true", "1", "n", "no", "false", "f", "0"] | str | int) -> bool:
@@ -610,7 +632,7 @@ def check_env(
     if callable(default):
         default = default()  # type: ignore
 
-    non_interactive = os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
+    non_interactive = is_non_interactive()
     from_env = os.environ.get("EDWH_FROM_ENV", "0") == "1"
 
     if force_default:
@@ -620,7 +642,9 @@ def check_env(
         if not value:
             raise RuntimeError(f"Environment variable {key} not found and no default provided (--from-env mode)")
     elif non_interactive:
-        raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
+        if default is None:
+            raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
+        value = default
     else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default or ""
@@ -711,6 +735,8 @@ def set_env_value(path: Path, target: str, value: str | None) -> None:
     with path.open(mode="w") as env_file:
         env_file.write("\n".join(outlines))
         env_file.write("\n")
+
+    invalidate_dotenv_cache(path)
 
 
 def write_content_to_toml_file(
@@ -901,7 +927,12 @@ def load_dockercompose_with_includes(
     if not dc_path.exists():
         raise FileNotFoundError(dc_path)
 
-    if ran := c.run(f"{DOCKER_COMPOSE} -f {dc_path} config", hide=True):
+    dc_path = dc_path.resolve()
+    command = f"cd {shlex.quote(str(dc_path.parent))} && {DOCKER_COMPOSE} -f {shlex.quote(dc_path.name)} config"
+    dotenv = {
+        key: value for key, value in dotenv_values(dc_path.parent / DEFAULT_DOTENV_PATH).items() if value is not None
+    }
+    if ran := c.run(command, hide=True, env=dotenv):
         processed_config = ran.stdout.strip()
         # mimic a file to load the yaml from
         fake_file = io.StringIO(processed_config)
@@ -1001,11 +1032,15 @@ def require_sudo(c: Context) -> bool:
         if current := keyring.get_password("edwh", "sudo"):
             c.config.sudo.password = current
             c.config.sudo.required_sudo = True
-            return True
+            # return True # fixme
 
     ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
     if ran and ran.ok:
         # prima
+        c.config.sudo.required_sudo = True
+        return True
+
+    if c.config.sudo.password:
         c.config.sudo.required_sudo = True
         return True
 
@@ -1015,6 +1050,17 @@ def require_sudo(c: Context) -> bool:
     else:
         cprint("Stopping now.")
         exit(1)
+
+
+def configure_non_interactive_sudo(c: Context) -> None:
+    """Keep Fabric's sudo responder active without mirroring stdin."""
+    sudo = c.sudo
+
+    def non_interactive_sudo(command: str, **kwargs: t.Any) -> t.Any:
+        kwargs.setdefault("in_stream", False)
+        return sudo(command, **kwargs)
+
+    c.sudo = non_interactive_sudo
 
 
 def build_toml(c: Context, overwrite: bool = False) -> TomlConfig | None:
@@ -1093,6 +1139,18 @@ def setup(
     elif non_interactive:
         os.environ["EDWH_NON_INTERACTIVE"] = "1"
 
+    if is_non_interactive() and has_controlling_terminal():
+        result = subprocess.run(
+            [sys.executable, "-m", "edwh", *sys.argv[1:]],
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        raise SystemExit(result.returncode)
+
+    if is_non_interactive():
+        use_non_interactive_input()
+        configure_non_interactive_sudo(c)
+
     if (
         new_config_toml
         and config_toml.exists()
@@ -1124,19 +1182,52 @@ def setup(
     return {}
 
 
+def adjacent_env_paths(c: Context) -> list[pathlib.Path]:
+    """
+    Every .env belonging to another environment on this machine.
+
+    That is the historic `../*/.env` sibling glob, plus the .env of every linked git worktree of
+    the current repository. Worktrees do not have to live next to their main checkout (see
+    `ew worktree`), so the sibling glob alone would miss them - and would miss the main checkout
+    when called from within a worktree.
+    """
+    paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
+
+    # in_stream=False: a read-only query must never grab stdin (it can run during a piped setup)
+    result = c.run("git worktree list --porcelain", hide=True, warn=True, in_stream=False)
+    if result and result.ok:
+        prefix = "worktree "
+        paths += [
+            pathlib.Path(line[len(prefix) :].strip()) / ".env"
+            for line in result.stdout.splitlines()
+            if line.startswith(prefix)
+        ]
+
+    # dedupe on the resolved path, but hand back the first spelling we saw for nicer output
+    seen: dict[pathlib.Path, pathlib.Path] = {}
+    for path in paths:
+        if path.exists():
+            seen.setdefault(path.resolve(), path)
+
+    return list(seen.values())
+
+
 @task()
 def search_adjacent_setting(c: Context, key: str, silent: bool = False) -> AnyDict:
     """
-    Search for key in all ../*/.env files.
+    Search for key in the .env of every other environment (siblings + git worktrees).
     """
     key = key.upper()
     if not silent:
         print("search for ", key)
-    envs = (pathlib.Path(c.cwd) / "..").glob("*/.env")
+
     adjacent_settings = {}
-    for env_path in envs:
+    for env_path in adjacent_env_paths(c):
         value = read_dotenv(env_path).get(key)
         project = env_path.parent.name
+        if project in adjacent_settings:
+            # e.g. two worktrees with the same slug in different repos
+            project = f"{env_path.parent.parent.name}/{project}"
         if not silent:
             print(f"{project:>20} : {value}")
         adjacent_settings[project] = value
@@ -1164,13 +1255,13 @@ def next_value(c: Context, key: list[str] | str, lowest: int, silent: bool = Tru
 def next_available_port(c: Context, port_or_key: str, silent: bool = True) -> int:
     """Print the next available port from a starting port or environment key.
 
-    ``next-available-port 5432`` uses 5432 as the lower bound.
-    ``next-available-port PGPOOL_PORT`` uses the local value for that key.
+    `next-available-port 5432` uses 5432 as the lower bound.
+    `next-available-port PGPOOL_PORT` uses the local value for that key.
     """
     reserved = set()
     if port_or_key.isdecimal():
         lowest = int(port_or_key)
-        env_paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
+        env_paths = adjacent_env_paths(c)
         env_paths += list(pathlib.Path(c.cwd).glob("*/.env"))
         keys = {key for env_path in env_paths for key in read_dotenv(env_path) if key.endswith("_PORT")}
         for key in keys:
@@ -2546,7 +2637,7 @@ def find_ty() -> str:
 def enabled_lint_tools() -> dict[str, bool]:
     """Return the enabled lint tools for the current project.
 
-    Projects can opt out of either tool independently in ``pyproject.toml``:
+    Projects can opt out of either tool independently in `pyproject.toml`:
 
         [tool.edwh.lint]
         ruff = false
@@ -2634,8 +2725,8 @@ def lint(
     """
     Lint code with `ruff` and `ty`.
 
-    Disable either tool for a project with ``[tool.edwh.lint]`` in
-    ``pyproject.toml``. Both are enabled by default.
+    Disable either tool for a project with `[tool.edwh.lint]` in
+    `pyproject.toml`. Both are enabled by default.
 
     Args:
         ctx: invoke context
@@ -2737,13 +2828,3 @@ def fmt(
         # else, autofix F401 = unused-import
         color = "green" if run_pty_ok(ctx, ruff, f"check --select F401 {target} --fix --quiet") else "red"
         cprint("⬤ ioptimize", color=color)
-
-
-@task()
-def fixme1(c):
-    run_pty_ok(c, "whoami", sudo=True)
-
-
-@task(pre=[require_sudo])
-def fixme2(c):
-    run_pty_ok(c, "whoami", sudo=True)

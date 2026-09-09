@@ -52,7 +52,7 @@ def has_pytest_cov(pytest: str) -> bool:
 
 
 def edwh_test_extra_requirements() -> list[str]:
-    """Return the requirements declared by edwh's ``test`` extra."""
+    """Return the requirements declared by edwh's `test` extra."""
     return [
         requirement.split(";", maxsplit=1)[0].strip()
         for requirement in requires("edwh") or []

@@ -2,6 +2,32 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.2 (2026-09-04)
+
+### Fix
+* **worktree:** isolate environment setup and harden lifecycle cleanup
+
+## v1.17.1 (2026-09-04)
+
+### Fix
+* **worktree:** prompt for reset hostnames and improve listing
+
+## v1.17.0 (2026-09-04)
+
+### Features
+* **worktree:** add isolated branch environments with per-branch configuration, services, volumes, ports, hostnames, and databases
+* **worktree:** track existing upstream branches and improve environment lifecycle reporting
+* **self-update:** support pipeline execution with optional TUI output
+
+### Fixes
+* **cli:** make non-interactive execution safe and activate the edwh virtual environment before running commands
+* **worktree:** prevent hostname conflicts and harden shell arguments and volume ownership
+* **pipeline:** pass changed steps to run callbacks
+
+### Documentation
+* **worktree:** document branch environments, worktree lookup, module boundaries, and command examples
+* **cli:** normalize inline code documentation
+
 ## v1.16.1 (2026-09-03)
 
 ### Fix

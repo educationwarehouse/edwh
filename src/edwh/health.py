@@ -183,7 +183,7 @@ def get_healths(ctx: Context, *container_names: str) -> list[HealthStatus]:
     # {name: [ids]}
     container_name_to_ids = find_containers_ids(ctx, *container_names)
 
-    # note: use `docker inspect `docker compose ps -aq`` to prevent issues
+    # note: use "docker inspect `docker compose ps -aq`" to prevent issues
     #  when containers die between these two statements:
     #  info_by_id = {_["Id"]: _["State"] for _ in inspect(ctx, " ".join(_ for _ in container_ids.values() if _))}
     try:
