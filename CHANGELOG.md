@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.3 (2026-09-09)
+
+### Fix
+* improved sudo usage for `run_pty`
+
 ## v1.17.2 (2026-09-04)
 
 ### Fix
