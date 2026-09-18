@@ -100,7 +100,6 @@ plugins = [
     'edwh-sshfs-plugin',
     'edwh-sshkey-plugin',
     'edwh-uptime-plugin',
-    'edwh-whitelabel-plugin',
     'vommit',
 ]
 
@@ -147,8 +146,6 @@ sshfs = ["edwh-sshfs-plugin"]
 sshkey = ["edwh-sshkey-plugin"]
 
 uptime = ["edwh-uptime-plugin"]
-
-whitelabel = ["edwh-whitelabel-plugin"]
 
 [project.scripts]
 edwh = "edwh.cli:program.run"
