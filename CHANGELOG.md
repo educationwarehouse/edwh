@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.4 (2026-09-18)
+
+### Fixes
+* bump ty and ruff version pins
+* deprecate `whitelabel` plugin
+
 ## v1.17.3 (2026-09-09)
 
 ### Fix
