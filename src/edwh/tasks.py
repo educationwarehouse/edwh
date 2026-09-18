@@ -1031,16 +1031,21 @@ def require_sudo(c: Context) -> bool:
     with contextlib.suppress(Exception):
         if current := keyring.get_password("edwh", "sudo"):
             c.config.sudo.password = current
+            c.config.sudo.required_sudo = True
+            # return True # fixme
 
     ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
     if ran and ran.ok:
         # prima
+        c.config.sudo.required_sudo = True
         return True
 
     if c.config.sudo.password:
+        c.config.sudo.required_sudo = True
         return True
 
     if prompt_validate_sudo_pass(c):
+        c.config.sudo.required_sudo = True
         return True
     else:
         cprint("Stopping now.")
