@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 import typing as t
@@ -10,7 +11,13 @@ import humanize
 from ewok import Context
 from termcolor import colored, cprint
 
-from .helpers import AnyDict, dc_config, dump_set_as_list, noop
+from .helpers import (
+    AnyDict,
+    active_compose_config_file_sets,
+    dc_config,
+    dump_set_as_list,
+    noop,
+)
 
 
 def indent(text: str, prefix: str = "  ") -> str:
@@ -152,7 +159,11 @@ class Discover:
 
         return hosting_domain.strip().split("=")[-1] if hosting_domain else ""
 
-    def find_compose_files(self) -> list[str]:
+    def find_compose_files(self) -> list[Path]:
+        return [path for compose_files in self.find_compose_projects() for path in compose_files]
+
+    def find_local_compose_files(self) -> list[Path]:
+        paths = []
         try:
             ran = self.ctx.run(
                 "find ./docker-compose.yaml ./docker-compose.yml */docker-compose.yaml */docker-compose.yml",
@@ -160,9 +171,34 @@ class Discover:
                 hide=True,
                 warn=True,
             )
-            return ran.stdout.strip().split("\n")
+            paths = [Path(path) for path in ran.stdout.splitlines() if path]
         except Exception:
-            return []
+            pass
+
+        return paths
+
+    def find_compose_projects(self) -> list[list[Path]]:
+        # Active projects come first so their complete, ordered override list wins over
+        # the single default file found by the local scan.
+        active_file_sets = active_compose_config_file_sets(self.ctx)
+        compose_file_sets = active_file_sets + [[path] for path in self.find_local_compose_files()]
+
+        ran = self.ctx.run("pwd -P", echo=False, hide=True)
+        if not ran or not (working_directory := ran.stdout.strip()):
+            raise EnvironmentError("Failed to determine the Compose discovery directory")
+
+        seen: set[Path] = set()
+        projects: list[list[Path]] = []
+        for compose_files in compose_file_sets:
+            project_directory = compose_files[0].parent
+            # These paths belong to the target host. Path.resolve() would resolve
+            # relative paths on the machine running edwh, which is wrong over Fabric.
+            project_key = Path(os.path.normpath(Path(working_directory) / project_directory))
+            if project_key not in seen:
+                seen.add(project_key)
+                projects.append(compose_files)
+
+        return projects
 
     def find_hostname(self) -> str:
         if ran := self.ctx.run("hostname", hide=True):
@@ -233,7 +269,7 @@ class Discover:
 
         return service
 
-    def process_omgeving(self, folder: str) -> ProjectDict | None:
+    def process_omgeving(self, folder: str, compose_files: list[Path] | None = None) -> ProjectDict | None:
         project: ProjectDict = {}
         hosting_domain = self.get_hostingdomain_from_env()
         self.print(
@@ -245,7 +281,7 @@ class Discover:
         project["hostingdomain"] = hosting_domain
 
         with self.indent():
-            config = dc_config(self.ctx)
+            config = dc_config(self.ctx, compose_files=compose_files)
             if config is None:
                 return None
 
@@ -271,15 +307,24 @@ class Discover:
             if project := self.process_omgeving(str(folder)):
                 self.data["projects"].append(project)
 
+    def process_compose_project(self, compose_files: list[Path]) -> None:
+        folder = compose_files[0].parent
+        compose_files = [
+            path if path.is_absolute() else Path(os.path.relpath(path, start=folder)) for path in compose_files
+        ]
+        with self.ctx.cd(folder):
+            if project := self.process_omgeving(str(folder), compose_files=compose_files):
+                self.data["projects"].append(project)
+
     def discover(self) -> None:
         self.reset()
 
         self.print(self.data["server"], attrs=["bold"])
 
-        compose_file_paths = self.find_compose_files()
+        compose_file_sets = self.find_compose_projects()
 
-        for compose_file in compose_file_paths:
-            self.process_compose_file(Path(compose_file))
+        for compose_files in compose_file_sets:
+            self.process_compose_project(compose_files)
 
         if self.as_json:
             print(json.dumps({"data": self.data}, indent=2, default=dump_set_as_list))
