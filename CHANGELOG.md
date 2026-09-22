@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.18.0 (2026-09-22)
+
+### Feature
+* **compose:** include active projects in discovery and env lookup (#20)
+
 ## v1.17.4 (2026-09-18)
 
 ### Fixes
