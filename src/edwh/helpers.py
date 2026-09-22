@@ -7,6 +7,7 @@ import datetime as dt
 import functools
 import io
 import itertools
+import json
 import os
 import re
 import shlex
@@ -508,8 +509,10 @@ def yaml_loads(text: str) -> AnyDict:
     return t.cast(AnyDict, dct)
 
 
-def dc_config(ctx: Context) -> AnyDict:
-    if ran := ctx.run(f"{DOCKER_COMPOSE} config", warn=True, echo=False, hide=True):
+def dc_config(ctx: Context, compose_files: list[Path] | None = None) -> AnyDict:
+    compose_args = " ".join(f"-f {shlex.quote(str(path))}" for path in compose_files or [])
+    command = f"{DOCKER_COMPOSE} {compose_args} config" if compose_args else f"{DOCKER_COMPOSE} config"
+    if ran := ctx.run(command, warn=True, echo=False, hide=True):
         return (
             yaml_loads(
                 ran.stdout.strip(),
@@ -518,6 +521,39 @@ def dc_config(ctx: Context) -> AnyDict:
         )
     else:
         return {}
+
+
+def active_compose_config_file_sets(ctx: Context) -> list[list[Path]]:
+    """Return each running Docker Compose project's ordered config-file paths."""
+    result = ctx.run(f"{DOCKER_COMPOSE} ls --format json", echo=False, hide=True, warn=True, in_stream=False)
+    if not result or not result.ok:
+        return []
+
+    try:
+        projects: list[dict[str, str]] = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return []
+
+    config_file_sets = []
+    for project in projects:
+        config_files = project.get("ConfigFiles", "")
+        if not isinstance(config_files, str):
+            continue
+
+        paths = [
+            Path(config_file)
+            for config_file in (value.strip() for value in config_files.split(","))
+            if config_file and config_file != "N/A"
+        ]
+        if paths:
+            config_file_sets.append(paths)
+
+    return config_file_sets
+
+
+def active_compose_config_paths(ctx: Context) -> list[Path]:
+    """Return config files for running Docker Compose projects."""
+    return flatten(active_compose_config_file_sets(ctx))
 
 
 def print_aligned(plugin_commands: list[str]) -> None:
@@ -551,6 +587,11 @@ def flatten[T](something: t.Iterable[t.Iterable[T]]) -> list[T]:
     Like itertools.flatten but eager
     """
     return list(_flatten(something))
+
+
+def uniq[T](things: t.Iterable[T]) -> list[T]:
+    """Return values once, in their original order."""
+    return list(dict.fromkeys(things))
 
 
 def shorten(text: str, max_chars: int) -> str:

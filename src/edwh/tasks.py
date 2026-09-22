@@ -65,6 +65,8 @@ from .helpers import (  # noqa F401 - import for export
     ColorFn,
     LineBufferHandler,
     NoopHandler,
+    active_compose_config_file_sets,
+    active_compose_config_paths,
     confirm,
     dc_config,
     dump_set_as_list,
@@ -1186,10 +1188,10 @@ def adjacent_env_paths(c: Context) -> list[pathlib.Path]:
     """
     Every .env belonging to another environment on this machine.
 
-    That is the historic `../*/.env` sibling glob, plus the .env of every linked git worktree of
-    the current repository. Worktrees do not have to live next to their main checkout (see
-    `ew worktree`), so the sibling glob alone would miss them - and would miss the main checkout
-    when called from within a worktree.
+    That is the historic `../*/.env` sibling glob, plus active Docker Compose projects and every
+    linked git worktree of the current repository. Worktrees do not have to live next to their
+    main checkout (see `ew worktree`), so the sibling glob alone would miss them - and would miss
+    the main checkout when called from within a worktree.
     """
     paths = list((pathlib.Path(c.cwd) / "..").glob("*/.env"))
 
@@ -1202,6 +1204,7 @@ def adjacent_env_paths(c: Context) -> list[pathlib.Path]:
             for line in result.stdout.splitlines()
             if line.startswith(prefix)
         ]
+    paths += [config_files[0].resolve().parent / ".env" for config_files in active_compose_config_file_sets(c)]
 
     # dedupe on the resolved path, but hand back the first spelling we saw for nicer output
     seen: dict[pathlib.Path, pathlib.Path] = {}
