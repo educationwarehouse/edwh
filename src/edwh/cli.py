@@ -9,6 +9,7 @@ import ewok
 
 from . import local_tasks, tasks
 from .__about__ import __version__
+from .helpers import get_input_mode
 
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
@@ -63,6 +64,13 @@ class EddieApp(ewok.App):
         """Run the application with terminal‑safety fixes enabled."""
         self._activate_own_venv()
         self._fix_invoke_terminal_corruption()
+        argv = list(argv if argv is not None else sys.argv)
+        if get_input_mode() in {"defaults", "required"} and "setup" in argv:
+            setup_index = argv.index("setup")
+            setup_args = argv[setup_index + 1 :]
+            if "--non-interactive" not in setup_args and "-o" not in setup_args:
+                # Ewok forwards CLI arguments to plugin setup hooks, including their input policy.
+                argv.insert(setup_index + 1, "--non-interactive")
         return super().run(argv=argv, exit=exit)
 
     def run_fmt(self, argv: list[str] | None = None, exit: bool = True):  # noqa: A002
