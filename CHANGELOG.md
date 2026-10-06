@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.19.1 (2026-10-06)
+
+### Fix
+* include `--all` flag to `edwh build` to include all profiles
+
 ## v1.19.0 (2026-10-06)
 
 ### Feature
