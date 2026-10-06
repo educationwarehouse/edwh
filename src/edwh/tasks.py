@@ -93,6 +93,7 @@ from .helpers import generate_password as _generate_password
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import is_installed, plugins, self_update  # noqa
+from .stats import show_stats
 
 
 def copy_fallback_toml(
@@ -1648,6 +1649,12 @@ def health(
 class DockerProject(t.TypedDict):
     count: int
     container_statuses: list[str]
+
+
+@task()
+def stats(ctx: Context) -> None:
+    """Show live Docker container stats with scrolling and filtering."""
+    show_stats(ctx)
 
 
 @task(aliases=("psa",))
