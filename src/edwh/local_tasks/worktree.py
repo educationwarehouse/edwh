@@ -37,6 +37,7 @@ from ..helpers import (
     confirm,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
+    unattended_input_mode,
 )
 from ..pipeline import Run, Step, drive
 from ..tasks import (
@@ -538,7 +539,11 @@ def add(
         run.check()
 
         setup_step = await run.ew(
-            "setup", "setup", "--non-interactive", cwd=dst, env=_worktree_env(dst, EDWH_NON_INTERACTIVE="1")
+            "setup",
+            "setup",
+            "--non-interactive",
+            cwd=dst,
+            env=_worktree_env(dst, EDWH_INPUT_MODE=unattended_input_mode()),
         )
         _fail_on_broken_hook(setup_step)
         run.check()

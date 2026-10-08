@@ -16,6 +16,7 @@ from src.edwh.helpers import (
     is_non_interactive,
     looks_secret,
     missing_required_input,
+    unattended_input_mode,
 )
 from src.edwh.tasks import check_env, read_dotenv
 
@@ -57,6 +58,16 @@ def test_unknown_input_mode_is_rejected(monkeypatch):
     monkeypatch.setenv("EDWH_INPUT_MODE", "yolo")
     with pytest.raises(ValueError, match="EDWH_INPUT_MODE"):
         get_input_mode()
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [(None, "defaults"), ("interactive", "defaults"), ("defaults", "defaults"), ("required", "required")],
+)
+def test_unattended_input_mode_keeps_required(monkeypatch, mode, expected):
+    if mode:
+        monkeypatch.setenv("EDWH_INPUT_MODE", mode)
+    assert unattended_input_mode() == expected
 
 
 # -- reporting --------------------------------------------------------------------------------

@@ -26,6 +26,8 @@ from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
+SECRET_KEY_PATTERN = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|PRIVATE", re.IGNORECASE)
+
 
 def ew_command() -> str:
     """
@@ -62,7 +64,9 @@ def get_input_mode() -> InputMode:
     return "interactive"
 
 
-SECRET_KEY_PATTERN = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|PRIVATE", re.IGNORECASE)
+def unattended_input_mode() -> InputMode:
+    """The mode for a run without a user: keep reporting missing input if requested, else use defaults."""
+    return "required" if get_input_mode() == "required" else "defaults"
 
 
 def looks_secret(key: str) -> bool:

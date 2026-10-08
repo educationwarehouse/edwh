@@ -89,6 +89,7 @@ from .helpers import (  # noqa F401 - import for export
     run_pty,
     run_pty_ok,
     shorten,
+    unattended_input_mode,
     use_non_interactive_input,
 )
 from .helpers import generate_password as _generate_password
@@ -1163,11 +1164,10 @@ def setup(
     config_toml = Path(DEFAULT_TOML_NAME)
     dc_path = Path("docker-compose.yml")
 
+    if from_env or non_interactive:
+        os.environ["EDWH_INPUT_MODE"] = unattended_input_mode()
     if from_env:
-        os.environ["EDWH_NON_INTERACTIVE"] = "1"
         os.environ["EDWH_FROM_ENV"] = "1"
-    elif non_interactive:
-        os.environ["EDWH_NON_INTERACTIVE"] = "1"
 
     if is_non_interactive() and has_controlling_terminal():
         result = subprocess.run(
