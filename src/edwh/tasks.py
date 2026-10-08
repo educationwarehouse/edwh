@@ -80,6 +80,7 @@ from .helpers import (  # noqa F401 - import for export
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     is_non_interactive,
+    looks_secret,
     missing_required_input,
     noop,
     parse_regex,
@@ -578,6 +579,7 @@ def check_env(
     force_default: bool | None = False,
     allowed_values: t.Iterable[str] = (),
     toml_path: None = None,
+    secret: bool | None = None,
 ) -> str:
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -593,6 +595,8 @@ def check_env(
         force_default: Whether to force the default value even if the key exists.
         allowed_values: A list of allowed values for the environment variable.
         toml_path: Optional path to a TOML configuration file.
+        secret: Whether the value is sensitive, as reported in EDWH_INPUT_MODE=required.
+            Guessed from the key name when omitted.
 
     Returns:
         The value of the environment variable, either from the file, default, or forced.
@@ -617,10 +621,12 @@ def check_env(
     # config = TomlConfig.load(toml_path, env_path)
     env = read_dotenv(env_path)
     input_mode = get_input_mode()
+    if secret is None:
+        secret = looks_secret(key)
 
     if key in env:
         if input_mode == "required" and not str(env[key] or "").strip():
-            missing_required_input(key, comment, secret=True, env_path=env_path)
+            missing_required_input(key, comment, secret=secret, env_path=env_path)
         return env[key]
 
     if suffix and postfix:
@@ -663,7 +669,7 @@ def check_env(
             raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
 
     if input_mode == "required" and not str(value).strip():
-        missing_required_input(key, comment, secret=True, env_path=env_path)
+        missing_required_input(key, comment, secret=secret, env_path=env_path)
 
     str_value = str(value)
 

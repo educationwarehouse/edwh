@@ -64,14 +64,19 @@ class EddieApp(ewok.App):
         """Run the application with terminal‑safety fixes enabled."""
         self._activate_own_venv()
         self._fix_invoke_terminal_corruption()
-        argv = list(argv if argv is not None else sys.argv)
-        if get_input_mode() in {"defaults", "required"} and "setup" in argv:
-            setup_index = argv.index("setup")
-            setup_args = argv[setup_index + 1 :]
-            if "--non-interactive" not in setup_args and "-o" not in setup_args:
-                # Ewok forwards CLI arguments to plugin setup hooks, including their input policy.
-                argv.insert(setup_index + 1, "--non-interactive")
         return super().run(argv=argv, exit=exit)
+
+    def parse_tasks(self) -> None:
+        """Mark `setup` as non-interactive when an unattended input mode is active."""
+        super().parse_tasks()
+        if get_input_mode() == "interactive":
+            return
+
+        for context in self.tasks:
+            # identity instead of name, so aliases match and `worktree.setup` etc. don't
+            if self.collection[context.name] is tasks.setup:
+                # Ewok forwards the parsed arguments to plugin setup hooks, including their input policy.
+                context.args["non-interactive"].value = True
 
     def run_fmt(self, argv: list[str] | None = None, exit: bool = True):  # noqa: A002
         """

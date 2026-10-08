@@ -62,6 +62,14 @@ def get_input_mode() -> InputMode:
     return "interactive"
 
 
+SECRET_KEY_PATTERN = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|PRIVATE", re.IGNORECASE)
+
+
+def looks_secret(key: str) -> bool:
+    """Guess from a setting's name whether its value should be masked."""
+    return bool(SECRET_KEY_PATTERN.search(key))
+
+
 def missing_required_input(key: str, prompt: str, secret: bool = False, env_path: Path | None = None) -> t.NoReturn:
     """Report an input request that a non-interactive caller can fulfill."""
     payload = {"status": "missing_input", "key": key, "secret": secret, "prompt": prompt}
