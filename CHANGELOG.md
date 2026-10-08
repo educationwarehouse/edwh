@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.19.1 (2026-10-06)
+
+### Fix
+* include `--all` flag to `edwh build` to include all profiles
+
+## v1.19.0 (2026-10-06)
+
+### Feature
+* **stats:** add interactive Docker stats command (#21)
+
 ## v1.18.0 (2026-09-22)
 
 ### Feature

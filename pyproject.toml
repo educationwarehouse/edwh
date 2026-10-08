@@ -58,7 +58,7 @@ dependencies = [
     "uv < 1", # faster pip
     "yayarl < 3", # like yarl (Pathlib style URL builder) but with requests built in
 ]
-version = "1.18.0"
+version = "1.19.1"
 
 [project.optional-dependencies]
 dev = [
@@ -91,6 +91,7 @@ plugins = [
     'edwh-devdb-plugin',
     'edwh-files-plugin',
     'edwh-git-plugin',
+    'edwh-gokapi-plugin',
     'edwh-locust-plugin',
     'edwh-multipass-plugin',
     'edwh-passbolt-plugin',
@@ -109,6 +110,7 @@ server-plugins = [
     'edwh-bundler-plugin',
     'edwh-devdb-plugin',
     'edwh-files-plugin',
+    'edwh-gokapi-plugin',
     'edwh-pipcompile-plugin',
     'edwh-restic-plugin',
     'edwh-uptime-plugin',
@@ -126,6 +128,8 @@ devdb = ["edwh-devdb-plugin"]
 files = ["edwh-files-plugin"]
 
 git = ["edwh-git-plugin"]
+
+gokapi = ["edwh-gokapi-plugin"]
 
 locust = ["edwh-locust-plugin"]
 

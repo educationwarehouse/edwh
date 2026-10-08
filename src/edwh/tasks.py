@@ -95,6 +95,7 @@ from .helpers import generate_password as _generate_password
 # noinspection PyUnresolvedReferences
 # ^ keep imports for other tasks to register them!
 from .meta import is_installed, plugins, self_update  # noqa
+from .stats import show_stats
 
 
 def copy_fallback_toml(
@@ -1671,6 +1672,12 @@ class DockerProject(t.TypedDict):
     container_statuses: list[str]
 
 
+@task()
+def stats(ctx: Context) -> None:
+    """Show live Docker container stats with scrolling and filtering."""
+    show_stats(ctx)
+
+
 @task(aliases=("psa",))
 def ps_all(ctx):
     """
@@ -2186,10 +2193,14 @@ def upgrade(ctx: Context, build: bool = False) -> None:
         yes="Don't ask for confirmation, just do it. "
         "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
+        show_all="Build all services, including those in inactive Compose profiles.",
     ),
+    flags={"show_all": ("all", "a")},
     hookable=True,
 )
-def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: bool = True) -> None:
+def build(
+    ctx: Context, yes: bool = False, skip_compile: bool = False, pull: bool = True, show_all: bool = False
+) -> None:
     """
     Build all services.
 
@@ -2249,7 +2260,8 @@ def build(ctx: Context, yes: bool = False, skip_compile: bool = False, pull: boo
         if pull:
             ctx.run(f"{DOCKER_COMPOSE} pull --ignore-buildable", pty=True)
 
-        ctx.run(f"{DOCKER_COMPOSE} build", pty=True, env=dict(COMPOSE_BAKE="true"))
+        compose = f"{DOCKER_COMPOSE} --profile '*'" if show_all else DOCKER_COMPOSE
+        ctx.run(f"{compose} build", pty=True, env=dict(COMPOSE_BAKE="true"))
 
 
 @task(
