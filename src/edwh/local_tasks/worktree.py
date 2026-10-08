@@ -37,7 +37,6 @@ from ..helpers import (
     confirm,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
-    unattended_input_mode,
 )
 from ..pipeline import Run, Step, drive
 from ..tasks import (
@@ -543,7 +542,8 @@ def add(
             "setup",
             "--non-interactive",
             cwd=dst,
-            env=_worktree_env(dst, EDWH_INPUT_MODE=unattended_input_mode()),
+            # a pipeline step can't forward required-mode input requests, so always fall back to defaults
+            env=_worktree_env(dst, EDWH_INPUT_MODE="defaults"),
         )
         _fail_on_broken_hook(setup_step)
         run.check()
