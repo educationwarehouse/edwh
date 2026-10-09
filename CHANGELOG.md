@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v1.20.0 (2026-10-09)
+
+### Feature
+* **setup:** add required input reporting mode
+
+### Fixes
+* **worktree:** use default inputs during setup
+* **input-mode:** preserve required input behavior in unattended setup
+* **input:** correct unattended setup and secret reporting
+
 ## v1.19.1 (2026-10-06)
 
 ### Fix
