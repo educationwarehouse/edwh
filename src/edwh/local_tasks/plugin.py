@@ -786,7 +786,7 @@ def _can_ask() -> bool:
     """
     Whether there is anybody to answer a radio prompt.
 
-    `confirm` honours EDWH_NON_INTERACTIVE itself, but the radio helper reads
+    `confirm` honours the input mode itself, but the radio helper reads
     the terminal directly and would hang or misread without this guard.
     """
     return not is_non_interactive() and sys.stdin.isatty()

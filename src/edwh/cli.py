@@ -9,6 +9,7 @@ import ewok
 
 from . import local_tasks, tasks
 from .__about__ import __version__
+from .helpers import get_input_mode
 
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
@@ -64,6 +65,18 @@ class EddieApp(ewok.App):
         self._activate_own_venv()
         self._fix_invoke_terminal_corruption()
         return super().run(argv=argv, exit=exit)
+
+    def parse_tasks(self) -> None:
+        """Mark `setup` as non-interactive when an unattended input mode is active."""
+        super().parse_tasks()
+        if get_input_mode() == "interactive":
+            return
+
+        for context in self.tasks:
+            # identity instead of name, so aliases match and `worktree.setup` etc. don't
+            if self.collection[context.name] is tasks.setup:
+                # Ewok forwards the parsed arguments to plugin setup hooks, including their input policy.
+                context.args["non-interactive"].value = True
 
     def run_fmt(self, argv: list[str] | None = None, exit: bool = True):  # noqa: A002
         """

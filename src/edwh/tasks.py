@@ -75,10 +75,13 @@ from .helpers import (  # noqa F401 - import for export
     fabric_read,
     fabric_write,
     flatten,
+    get_input_mode,
     has_controlling_terminal,
     interactive_selected_checkbox_values,
     interactive_selected_radio_value,
     is_non_interactive,
+    looks_secret,
+    missing_required_input,
     noop,
     parse_regex,
     print_aligned,
@@ -86,6 +89,7 @@ from .helpers import (  # noqa F401 - import for export
     run_pty,
     run_pty_ok,
     shorten,
+    unattended_input_mode,
     use_non_interactive_input,
 )
 from .helpers import generate_password as _generate_password
@@ -576,6 +580,7 @@ def check_env(
     force_default: bool | None = False,
     allowed_values: t.Iterable[str] = (),
     toml_path: None = None,
+    secret: bool | None = None,
 ) -> str:
     """
     Test if key is in .env file path, appends prompted or default value if missing.
@@ -591,6 +596,8 @@ def check_env(
         force_default: Whether to force the default value even if the key exists.
         allowed_values: A list of allowed values for the environment variable.
         toml_path: Optional path to a TOML configuration file.
+        secret: Whether the value is sensitive, as reported in EDWH_INPUT_MODE=required.
+            Guessed from the key name when omitted.
 
     Returns:
         The value of the environment variable, either from the file, default, or forced.
@@ -614,8 +621,13 @@ def check_env(
 
     # config = TomlConfig.load(toml_path, env_path)
     env = read_dotenv(env_path)
+    input_mode = get_input_mode()
+    if secret is None:
+        secret = looks_secret(key)
 
     if key in env:
+        if input_mode == "required" and not str(env[key] or "").strip():
+            missing_required_input(key, comment, secret=secret, env_path=env_path)
         return env[key]
 
     if suffix and postfix:
@@ -635,25 +647,30 @@ def check_env(
     if callable(default):
         default = default()  # type: ignore
 
-    non_interactive = is_non_interactive()
     from_env = os.environ.get("EDWH_FROM_ENV", "0") == "1"
 
     if force_default:
         value = default or ""
     elif from_env:
         value = os.environ.get(key, default or "")
-        if not value:
+        if not value and input_mode != "required":
             raise RuntimeError(f"Environment variable {key} not found and no default provided (--from-env mode)")
-    elif non_interactive:
+    elif input_mode != "interactive":
         if default is None:
-            raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
-        value = default
+            if input_mode == "defaults":
+                raise RuntimeError(f"No default value provided for {key} in --non-interactive mode")
+            value = ""
+        else:
+            value = default
     else:
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default or ""
 
         if allowed_values and value not in allowed_values:
             raise ValueError(f"Invalid value '{response}'. Please choose one of {allowed_values}")
+
+    if input_mode == "required" and not str(value).strip():
+        missing_required_input(key, comment, secret=secret, env_path=env_path)
 
     str_value = str(value)
 
@@ -794,6 +811,9 @@ def get_content_from_toml_file(
         selected.update(toml_contents["services"][content_key])
     elif default:
         selected.update(default)
+
+    if get_input_mode() == "required" and not selected and not allow_empty:
+        missing_required_input(f"services.{content_key}", content)
 
     selection = interactive_selected_checkbox_values(services, content, selected=selected, allow_empty=allow_empty)
     if allow_empty and selection is None:
@@ -1047,6 +1067,10 @@ def require_sudo(c: Context) -> bool:
         c.config.sudo.required_sudo = True
         return True
 
+    if get_input_mode() != "interactive":
+        cprint("Configure sudo access before running unattended setup.", color="red", file=sys.stderr)
+        raise SystemExit(1)
+
     if prompt_validate_sudo_pass(c):
         c.config.sudo.required_sudo = True
         return True
@@ -1132,15 +1156,18 @@ def setup(
 ) -> dict:
     """
     Sets up config.toml and tries to run setup in local tasks.py if it exists
+
+    Set EDWH_INPUT_MODE=interactive|defaults|required to choose interactive input,
+    unattended defaults, or unattended input reporting (exit status 78 with JSON on stderr).
+    EDWH_NON_INTERACTIVE=1 remains a fallback for defaults mode.
     """
     config_toml = Path(DEFAULT_TOML_NAME)
     dc_path = Path("docker-compose.yml")
 
+    if from_env or non_interactive:
+        os.environ["EDWH_INPUT_MODE"] = unattended_input_mode()
     if from_env:
-        os.environ["EDWH_NON_INTERACTIVE"] = "1"
         os.environ["EDWH_FROM_ENV"] = "1"
-    elif non_interactive:
-        os.environ["EDWH_NON_INTERACTIVE"] = "1"
 
     if is_non_interactive() and has_controlling_terminal():
         result = subprocess.run(

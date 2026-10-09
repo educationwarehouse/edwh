@@ -538,7 +538,12 @@ def add(
         run.check()
 
         setup_step = await run.ew(
-            "setup", "setup", "--non-interactive", cwd=dst, env=_worktree_env(dst, EDWH_NON_INTERACTIVE="1")
+            "setup",
+            "setup",
+            "--non-interactive",
+            cwd=dst,
+            # a pipeline step can't forward required-mode input requests, so always fall back to defaults
+            env=_worktree_env(dst, EDWH_INPUT_MODE="defaults"),
         )
         _fail_on_broken_hook(setup_step)
         run.check()

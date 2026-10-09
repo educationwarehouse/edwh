@@ -26,6 +26,8 @@ from more_itertools import flatten as _flatten
 
 from .constants import DOCKER_COMPOSE, AnyDict
 
+SECRET_KEY_PATTERN = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|PRIVATE", re.IGNORECASE)
+
 
 def ew_command() -> str:
     """
@@ -43,7 +45,42 @@ def ew_command() -> str:
 
 def is_non_interactive() -> bool:
     """Whether edwh must use defaults instead of reading input."""
-    return os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1"
+    return get_input_mode() != "interactive"
+
+
+InputMode = t.Literal["interactive", "defaults", "required"]
+
+
+def get_input_mode() -> InputMode:
+    """Resolve the input policy, with the old flag as a defaults-mode fallback."""
+    mode = os.environ.get("EDWH_INPUT_MODE")
+    if mode is not None:
+        allowed = t.get_args(InputMode)
+        if mode not in allowed:
+            raise ValueError(f"EDWH_INPUT_MODE must be one of: {', '.join(allowed)}")
+        return t.cast(InputMode, mode)
+    if os.environ.get("EDWH_NON_INTERACTIVE", "0") == "1":
+        return "defaults"
+    return "interactive"
+
+
+def unattended_input_mode() -> InputMode:
+    """The mode for a run without a user: keep reporting missing input if requested, else use defaults."""
+    return "required" if get_input_mode() == "required" else "defaults"
+
+
+def looks_secret(key: str) -> bool:
+    """Guess from a setting's name whether its value should be masked."""
+    return bool(SECRET_KEY_PATTERN.search(key))
+
+
+def missing_required_input(key: str, prompt: str, secret: bool = False, env_path: Path | None = None) -> t.NoReturn:
+    """Report an input request that a non-interactive caller can fulfill."""
+    payload = {"status": "missing_input", "key": key, "secret": secret, "prompt": prompt}
+    if env_path is not None:
+        payload["env_path"] = str(env_path.resolve())
+    print(json.dumps(payload), file=sys.stderr)
+    raise SystemExit(78)
 
 
 def has_controlling_terminal() -> bool:
@@ -82,6 +119,8 @@ def confirm(prompt: str, default: bool = False, allowed: set[str] | None = None,
     """
     if is_non_interactive():
         if strict:
+            if get_input_mode() == "required":
+                missing_required_input("CONFIRMATION", prompt)
             raise RuntimeError(f"Prevented strict `confirm({prompt})` in --non-interactive mode")
         else:
             return default
@@ -338,6 +377,14 @@ def interactive_selected_checkbox_values[H: t.Hashable](
         idx = option_values.index(item)
         checked_indices[idx] = option_values[idx]
 
+    input_mode = get_input_mode()
+    if input_mode in {"defaults", "required"}:
+        if checked_indices:
+            return list(checked_indices.values())
+        if input_mode == "required" and not allow_empty:
+            missing_required_input("SELECTION", prompt)
+        return None if allow_empty else []
+
     if allow_empty:
         labels.append("(none)")
         option_values = [*option_values, t.cast("str | H", "(none)")]
@@ -463,6 +510,14 @@ def interactive_selected_radio_value[H: t.Hashable](
 
     if selected in option_values:
         selected_index = current_index = option_values.index(selected)
+
+    input_mode = get_input_mode()
+    if input_mode in {"defaults", "required"}:
+        if selected_index is not None:
+            return option_values[selected_index]
+        if input_mode == "required" and not allow_empty:
+            missing_required_input("SELECTION", prompt)
+        return None
 
     if allow_empty:
         labels.append("(none)")
