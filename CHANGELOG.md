@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.20.1 (2026-10-16)
+
+### Fix
+* **tasks:** enable readline editing for prompts
+
 ## v1.20.0 (2026-10-09)
 
 ### Feature
