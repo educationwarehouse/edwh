@@ -663,6 +663,10 @@ def check_env(
         else:
             value = default
     else:
+        # Enable line editing (including Alt+Backspace) when readline is available.
+        with contextlib.suppress(ImportError):
+            import readline  # noqa: F401 - importing installs input() line editing
+
         response = input(f"Enter value for {key} ({comment})\n default=`{default}`: ")
         value = response.strip() or default or ""
 
