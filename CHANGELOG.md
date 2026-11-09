@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.21.0 (2026-11-09)
+
+### Feature
+* **build:** support selecting Compose services
+
 ## v1.20.1 (2026-10-16)
 
 ### Fix
