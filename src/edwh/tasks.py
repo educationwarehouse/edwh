@@ -126,6 +126,7 @@ def copy_fallback_toml(
 def service_names(
     service_arg: t.Collection[str] | None,
     default: t.Literal["all", "minimal", "logs", "celeries"] | None = None,
+    include_profiles: bool = False,
 ) -> list[str]:
     """
     Returns a list of matching servicenames based on ALL_SERVICES. filename globbing is applied.
@@ -133,12 +134,18 @@ def service_names(
     Use service_names(['*celery*','pg*']) to select all celery services, and all of pg related instances.
     :param service_arg: list of services or service selectors using wildcards
     :param default: which services to return if service_arg is empty?
+    :param include_profiles: discover services in inactive Compose profiles too
     :return: list of unique services names that match the given list
     """
 
     config = TomlConfig.load()
     if not config:
         return []
+
+    if include_profiles:
+        all_services = list(load_dockercompose_with_includes(include_profiles=True)["services"])
+    else:
+        all_services = config.all_services
 
     selected = set()
     if service_arg is None:
@@ -153,7 +160,7 @@ def service_names(
     # NOT elif because you can pass -s "minimal" -s "celeries" for example
     if "all" in service_arg:
         service_arg.remove("all")
-        service_arg.extend(config.all_services)
+        service_arg.extend(all_services)
     if "minimal" in service_arg:
         service_arg.remove("minimal")
         service_arg.extend(config.services_minimal)
@@ -173,7 +180,7 @@ def service_names(
     # service_arg is specified, filter through all available services:
 
     for service in service_arg:
-        selected.update(fnmatch.filter(config.all_services, service))
+        selected.update(fnmatch.filter(all_services, service))
 
     if service_arg and not selected:
         # when no service matches the name, don't return an empty list, as that would `up` all services
@@ -939,11 +946,13 @@ def write_user_input_to_config_toml(
 def load_dockercompose_with_includes(
     c: invoke.Context | None = None,
     dc_path: str | Path = "docker-compose.yml",
+    include_profiles: bool = False,
 ) -> AnyDict:
     """
     Since we're using `docker compose` with includes, simply yaml loading docker-compose.yml is not enough anymore.
 
     This function uses the `docker compose config` command to properly load the entire config with all enabled services.
+    Set include_profiles to include services in inactive profiles as well.
     """
     if not c:
         c = t.cast(Context, invoke.Context())
@@ -955,7 +964,8 @@ def load_dockercompose_with_includes(
         raise FileNotFoundError(dc_path)
 
     dc_path = dc_path.resolve()
-    command = f"cd {shlex.quote(str(dc_path.parent))} && {DOCKER_COMPOSE} -f {shlex.quote(dc_path.name)} config"
+    compose = f"{DOCKER_COMPOSE} --profile '*'" if include_profiles else DOCKER_COMPOSE
+    command = f"cd {shlex.quote(str(dc_path.parent))} && {compose} -f {shlex.quote(dc_path.name)} config"
     dotenv = {
         key: value for key, value in dotenv_values(dc_path.parent / DEFAULT_DOTENV_PATH).items() if value is not None
     }
@@ -2226,7 +2236,7 @@ def build(
     Will test for the presence of `edwh-pipcompile-plugin` and use it to compile
     requirements.in files to requirements.txt files in child directories.
     """
-    services = service_names(service) if service and not show_all else []
+    services = service_names(service, include_profiles=True) if service and not show_all else []
     services_suffix = f" {shlex.join(services)}" if services else ""
     compose = f"{DOCKER_COMPOSE} --profile '*'" if show_all else DOCKER_COMPOSE
 
