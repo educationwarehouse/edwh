@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.21.1 (2026-11-09)
+
+### Fix
+* **compose:** include inactive profiles when selecting build services
+
 ## v1.21.0 (2026-11-09)
 
 ### Feature
