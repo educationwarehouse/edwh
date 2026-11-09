@@ -2204,19 +2204,32 @@ def upgrade(ctx: Context, build: bool = False) -> None:
         "(unless requirements.in files are found and the `edwh-pipcompile-plugin` is not installed)",
         skip_compile="Skip the compilation of requirements.in files to requirements.txt files (e.g. for PRD).",
         show_all="Build all services, including those in inactive Compose profiles.",
+        service="Service to build, can be used multiple times, handles wildcards. Use 'all' to include every profile.",
     ),
-    flags={"show_all": ("all", "a")},
+    flags={"show_all": ("all", "a"), "service": ("service", "s"), "skip_compile": ("skip-compile", "c")},
+    iterable=["service"],
     hookable=True,
 )
 def build(
-    ctx: Context, yes: bool = False, skip_compile: bool = False, pull: bool = True, show_all: bool = False
+    ctx: Context,
+    yes: bool = False,
+    skip_compile: bool = False,
+    pull: bool = True,
+    show_all: bool = False,
+    service: t.Collection[str] | None = None,
 ) -> None:
     """
-    Build all services.
+    Build selected services, or services in active Compose profiles by default.
+
+    Use `-s all` or `--all` to include services in inactive profiles.
 
     Will test for the presence of `edwh-pipcompile-plugin` and use it to compile
     requirements.in files to requirements.txt files in child directories.
     """
+    services = service_names(service) if service and not show_all else []
+    services_suffix = f" {shlex.join(services)}" if services else ""
+    compose = f"{DOCKER_COMPOSE} --profile '*'" if show_all else DOCKER_COMPOSE
+
     # Path.cwd() uses absolute paths, Path() is the same but relative
     reqs = list(Path().rglob("*/*.in"))
 
@@ -2268,10 +2281,9 @@ def build(
 
     if yes or is_dev or confirm(prompt, default=False):
         if pull:
-            ctx.run(f"{DOCKER_COMPOSE} pull --ignore-buildable", pty=True)
+            ctx.run(f"{compose} pull --ignore-buildable{services_suffix}", pty=True)
 
-        compose = f"{DOCKER_COMPOSE} --profile '*'" if show_all else DOCKER_COMPOSE
-        ctx.run(f"{compose} build", pty=True, env=dict(COMPOSE_BAKE="true"))
+        ctx.run(f"{compose} build{services_suffix}", pty=True, env=dict(COMPOSE_BAKE="true"))
 
 
 @task(
