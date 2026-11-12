@@ -92,6 +92,7 @@ def install_test_dependencies(c: Context) -> bool:
 
 
 @task(
+    default=True,
     flags={
         "keyword_search": ("keyword-search", "k"),
         "exitfirst": ("exitfirst", "x"),
