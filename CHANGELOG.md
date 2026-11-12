@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v1.22.0 (2026-11-12)
+
+### Features
+* **site:** serve homepage with refreshed changelog
+* **site:** add standalone edwh homepage
+
+### Fix
+* **config:** handle setup without generated services
+
 ## v1.21.2 (2026-11-12)
 
 ### Fix
