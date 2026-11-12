@@ -138,7 +138,7 @@ class Unattended(io.StringIO):
 
 
 @contextmanager
-def _stdin(replacement: io.StringIO) -> t.Iterator[None]:
+def _stdin(replacement: io.StringIO) -> t.Generator[None, None, None]:
     original, sys.stdin = sys.stdin, replacement
     try:
         yield

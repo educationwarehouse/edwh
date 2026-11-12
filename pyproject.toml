@@ -275,7 +275,12 @@ profile = "black"
 [tool.pytest.ini_options]
 pythonpath = [
     "src",
+    "site",
 ]
+
+[tool.ty.environment]
+# site/ holds the homepage scripts; its tests import them directly (see pytest pythonpath)
+extra-paths = ["site"]
 
 [tool.edwh.test]
 # tests are collected from `.`, but only our own code is measured

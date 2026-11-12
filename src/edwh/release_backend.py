@@ -123,7 +123,7 @@ def detect_backend(pyproject: Path = PYPROJECT) -> Backend:
 
 
 @contextmanager
-def _edit(pyproject: Path) -> t.Iterator[tomlkit.TOMLDocument]:
+def _edit(pyproject: Path) -> t.Generator[tomlkit.TOMLDocument, None, None]:
     """
     Edit a pyproject in place, keeping its comments and formatting.
 
