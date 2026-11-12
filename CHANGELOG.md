@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.21.2 (2026-11-12)
+
+### Fix
+* **test:** make the test task the default command
+
 ## v1.21.1 (2026-11-09)
 
 ### Fix
