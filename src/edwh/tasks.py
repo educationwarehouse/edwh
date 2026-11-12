@@ -436,6 +436,15 @@ class TomlConfig:
             setup(ctx)
             config = read_toml_config(config_path)
 
+        if "services" not in config:
+            # setup could not generate it, usually because `docker compose config` failed (see its error above)
+            cprint(
+                f"{config_path} has no [services] section and `ew setup` could not create one. "
+                "Fix the error above (often a variable missing from .env), then run `ew setup` again.",
+                color="red",
+            )
+            raise SystemExit(1)
+
         toml_keys = t.get_args(TomlKeys)
         for toml_key in toml_keys:
             if toml_key not in config["services"]:
@@ -585,8 +594,8 @@ def check_env(
     # different config paths:
     env_path: str | Path | None = None,
     force_default: bool | None = False,
-    allowed_values: t.Iterable[str] = (),
-    toml_path: None = None,
+    allowed_values: t.Collection[str] = (),
+    toml_path: str | Path | None = None,
     secret: bool | None = None,
 ) -> str:
     """
@@ -1395,7 +1404,7 @@ def fuzzy_match(val1: str, val2: str, verbose: bool = False) -> float:
     return similarity
 
 
-def _settings(find: str | None, fuzz_threshold: int = 75) -> t.Iterable[tuple[str, t.Any]]:
+def _settings(find: str | None, fuzz_threshold: int = 75) -> t.Collection[tuple[str, t.Any]]:
     all_settings = read_dotenv().items()
     if find is None:
         # don't loop
