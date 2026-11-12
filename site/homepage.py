@@ -3,7 +3,10 @@
 Inlines the fonts, doodles and logo from `assets/` and renders the latest
 releases from the repository's CHANGELOG.md. Standard library only.
 
-usage: python site/build.py [--out site/dist/index.html]
+The page is built in two steps so `homepage_server.py` can reuse them: `build_shell()`
+inlines the (static) assets once, `fill()` adds the changelog strip and version.
+
+usage: python site/homepage.py [--out site/dist/index.html]
 """
 
 import argparse
@@ -11,13 +14,21 @@ import base64
 import datetime as dt
 import html
 import re
+import typing as t
 from pathlib import Path
 
 SITE = Path(__file__).resolve().parent
 ASSETS = SITE / "assets"
 CHANGELOG = SITE.parent / "CHANGELOG.md"
+RELEASES_SHOWN = 4
 
 RELEASE_RE = re.compile(r"^## v?(\S+) \((\d{4}-\d{2}-\d{2})\)")
+
+
+class Release(t.TypedDict):
+    version: str
+    date: str
+    items: list[tuple[str, str]]  # (section, message), e.g. ("Fix", "**compose:** ...")
 
 
 def b64(path: Path) -> str:
@@ -34,10 +45,11 @@ def inline_md(text: str) -> str:
     return re.sub(r"`(.+?)`", r"<code>\1</code>", text)
 
 
-def parse_changelog(path: Path, limit: int) -> list[dict]:
-    releases: list[dict] = []
+def parse_changelog(text: str, limit: int = RELEASES_SHOWN) -> list[Release]:
+    """Read the newest `limit` releases from a vommit-style CHANGELOG.md."""
+    releases: list[Release] = []
     section = None
-    for line in path.read_text().splitlines():
+    for line in text.splitlines():
         if match := RELEASE_RE.match(line):
             if len(releases) == limit:
                 break
@@ -50,7 +62,7 @@ def parse_changelog(path: Path, limit: int) -> list[dict]:
     return releases
 
 
-def render_changelog(releases: list[dict]) -> str:
+def render_changelog(releases: list[Release]) -> str:
     items = []
     for release in releases:
         if not release["items"]:
@@ -69,7 +81,8 @@ def render_changelog(releases: list[dict]) -> str:
     return '<ol class="cl">' + "".join(items) + "</ol>"
 
 
-def build() -> str:
+def build_shell() -> str:
+    """The page with every asset inlined; only {{VERSION}} and {{CHANGELOG}} are left open."""
     page = (SITE / "template.html").read_text()
 
     for weight in (300, 400, 600, 700, 800, 900):
@@ -79,19 +92,26 @@ def build() -> str:
     page = page.replace("{{ICON_MARK_DARK}}", b64_text(re.sub("#25303d", "#ffffff", icon, flags=re.I)))
     page = page.replace("{{ICON_MARK}}", b64_text(icon))
 
-    page = re.sub(
+    return re.sub(
         r"\{\{D(\w+)\}\}",
         lambda m: "data:image/png;base64," + b64(ASSETS / "doodles" / f"{m.group(1)}.png"),
         page,
     )
 
-    releases = parse_changelog(CHANGELOG, limit=4)
-    page = page.replace("{{VERSION}}", releases[0]["version"] if releases else "")
+
+def fill(shell: str, changelog_text: str) -> str:
+    """Render the changelog strip and footer version into the shell from `build_shell()`."""
+    releases = parse_changelog(changelog_text)
+    page = shell.replace("{{VERSION}}", releases[0]["version"] if releases else "")
     page = page.replace("{{CHANGELOG}}", render_changelog(releases))
 
     if leftover := re.findall(r"\{\{\w+\}\}", page):
-        raise SystemExit(f"unresolved placeholders: {sorted(set(leftover))}")
+        raise ValueError(f"unresolved placeholders: {sorted(set(leftover))}")
     return page
+
+
+def build() -> str:
+    return fill(build_shell(), CHANGELOG.read_text())
 
 
 def main() -> None:

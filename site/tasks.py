@@ -29,4 +29,4 @@ def setup(_: Context) -> None:
 @task()
 def build(c: Context) -> None:
     """Build site/dist/index.html without Docker, for a quick local preview."""
-    c.run(f"{sys.executable} {SITE / 'build.py'}")
+    c.run(f"{sys.executable} {SITE / 'homepage.py'}")

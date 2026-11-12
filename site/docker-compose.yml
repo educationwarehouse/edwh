@@ -15,12 +15,15 @@ services:
       context: ..
       dockerfile: site/Dockerfile
     restart: unless-stopped
+    environment:
+      CHANGELOG_URL: ${CHANGELOG_URL:-https://raw.githubusercontent.com/educationwarehouse/edwh/main/CHANGELOG.md}
+      CHANGELOG_TTL: ${CHANGELOG_TTL:-3600}
     networks:
       - broker
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=broker"
-      - "traefik.http.services.edwh-site.loadbalancer.server.port=80"
+      - "traefik.http.services.edwh-site.loadbalancer.server.port=8000"
       - "traefik.http.routers.edwh-site-secure.rule=Host(`${EDWH_SITE_DOMAIN:-edwh.localhost}`)"
       - "traefik.http.routers.edwh-site-secure.tls=true"
       - "traefik.http.routers.edwh-site-secure.tls.certresolver=${CERTRESOLVER:-default}"
