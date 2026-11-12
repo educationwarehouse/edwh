@@ -1,0 +1,5 @@
+# The build context is the repo root; only send what the site build needs.
+*
+!CHANGELOG.md
+!site/
+site/dist/

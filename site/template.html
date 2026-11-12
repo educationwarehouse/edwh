@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>edwh · Education Warehouse maintenance tools</title>
+<link rel="icon" href="data:image/svg+xml;base64,{{ICON_MARK}}">
+<style>
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F300}}) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F400}}) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F600}}) format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F700}}) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F800}}) format('woff2');font-weight:800;font-display:swap}
+@font-face{font-family:'Figtree';src:url(data:font/woff2;base64,{{F900}}) format('woff2');font-weight:900;font-display:swap}
+:root{
+  --ew-donkerblauw:#25303d;--ew-lichtblauw:#ddeaff;--ew-pink:#fa4067;--ew-oranje:#ff714f;
+  --ew-geel:#ffcc63;--ew-petrol:#327373;--ew-turkoois:#5ad0d0;--ew-paars:#4e2559;--ew-groen:#23ad7b;
+  --fg:var(--ew-donkerblauw);--fg-muted:#5b6573;--fg-subtle:#8a93a0;--border:#e6ebf3;
+  --font-sans:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --r-sm:8px;--r-md:14px;--r-lg:22px;--r-xl:32px;--r-pill:999px;
+  --shadow-1:0 1px 2px rgba(37,48,61,.06),0 1px 1px rgba(37,48,61,.04);
+  --shadow-2:0 4px 14px rgba(37,48,61,.08),0 1px 2px rgba(37,48,61,.04);
+  --shadow-3:0 12px 32px rgba(37,48,61,.10),0 2px 6px rgba(37,48,61,.05);
+  --shadow-lifted:0 18px 40px -12px rgba(37,48,61,.20);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  /* theme roles (light) */
+  --bg:#fff;--surface:#fff;--surface-2:#f5f8fd;--panel:var(--ew-lichtblauw);
+  --nav-bg:rgba(255,255,255,.85);--inv-bg:var(--ew-donkerblauw);--inv-fg:#fff;
+  --deep:var(--ew-donkerblauw);--micro:#7a8492;--copy-bg:var(--ew-lichtblauw);
+  --calm:var(--ew-petrol);--term-border:transparent;
+  color-scheme:light;
+}
+html[data-theme="dark"]{
+  --bg:#1b222b;--surface:#2a3644;--surface-2:rgba(255,255,255,.06);--panel:var(--ew-donkerblauw);
+  --nav-bg:rgba(27,34,43,.85);--inv-bg:#eef3fa;--inv-fg:#1b222b;
+  --deep:#141a21;--micro:#8a96a5;--copy-bg:rgba(255,255,255,.08);
+  --fg:#eef3fa;--fg-muted:#aab5c3;--fg-subtle:#808c9b;--border:rgba(255,255,255,.10);
+  --calm:var(--ew-turkoois);--term-border:rgba(255,255,255,.08);
+  --ew-paars:#a583ae; /* paars-light: plum is too dark on navy */
+  --shadow-1:0 1px 2px rgba(0,0,0,.25);
+  --shadow-2:0 4px 14px rgba(0,0,0,.28),0 1px 2px rgba(0,0,0,.2);
+  --shadow-3:0 12px 32px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.2);
+  --shadow-lifted:0 18px 40px -12px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{margin:0;font-family:var(--font-sans);color:var(--fg);background:var(--bg);transition:background 300ms var(--ease-out),color 300ms var(--ease-out);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:3px solid rgba(90,208,208,.5);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ew-pink);margin:0 0 14px}
+h1,h2,h3{margin:0;letter-spacing:-.02em;text-wrap:balance}
+h2{font-size:44px;font-weight:800;line-height:1.05}
+h3{font-size:21px;font-weight:700;line-height:1.2}
+p{margin:0}
+code,.mono{font-family:var(--font-mono);font-size:.88em}
+.doodle{position:absolute;pointer-events:none;height:auto;user-select:none}
+
+/* buttons */
+.btn{font:600 16px/1 var(--font-sans);padding:16px 26px;border-radius:var(--r-md);border:0;cursor:pointer;display:inline-flex;align-items:center;gap:10px;text-decoration:none;transition:transform 200ms var(--ease-out),filter 200ms var(--ease-out),box-shadow 200ms var(--ease-out)}
+.btn:hover{transform:translateY(-2px);filter:brightness(.94)}
+.btn:active{transform:scale(.98);transition-duration:120ms}
+.btn-primary{background:var(--ew-oranje);color:#fff;box-shadow:0 6px 16px rgba(255,113,79,.30)}
+.btn-outline{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--fg)}
+.btn-dark{background:var(--inv-bg);color:var(--inv-fg)}
+.btn svg{width:18px;height:18px}
+
+/* nav */
+nav{position:sticky;top:0;z-index:20;background:var(--nav-bg);backdrop-filter:blur(8px);border-bottom:1px solid transparent}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:76px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+.brand img{height:40px;width:auto}
+.brand .name{font-weight:900;font-size:22px;letter-spacing:-.02em}
+.brand .tag{font-size:12px;font-weight:600;color:var(--fg-subtle);border-left:1px solid var(--border);padding-left:12px;margin-left:2px}
+.links{display:flex;gap:28px;align-items:center;font-weight:600;font-size:15px}
+.links a{text-decoration:none;color:var(--fg-muted);transition:color 200ms var(--ease-out)}
+.links a:not(.btn):hover{color:var(--fg)}
+.links .btn{padding:12px 20px;font-size:15px}
+.links a.btn{color:var(--inv-fg)}
+
+/* hero */
+.hero{position:relative;background:var(--panel);border-radius:var(--r-xl);margin:16px 32px 0;padding:88px 64px 96px;overflow:hidden}
+.hero-grid{position:relative;z-index:2;max-width:1136px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.hero h1{font-size:72px;font-weight:900;line-height:.98;letter-spacing:-.025em;margin-bottom:24px}
+.hero h1 em{font-style:normal;color:var(--ew-oranje)}
+.hero .sub{font-size:19px;color:var(--fg-muted);max-width:470px;margin-bottom:32px}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.micro{font-size:13px;color:var(--micro);margin-top:18px}
+
+.install{display:inline-flex;align-items:center;gap:14px;background:var(--surface);border-radius:var(--r-md);padding:8px 8px 8px 18px;box-shadow:var(--shadow-2);margin-bottom:22px}
+.install code{font-size:15px;color:var(--fg)}
+.install code b{color:var(--calm);font-weight:600}
+.install code{line-height:1.4}
+.rot{display:inline-block;position:relative;vertical-align:top;overflow:hidden;height:1.4em;line-height:1.4;transition:width 420ms var(--ease-out)}
+.rot b{display:inline-block;white-space:nowrap;transition:transform 420ms var(--ease-out),opacity 420ms var(--ease-out)}
+.rot b.out{position:absolute;left:0;top:0;transform:translateY(-110%);opacity:0}
+.rot b.in{transform:translateY(110%);opacity:0}
+.copy{font:600 13px/1 var(--font-sans);border:0;background:var(--copy-bg);color:var(--fg);padding:10px 14px;border-radius:10px;cursor:pointer;transition:filter 200ms var(--ease-out)}
+.copy:hover{filter:brightness(.95)}
+
+.term{position:relative;background:var(--deep);color:#e8eef7;border:1px solid var(--term-border);border-radius:var(--r-lg);box-shadow:var(--shadow-lifted);transform:rotate(1.5deg);overflow:hidden}
+.term-bar{display:flex;gap:8px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.term-bar i{width:11px;height:11px;border-radius:50%;display:block}
+.term-bar span{margin-left:auto;font-size:12px;color:rgba(255,255,255,.45);font-weight:600;letter-spacing:.06em}
+.term pre{margin:0;padding:22px 24px 26px;font-family:var(--font-mono);font-size:14px;line-height:1.75;white-space:pre-wrap}
+.p{color:var(--ew-turkoois)} .c{color:var(--ew-geel)} .d{color:rgba(232,238,247,.45)} .ok{color:#7fe0b5} .o{color:var(--ew-oranje)}
+
+/* sections */
+section.block{padding:112px 0}
+.sec-head{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:end;margin-bottom:56px}
+.sec-head p{color:var(--fg-muted);font-size:18px;max-width:480px}
+
+/* features: asymmetric */
+.features{display:grid;grid-template-columns:repeat(6,1fr);gap:24px}
+.card{position:relative;background:var(--surface);border-radius:var(--r-lg);padding:32px;box-shadow:var(--shadow-2);transition:transform 260ms var(--ease-out),box-shadow 260ms var(--ease-out);overflow:hidden}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-3)}
+.card p{color:var(--fg-muted);margin-top:10px}
+.card .ic{width:48px;height:48px;border-radius:var(--r-md);display:grid;place-items:center;margin-bottom:22px}
+.card .ic svg{width:24px;height:24px}
+.card pre{margin:20px 0 0;background:var(--surface-2);border-radius:var(--r-md);padding:16px 18px;font-family:var(--font-mono);font-size:13px;line-height:1.7;color:var(--fg);overflow:auto}
+.f-big{grid-column:span 4;background:var(--deep);color:#fff}
+.f-big p{color:rgba(255,255,255,.72)}
+.f-big pre{background:rgba(255,255,255,.06);color:#e8eef7}
+.f-side{grid-column:span 2}
+.f-third{grid-column:span 2}
+
+/* steps */
+.steps-wrap{background:var(--panel);border-radius:var(--r-xl);margin:0 32px;padding:96px 64px;position:relative;overflow:hidden}
+.steps{position:relative;z-index:2;max-width:1136px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.step{background:var(--surface);border-radius:var(--r-lg);padding:32px;box-shadow:var(--shadow-1)}
+.step .n{font-weight:300;font-size:64px;line-height:1;color:var(--ew-oranje);letter-spacing:-.03em;margin-bottom:18px}
+.step:nth-child(2) .n{color:var(--ew-pink)} .step:nth-child(3) .n{color:var(--calm)}
+.step p{color:var(--fg-muted);margin:8px 0 16px}
+.step code{display:block;background:var(--surface-2);border-radius:10px;padding:12px 14px;font-size:13px}
+
+/* plugins */
+.plugins{display:flex;flex-wrap:wrap;gap:12px}
+.pill{display:inline-flex;align-items:center;gap:10px;padding:12px 18px 12px 14px;border-radius:var(--r-pill);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);font-weight:600;font-size:15px;text-decoration:none;transition:transform 200ms var(--ease-out),box-shadow 200ms var(--ease-out)}
+.pill:hover{transform:translateY(-2px);box-shadow:inset 0 0 0 1px var(--border),var(--shadow-2)}
+.pill .dot{width:10px;height:10px;border-radius:50%}
+.pill .ns{font-family:var(--font-mono);font-size:12px;font-weight:400;color:var(--fg-subtle)}
+.plug-layout{display:grid;grid-template-columns:.8fr 1.2fr;gap:64px;align-items:start}
+.plug-layout .lead p{color:var(--fg-muted);font-size:18px;margin:18px 0 28px}
+
+.pill{font-family:var(--font-sans);color:var(--fg);border:0;cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--inv-bg);color:var(--inv-fg);box-shadow:var(--shadow-2)}
+.pill[aria-pressed="true"] .ns{color:var(--inv-fg);opacity:.6}
+.plug-detail{margin-top:24px;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);padding:28px 32px 28px 38px;position:relative;overflow:hidden}
+.plug-detail::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--pd-color,var(--ew-oranje));transition:background 300ms var(--ease-out)}
+.pd-inner{transition:opacity 220ms var(--ease-out),transform 220ms var(--ease-out)}
+.pd-inner.fade{opacity:0;transform:translateY(6px)}
+.pd-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.pd-head h3 span{font-family:var(--font-mono);font-size:14px;font-weight:400;color:var(--fg-subtle);margin-left:8px}
+.pd-desc{color:var(--fg-muted);margin:10px 0 18px}
+.pd-cmds{display:flex;flex-wrap:wrap;gap:8px}
+.pd-cmds code{background:var(--surface-2);border-radius:10px;padding:8px 12px;font-size:13px}
+.pd-meta{font-size:13px;color:var(--fg-subtle);margin-top:16px}
+.pd-head .btn{padding:11px 18px;font-size:14px}
+.swap{display:inline-block;transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out)}
+.swap.fade{opacity:0;transform:translateY(-6px)}
+
+.inline-link{color:inherit;text-decoration:underline;text-decoration-color:var(--ew-oranje);text-underline-offset:3px;text-decoration-thickness:1.5px;transition:color 200ms var(--ease-out)}
+.inline-link:hover{color:var(--fg)}
+.powered{display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:7px 12px 7px 14px;border-radius:var(--r-pill);background:var(--surface-2);font-size:13px;color:var(--fg-muted);text-decoration:none;transition:transform 200ms var(--ease-out),color 200ms var(--ease-out)}
+.powered b{font-family:var(--font-mono);font-weight:600;color:var(--fg)}
+.powered svg{width:14px;height:14px}
+.powered:hover{transform:translateY(-2px);color:var(--fg)}
+
+/* quote / callout */
+.callout{position:relative;max-width:820px;margin:0 auto;text-align:left;padding:40px 48px}
+.callout blockquote{margin:0;font-size:34px;font-weight:700;line-height:1.2;letter-spacing:-.02em}
+.callout blockquote em{font-style:normal;color:var(--ew-pink)}
+.callout cite{display:block;margin-top:18px;font-style:normal;color:var(--fg-muted);font-size:15px}
+
+/* footer */
+footer{background:var(--deep);color:#fff;padding:72px 0 48px;margin-top:112px;position:relative;overflow:hidden}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:48px;position:relative;z-index:2}
+.foot h4{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ew-geel);margin:0 0 16px}
+.foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.foot a{text-decoration:none;color:rgba(255,255,255,.75)} .foot a:hover{color:#fff}
+.foot .big{font-size:30px;font-weight:800;line-height:1.15;letter-spacing:-.02em;max-width:380px}
+.legal{margin-top:56px;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);font-size:13px;color:rgba(255,255,255,.5);display:flex;justify-content:space-between;position:relative;z-index:2}
+
+/* dark-mode details */
+html[data-theme="dark"] .card .ic{background:rgba(255,255,255,.07)!important}
+html[data-theme="dark"] .doodle.dk{filter:brightness(0) invert(1);opacity:.45!important}
+.logo-dark{display:none}
+html[data-theme="dark"] .logo-light{display:none}
+html[data-theme="dark"] .logo-dark{display:block}
+.theme-toggle{width:42px;height:42px;border-radius:12px;border:0;background:var(--copy-bg);color:var(--fg);display:grid;place-items:center;cursor:pointer;transition:transform 200ms var(--ease-out),background 300ms var(--ease-out)}
+.theme-toggle:hover{transform:translateY(-2px)}
+.theme-toggle svg{width:20px;height:20px}
+.theme-toggle .i-sun{display:none}
+html[data-theme="dark"] .theme-toggle .i-sun{display:block}
+html[data-theme="dark"] .theme-toggle .i-moon{display:none}
+
+/* what's new */
+.news{padding:72px 0 0}
+.news .wrap{display:grid;grid-template-columns:220px 1fr;gap:40px;align-items:start}
+.news h2{font-size:30px}
+.news .all{display:inline-flex;gap:6px;margin-top:14px;font-weight:600;font-size:15px;color:var(--fg-muted);text-decoration:none}
+.news .all:hover{color:var(--fg)}
+.cl{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;position:relative}
+.cl::before{content:"";position:absolute;left:6px;right:0;top:6px;border-top:2px dashed var(--border)}
+.cl li{position:relative;padding-top:30px}
+.cl li::before{content:"";position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 0 3px var(--fg-subtle)}
+.cl li:first-child::before{box-shadow:inset 0 0 0 7px var(--ew-oranje)}
+.cl .v{font-weight:800;font-size:18px;letter-spacing:-.01em}
+.cl .date{font-size:13px;color:var(--fg-subtle);margin-left:8px}
+.cl .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:var(--r-pill);margin:10px 0 8px}
+.cl .tag.feature{background:rgba(35,173,123,.14);color:var(--ew-groen)}
+.cl .tag.fix{background:rgba(255,113,79,.14);color:var(--ew-oranje)}
+.cl .tag.other{background:rgba(90,208,208,.16);color:var(--calm)}
+.cl p{color:var(--fg-muted);font-size:15px;line-height:1.45}
+.cl p b{color:var(--fg);font-weight:600}
+
+/* your own tasks */
+.tabs{display:inline-flex;gap:4px;padding:5px;background:var(--copy-bg);border-radius:var(--r-md);margin-bottom:28px}
+.tab{font:600 15px/1 var(--font-sans);border:0;background:transparent;color:var(--fg-muted);padding:12px 18px;border-radius:10px;cursor:pointer;transition:background 200ms var(--ease-out),color 200ms var(--ease-out),box-shadow 200ms var(--ease-out)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--shadow-1)}
+.tab-panel{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:stretch}
+.tab-panel[hidden]{display:none}
+.tab-panel.enter > *{animation:panel-in 360ms var(--ease-out) both}
+.tab-panel.enter > *:nth-child(2){animation-delay:80ms}
+@keyframes panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.editor{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);overflow:hidden}
+.editor-bar{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);font:600 13px var(--font-mono);color:var(--fg-muted)}
+.editor-bar i{width:9px;height:9px;border-radius:50%;background:var(--ew-geel)}
+.editor pre,.tterm pre{margin:0;padding:22px 24px;font-family:var(--font-mono);font-size:14px;line-height:1.7;overflow:auto}
+.editor pre .k{color:var(--ew-pink)} .editor pre .s{color:var(--ew-groen)} .editor pre .f{color:var(--calm);font-weight:600}
+.editor pre .dec{color:var(--ew-oranje)} .editor pre .cm{color:var(--fg-subtle);font-style:italic} .editor pre .n{color:#c98a12}
+.tterm{background:var(--deep);color:#e8eef7;border-radius:var(--r-lg);box-shadow:var(--shadow-lifted);border:1px solid var(--term-border);overflow:hidden}
+.tterm .term-bar{display:flex}
+.cascade{list-style:none;margin:0;padding:22px 24px 26px;display:grid;gap:14px;position:relative}
+.cascade::before{content:"";position:absolute;left:41px;top:40px;bottom:46px;border-left:2px dashed rgba(255,255,255,.18)}
+.cascade li{display:grid;grid-template-columns:36px 1fr;gap:14px;align-items:start;position:relative}
+.cascade .num{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#1b222b}
+.cascade .who{font:600 12px var(--font-mono);color:rgba(232,238,247,.55);letter-spacing:.04em}
+.cascade .what{font-size:15px;color:#e8eef7;margin-top:2px}
+.cascade .what code{color:var(--ew-geel)}
+.cascade .cmd{font-family:var(--font-mono);font-size:14px;padding-bottom:4px}
+.tab-panel.enter .cascade li{animation:panel-in 420ms var(--ease-out) both}
+.tab-panel.enter .cascade li:nth-child(2){animation-delay:140ms}
+.tab-panel.enter .cascade li:nth-child(3){animation-delay:280ms}
+.tab-panel.enter .cascade li:nth-child(4){animation-delay:420ms}
+
+/* doodle entrance */
+@media (prefers-reduced-motion:no-preference){
+  .doodle{animation:rot-in 600ms var(--ease-out) both}
+  @keyframes rot-in{from{opacity:0;rotate:-8deg}to{opacity:1;rotate:0deg}}
+}
+@media (max-width:960px){
+  .hero{margin:12px 12px 0;padding:56px 28px 64px}
+  .hero-grid,.sec-head,.plug-layout,.foot{grid-template-columns:1fr}
+  .hero h1{font-size:48px} h2{font-size:34px}
+  .features{grid-template-columns:1fr} .f-big,.f-side,.f-third{grid-column:auto}
+  .steps-wrap{margin:0 12px;padding:64px 24px} .steps{grid-template-columns:1fr}
+  .links a:not(.btn){display:none}
+  .term{transform:none}
+  .news .wrap{grid-template-columns:1fr} .cl{grid-template-columns:1fr 1fr}
+  .tab-panel{grid-template-columns:1fr}
+}
+</style>
+<script>
+(()=>{let t=null;try{t=localStorage.getItem('edwh-theme')}catch(e){}
+document.documentElement.dataset.theme=t||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')})();
+</script>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <img class="logo-light" src="data:image/svg+xml;base64,{{ICON_MARK}}" alt="">
+      <img class="logo-dark" src="data:image/svg+xml;base64,{{ICON_MARK_DARK}}" alt="">
+      <span class="name">edwh</span>
+      <span class="tag">by Education Warehouse</span>
+    </a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#tasks">Your tasks</a>
+      <a href="#start">Get started</a>
+      <a href="#plugins">Plugins</a>
+      <button class="theme-toggle" type="button" aria-label="Toggle dark mode">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </button>
+      <a class="btn btn-dark" href="https://github.com/educationwarehouse/edwh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <img class="doodle" src="{{D35geel}}" style="width:64px;top:-14px;right:34%;transform:rotate(-16deg)" alt="">
+  <img class="doodle" src="{{D05pink}}" style="width:72px;top:40px;right:26px;transform:rotate(22deg)" alt="">
+  <img class="doodle" src="{{D20turkoois}}" style="width:96px;bottom:-26px;right:9%;transform:rotate(-12deg)" alt="">
+  <img class="doodle" src="{{D07oranje}}" style="width:44px;bottom:30px;left:26px;transform:rotate(35deg)" alt="">
+  <img class="doodle dk" src="{{D22petrol}}" style="width:48px;top:-10px;left:7%;transform:rotate(8deg)" alt="">
+  <img class="doodle dk" src="{{D14paars}}" style="width:30px;bottom:48px;left:46%;transform:rotate(-22deg)" alt="">
+
+  <div class="hero-grid">
+    <div>
+      <p class="eyebrow">Maintenance tools for developers</p>
+      <h1>Your whole dev stack, <em>one command</em> away.</h1>
+      <p class="sub">edwh bundles the tasks we run every day into one friendly CLI: setup, Docker Compose, linting, testing and releases. Extend it with plugins or your own <code>tasks.py</code>.</p>
+      <div class="install">
+        <code><span class="rot" aria-live="polite"><b>pipx</b></span> install edwh</code>
+        <button class="copy" type="button" data-copy-rot>Copy</button>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary" href="#start">Get started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a class="btn btn-outline" href="#plugins">Browse plugins</a>
+      </div>
+      <p class="micro">Python 3.12+ · MIT licensed · Built on Invoke, Fabric &amp; <a class="inline-link" href="https://github.com/educationwarehouse/ewok">ewok</a></p>
+    </div>
+
+    <div class="term" role="img" aria-label="Terminal showing edwh commands">
+      <div class="term-bar"><i style="background:var(--ew-pink)"></i><i style="background:var(--ew-geel)"></i><i style="background:var(--ew-turkoois)"></i><span>~/projects/schoolportfolio</span></div>
+<pre><span class="p">$</span> <span class="c">edwh</span> up
+<span class="ok"> ✔</span> Container portfolio-db-1   <span class="ok">Started</span>
+<span class="ok"> ✔</span> Container portfolio-web-1  <span class="ok">Started</span>
+<span class="p">$</span> <span class="c">edwh</span> fmt
+<span class="ok">⬤</span> isort
+<span class="ok">⬤</span> reformat
+<span class="p">$</span> <span class="c">edwh</span> lint
+<span class="ok">⬤</span> ruff
+<span class="ok">⬤</span> ty
+<span class="p">$</span> <span class="c">edwh</span> test.run
+<span class="ok">======== 142 passed in 3.84s ========</span></pre>
+    </div>
+  </div>
+</header>
+
+<section class="news" aria-labelledby="news-h">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">What's new</p>
+      <h2 id="news-h">Fresh from the changelog.</h2>
+      <a class="all" href="https://github.com/educationwarehouse/edwh/blob/main/CHANGELOG.md">Full changelog
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    </div>
+    {{CHANGELOG}}
+  </div>
+</section>
+
+<section class="block" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow">What you get</p>
+        <h2>Less yak-shaving, more shipping.</h2>
+      </div>
+      <p>The boring parts of running a project, done the same way everywhere. Every command lives in a namespace, so <code>edwh help</code> always tells you where to look.</p>
+    </div>
+
+    <div class="features">
+      <article class="card f-big">
+        <img class="doodle" src="{{D38turkoois}}" style="width:110px;right:-18px;top:-22px;opacity:.9;transform:rotate(14deg)" alt="">
+        <div class="ic" style="background:rgba(90,208,208,.18);color:var(--ew-turkoois)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+        <h3>One CLI for every project</h3>
+        <p>edwh finds your project's <code>tasks.py</code>, your plugins and your personal tasks, and puts them all under <code>edwh</code> (or <code>ew</code> for short). Hookable tasks with the same name run one after another, so a plugin or project can extend <code>edwh up</code> instead of replacing it.</p>
+<pre>edwh help          <span style="color:rgba(232,238,247,.45)"># everything, grouped by namespace</span>
+edwh local.seed    <span style="color:rgba(232,238,247,.45)"># this repo's tasks.py</span>
+edwh mp.list       <span style="color:rgba(232,238,247,.45)"># a plugin, in its own namespace</span>
+edwh restic.backup <span style="color:rgba(232,238,247,.45)"># another plugin</span>
+edwh my-alias      <span style="color:rgba(232,238,247,.45)"># ~/.config/edwh/tasks.py</span></pre>
+      </article>
+
+      <article class="card f-side">
+        <div class="ic" style="background:#ffeee9;color:var(--ew-oranje)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>Sudo, safely stored</h3>
+        <p><code>edwh sudo</code> checks your password once and keeps it in the system keyring, with an SSH-agent fallback when the keyring is locked.</p>
+      </article>
+
+      <article class="card f-third">
+        <div class="ic" style="background:#e3f6ee;color:var(--ew-groen)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <h3>Lint, format &amp; test</h3>
+        <p>Ruff and Ty out of the box, pytest with coverage, HTML reports on request. Tune it per project in <code>pyproject.toml</code>.</p>
+      </article>
+
+      <article class="card f-third">
+        <div class="ic" style="background:#fff5e0;color:#c98a12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.950A12.880 12.880 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
+        <h3>Releases without ritual</h3>
+        <p><code>edwh plugin.release</code> bumps, builds and publishes, and nudges you away from legacy build setups.</p>
+        <a class="powered" href="https://github.com/educationwarehouse/vommit">Powered by <b>vommit</b>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></a>
+      </article>
+
+      <article class="card f-third">
+        <div class="ic" style="background:#fde6ec;color:var(--ew-pink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M6 9v6"/><path d="M15 12H9a3 3 0 0 1-3-3"/></svg></div>
+        <h3>Worktrees</h3>
+        <p><code>edwh worktree &lt;branch&gt;</code> gives a branch its own checkout, ports and database, so you can run two versions side by side.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="tasks" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow">Your own tasks</p>
+        <h2>Write a function, get a command.</h2>
+      </div>
+      <p>Put a <code>tasks.py</code> in your project and edwh picks it up: listed in <code>edwh help</code>, with flags and help text like every built-in. Or hook into a built-in and let it do the heavy lifting first.</p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Task examples">
+      <button class="tab" role="tab" id="tab-new" aria-controls="panel-new" aria-selected="true">New command</button>
+      <button class="tab" role="tab" id="tab-hook" aria-controls="panel-hook" aria-selected="false" tabindex="-1">Extend <code>edwh up</code></button>
+    </div>
+
+    <div class="tab-panel" id="panel-new" role="tabpanel" aria-labelledby="tab-new">
+      <div class="editor">
+        <div class="editor-bar"><i></i>tasks.py</div>
+<pre><span class="k">from</span> edwh <span class="k">import</span> improved_task <span class="k">as</span> task
+
+
+<span class="dec">@task</span>(help={<span class="s">&quot;users&quot;</span>: <span class="s">&quot;number of fake users&quot;</span>})
+<span class="k">def</span> <span class="f">seed</span>(ctx, users: int = <span class="n">25</span>):
+    <span class="s">&quot;&quot;&quot;Fill the dev database with fake users.&quot;&quot;&quot;</span>
+    ctx.run(<span class="s">f&quot;./bin/seed --users {users}&quot;</span>)</pre>
+      </div>
+      <div class="tterm">
+        <div class="term-bar"><i style="background:var(--ew-pink)"></i><i style="background:var(--ew-geel)"></i><i style="background:var(--ew-turkoois)"></i><span>~/projects/schoolportfolio</span></div>
+<pre><span class="p">$</span> <span class="c">edwh</span> help local
+--- namespace tasks ---
+
+  local.seed    <span class="d">Fill the dev database with fake users.</span>
+
+<span class="p">$</span> <span class="c">edwh</span> local.seed --users 3
+Seeded 3 users</pre>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-hook" role="tabpanel" aria-labelledby="tab-hook" hidden>
+      <div class="editor">
+        <div class="editor-bar"><i></i>tasks.py</div>
+<pre><span class="k">from</span> edwh <span class="k">import</span> improved_task <span class="k">as</span> task
+
+
+<span class="dec">@task</span>(hookable=<span class="k">True</span>)
+<span class="k">def</span> <span class="f">up</span>(ctx, service=None):
+    <span class="s">&quot;&quot;&quot;Load fixtures once the containers run.&quot;&quot;&quot;</span>
+    <span class="cm"># what the built-in `up` returned</span>
+    services = ctx[<span class="s">&quot;result&quot;</span>][<span class="s">&quot;services&quot;</span>]
+    <span class="k">if</span> <span class="s">&quot;db&quot;</span> <span class="k">in</span> services:
+        ctx.run(<span class="s">&quot;./bin/load-fixtures&quot;</span>)</pre>
+      </div>
+      <div class="tterm">
+        <div class="term-bar"><i style="background:var(--ew-pink)"></i><i style="background:var(--ew-geel)"></i><i style="background:var(--ew-turkoois)"></i><span>~/projects/schoolportfolio</span></div>
+        <ol class="cascade">
+          <li><span></span><div class="cmd"><span class="p">$</span> <span class="c">edwh</span> up</div></li>
+          <li><span class="num" style="background:var(--ew-oranje)">1</span><div><div class="who">edwh · built-in</div><div class="what">Starts your Compose services and returns <code>{"services": [...]}</code>.</div></div></li>
+          <li><span class="num" style="background:var(--ew-geel)">2</span><div><div class="who">plugins</div><div class="what">Any installed plugin with its own <code>up</code> task runs in turn.</div></div></li>
+          <li><span class="num" style="background:var(--ew-turkoois)">3</span><div><div class="who">local · tasks.py</div><div class="what">Your hook reads <code>ctx["result"]</code> and loads the fixtures.</div></div></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="steps-wrap" id="start">
+  <img class="doodle" src="{{D11geel}}" style="width:90px;top:28px;right:5%;transform:rotate(-10deg)" alt="">
+  <img class="doodle dk" src="{{D41paars}}" style="width:48px;bottom:28px;left:4%;transform:rotate(18deg)" alt="">
+  <img class="doodle dk" src="{{D33donkerblauw}}" style="width:72px;top:96px;left:60%;transform:rotate(-20deg);opacity:.85" alt="">
+  <div class="wrap" style="position:relative;z-index:2;padding:0;margin-bottom:48px">
+    <p class="eyebrow">How it works</p>
+    <h2>Up and running in three steps.</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <h3>Install</h3>
+      <p>With pipx, uvenv or uv. Pick all plugins, or only the ones you need.</p>
+      <code>pipx install "edwh[plugins]"</code>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <h3>Explore</h3>
+      <p>Run <code style="display:inline;padding:0;background:none">edwh</code> (or just <code style="display:inline;padding:0;background:none">ew</code>) to see every command, or ask for help on one namespace.</p>
+      <code>edwh help plugin</code>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <h3>Make it yours</h3>
+      <p>Drop a <code style="display:inline;padding:0;background:none">tasks.py</code> in your project, or global ones in <code style="display:inline;padding:0;background:none">~/.config/edwh</code>.</p>
+      <code>edwh local.&lt;your-task&gt;</code>
+    </div>
+  </div>
+</div>
+
+<section class="block" id="plugins">
+  <div class="wrap plug-layout">
+    <div class="lead">
+      <p class="eyebrow">Plugins</p>
+      <h2>Add only what your project needs.</h2>
+      <p>Each plugin gets its own namespace. Add or remove them any time. No reinstall needed.</p>
+      <div class="install">
+        <code><b>edwh</b> plugin.add <span class="swap" id="plug-name">multipass</span></code>
+        <button class="copy" type="button" data-copy-plugin>Copy</button>
+      </div>
+    </div>
+    <div class="plug-right">
+    <div class="plugins" role="group" aria-label="Plugins">
+      <button type="button" class="pill" data-plugin="multipass" aria-pressed="true"><span class="dot" style="background:var(--ew-oranje)"></span>Multipass <span class="ns">mp.</span></button>
+      <button type="button" class="pill" data-plugin="restic" aria-pressed="false"><span class="dot" style="background:var(--ew-petrol)"></span>Restic <span class="ns">restic.</span></button>
+      <button type="button" class="pill" data-plugin="pipcompile" aria-pressed="false"><span class="dot" style="background:var(--ew-geel)"></span>Pip Compile <span class="ns">pip.</span></button>
+      <button type="button" class="pill" data-plugin="bundler" aria-pressed="false"><span class="dot" style="background:var(--ew-pink)"></span>Bundler <span class="ns">bundle.</span></button>
+      <button type="button" class="pill" data-plugin="server-provisioning" aria-pressed="false"><span class="dot" style="background:var(--ew-paars)"></span>Server Provisioning <span class="ns">remote.</span></button>
+      <button type="button" class="pill" data-plugin="b2" aria-pressed="false"><span class="dot" style="background:var(--ew-turkoois)"></span>b2 <span class="ns">b2.</span></button>
+      <button type="button" class="pill" data-plugin="locust" aria-pressed="false"><span class="dot" style="background:var(--ew-groen)"></span>Locust <span class="ns">locust.</span></button>
+      <button type="button" class="pill" data-plugin="sshkey" aria-pressed="false"><span class="dot" style="background:var(--ew-oranje)"></span>sshkey <span class="ns">sshkey.</span></button>
+      <button type="button" class="pill" data-plugin="sshfs" aria-pressed="false"><span class="dot" style="background:var(--ew-petrol)"></span>sshfs <span class="ns">sshfs.</span></button>
+      <button type="button" class="pill" data-plugin="files" aria-pressed="false"><span class="dot" style="background:var(--ew-pink)"></span>Files <span class="ns">file.</span></button>
+      <button type="button" class="pill" data-plugin="devdb" aria-pressed="false"><span class="dot" style="background:var(--ew-turkoois)"></span>devdb <span class="ns">devdb.</span></button>
+    </div>
+    <div class="plug-detail" aria-live="polite">
+      <div class="pd-inner"></div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<div class="callout">
+  <img class="doodle" src="{{D35geel}}" style="width:56px;left:-8px;top:-10px;transform:rotate(-12deg)" alt="">
+  <blockquote>One <em>tasks.py</em> per project, one muscle memory for all of them.</blockquote>
+  <cite>How we keep a dozen projects running at Education Warehouse</cite>
+</div>
+
+<footer>
+  <img class="doodle" src="{{D26white}}" style="width:160px;right:-80px;top:-50px;opacity:.12;transform:rotate(-8deg)" alt="">
+  <img class="doodle" src="{{D01geel}}" style="width:32px;left:40%;bottom:110px;transform:rotate(20deg)" alt="">
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <p class="big">Built by developers who'd rather be building.</p>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/educationwarehouse/edwh">GitHub</a></li>
+          <li><a href="https://pypi.org/project/edwh">PyPI</a></li>
+          <li><a href="https://github.com/educationwarehouse/edwh/blob/main/CHANGELOG.md">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Education Warehouse</h4>
+        <ul>
+          <li><a href="https://educationwarehouse.nl">educationwarehouse.nl</a></li>
+          <li><a href="https://github.com/educationwarehouse">All repositories</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal"><span>© Education Warehouse · MIT license</span><span>edwh v{{VERSION}}</span></div>
+  </div>
+</footer>
+
+<script>
+document.querySelector('.theme-toggle').addEventListener('click',()=>{
+  const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=next;
+  try{localStorage.setItem('edwh-theme',next)}catch(e){}
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{
+  let saved=null;try{saved=localStorage.getItem('edwh-theme')}catch(_){}
+  if(!saved)document.documentElement.dataset.theme=e.matches?'dark':'light';
+});
+const tabs=[...document.querySelectorAll('.tab')];
+function selectTab(t){
+  tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;
+    const pnl=document.getElementById(x.getAttribute('aria-controls'));pnl.hidden=!on;
+    if(on){pnl.classList.remove('enter');void pnl.offsetWidth;pnl.classList.add('enter')}});
+}
+tabs.forEach((t,i)=>{
+  t.addEventListener('click',()=>selectTab(t));
+  t.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const n=tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length];selectTab(n);n.focus()}});
+});
+const PLUGINS={"multipass": {"name": "Multipass", "ns": "mp", "color": "oranje", "pkg": "edwh-multipass-plugin", "repo": "educationwarehouse/edwh-multipass-plugin", "desc": "Work with Multipass VMs for local development: install Multipass, mount project folders and keep hostnames pointing at the right machine.", "cmds": ["mp.list", "mp.mount", "mp.fix-host"]}, "restic": {"name": "Restic", "ns": "restic", "color": "petrol", "pkg": "edwh-restic-plugin", "repo": "educationwarehouse/edwh-restic-plugin", "desc": "Back up and restore project data with restic, with snapshot management and health checks.", "cmds": ["restic.backup", "restic.snapshots", "restic.restore"]}, "pipcompile": {"name": "Pip Compile", "ns": "pip", "color": "geel", "pkg": "edwh-pipcompile-plugin", "repo": "educationwarehouse/edwh-pipcompile-plugin", "desc": "Integrates pip-tools with edwh: compile, install and upgrade pinned requirements.", "cmds": ["pip.compile", "pip.upgrade", "pip.install"]}, "bundler": {"name": "Bundler", "ns": "bundle", "color": "pink", "pkg": "edwh-bundler-plugin", "repo": "educationwarehouse/edwh-bundler-plugin", "desc": "A Python-only static file bundler for JS and CSS. No Node toolchain needed.", "cmds": ["bundle.build", "bundle.publish", "bundle.list"]}, "server-provisioning": {"name": "Server Provisioning", "ns": "remote", "color": "paars", "pkg": "edwh-server-provisioning-plugin", "repo": "educationwarehouse/server_provisioning", "desc": "Fabric-based remote server management: prepare servers, install Docker, manage SSH keys and open tunnels.", "cmds": ["remote.prepare-generic-server", "remote.install-docker", "remote.tunnel"]}, "b2": {"name": "b2", "ns": "b2", "color": "turkoois", "pkg": "edwh-b2-plugin", "repo": "educationwarehouse/edwh-b2-plugin", "desc": "Work with Backblaze B2 buckets from the command line.", "cmds": ["b2.authenticate", "b2.list-buckets", "b2.purge"]}, "locust": {"name": "Locust", "ns": "locust", "color": "groen", "pkg": "edwh-locust-plugin", "repo": "educationwarehouse/edwh-locust-plugin", "desc": "Load-test your project with Locust.", "cmds": []}, "sshkey": {"name": "sshkey", "ns": "sshkey", "color": "oranje", "pkg": "edwh-sshkey-plugin", "repo": "educationwarehouse/edwh-sshkey-plugin", "desc": "Manage SSH keys for your servers.", "cmds": []}, "sshfs": {"name": "sshfs", "ns": "sshfs", "color": "petrol", "pkg": "edwh-sshfs-plugin", "repo": "educationwarehouse/edwh-sshfs-plugin", "desc": "Mount remote folders locally over SSHFS.", "cmds": []}, "files": {"name": "Files", "ns": "file", "color": "pink", "pkg": "edwh-files-plugin", "repo": "educationwarehouse/edwh-files-plugin", "desc": "Upload, download and unpack files through files.edwh.nl.", "cmds": ["file.upload", "file.download", "file.unpack"]}, "devdb": {"name": "devdb", "ns": "devdb", "color": "turkoois", "pkg": "edwh-devdb-plugin", "repo": "educationwarehouse/edwh-devdb-plugin", "desc": "Quick database snapshots and recovery for development databases.", "cmds": ["devdb.snapshot", "devdb.recover", "devdb.push"]}};
+const GH_ICON="<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4\"/><path d=\"M9 18c-4.51 2-5-2-7-2\"/></svg>";
+let plug='multipass';
+const esc=t=>t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+function renderPlugin(k,animate){
+  const d=PLUGINS[k],box=document.querySelector('.plug-detail'),inner=box.querySelector('.pd-inner'),nm=document.getElementById('plug-name');
+  const cmds=d.cmds.length?d.cmds.map(c=>'edwh '+c):['edwh help '+d.ns];
+  const html=`<div class="pd-head"><h3>${esc(d.name)}<span>${esc(d.ns)}.</span></h3>
+    <a class="btn btn-outline" href="https://github.com/${d.repo}" target="_blank" rel="noopener">${GH_ICON} GitHub</a></div>
+    <p class="pd-desc">${esc(d.desc)}</p>
+    <div class="pd-cmds">${cmds.map(c=>`<code>${esc(c)}</code>`).join('')}</div>
+    <p class="pd-meta">pip: <code>${d.pkg}</code> · extra: <code>edwh[${k}]</code></p>`;
+  const apply=()=>{inner.innerHTML=html;nm.textContent=k;box.style.setProperty('--pd-color',`var(--ew-${d.color})`);inner.classList.remove('fade');nm.classList.remove('fade')};
+  if(!animate||matchMedia('(prefers-reduced-motion: reduce)').matches)return apply();
+  inner.classList.add('fade');nm.classList.add('fade');setTimeout(apply,200);
+}
+document.querySelectorAll('.pill[data-plugin]').forEach(b=>b.addEventListener('click',()=>{
+  if(b.dataset.plugin===plug)return;
+  plug=b.dataset.plugin;
+  document.querySelectorAll('.pill[data-plugin]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  renderPlugin(plug,true);
+}));
+renderPlugin(plug,false);
+const tools=['pipx','uvenv','uv tool'];let ti=0;
+document.querySelectorAll('.rot').forEach(rot=>{
+  const measure=w=>{const b=document.createElement('b');b.textContent=w;b.style.position='absolute';b.style.visibility='hidden';rot.appendChild(b);const x=b.getBoundingClientRect().width;b.remove();return x};
+  rot.style.width=measure(tools[0])+'px';
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  setInterval(()=>{
+    ti=(ti+1)%tools.length;
+    const cur=rot.querySelector('b:not(.out)'),nxt=document.createElement('b');
+    nxt.textContent=tools[ti];nxt.className='in';rot.appendChild(nxt);
+    rot.style.width=measure(tools[ti])+'px';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{cur.classList.add('out');nxt.classList.remove('in')}));
+    setTimeout(()=>cur.remove(),450);
+  },2600);
+});
+document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',async()=>{
+  const text=b.dataset.copy ?? ('copyPlugin' in b.dataset ? 'edwh plugin.add '+plug : tools[ti]+' install edwh');
+  try{await navigator.clipboard.writeText(text);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1400)}catch(e){}
+}));
+</script>
+</body>
+</html>

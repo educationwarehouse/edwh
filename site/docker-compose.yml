@@ -1,0 +1,32 @@
+# edwh homepage, served behind the shared Traefik on the `broker` network.
+# Run `ew setup` in site/ to set EDWH_SITE_DOMAIN in site/.env (defaults to edwh.localhost).
+# It deliberately isn't HOSTINGDOMAIN: an exported HOSTINGDOMAIN from another project
+# would override site/.env and steal that project's hostname.
+name: edwh-site
+
+networks:
+  broker:
+    name: broker
+    external: true
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: site/Dockerfile
+    restart: unless-stopped
+    networks:
+      - broker
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=broker"
+      - "traefik.http.services.edwh-site.loadbalancer.server.port=80"
+      - "traefik.http.routers.edwh-site-secure.rule=Host(`${EDWH_SITE_DOMAIN:-edwh.localhost}`)"
+      - "traefik.http.routers.edwh-site-secure.tls=true"
+      - "traefik.http.routers.edwh-site-secure.tls.certresolver=${CERTRESOLVER:-default}"
+      - "traefik.http.routers.edwh-site-secure.middlewares=edwh-std-security"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
