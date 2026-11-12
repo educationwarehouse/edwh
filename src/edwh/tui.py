@@ -61,7 +61,7 @@ def _board(run: Run, tick: int) -> Group:
 
 
 @contextmanager
-def lane_board(title: str = "") -> t.Iterator[T_Render]:
+def lane_board(title: str = "") -> t.Generator[T_Render, None, None]:
     """Live multi-row board. Owns the terminal for its duration: do not print inside."""
     console = Console()
     if title:
@@ -80,7 +80,7 @@ def lane_board(title: str = "") -> t.Iterator[T_Render]:
 
 
 @contextmanager
-def plain(title: str = "") -> t.Iterator[T_Render]:
+def plain(title: str = "") -> t.Generator[T_Render, None, None]:
     """One line per state transition. No cursor movement, safe for pipes and CI."""
     if title:
         print(title)

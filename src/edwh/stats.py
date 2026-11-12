@@ -1,5 +1,6 @@
 """A scrollable, filterable live view of Docker container statistics."""
 
+import io
 import json
 import os
 import re
@@ -59,7 +60,7 @@ SIZE_MULTIPLIERS = {
 }
 
 
-class TerminalOutput(t.TextIO):
+class TerminalOutput(io.TextIOBase):
     """Keep Rich's line breaks aligned while Click reads in raw mode."""
 
     def __init__(self, stream: t.TextIO) -> None:
@@ -81,7 +82,7 @@ class TerminalOutput(t.TextIO):
 
 
 @contextmanager
-def _keyboard_input() -> t.Iterator[t.Callable[[], list[str]]]:
+def _keyboard_input() -> t.Generator[t.Callable[[], list[str]], None, None]:
     """Expose complete keys while keeping raw mode and ANSI parsing together."""
     with raw_terminal() as fd:
         pending = ""
@@ -237,7 +238,9 @@ def show_stats(ctx: Context) -> None:
     lock = threading.Lock()
     state = StatsState()
 
-    with Live(screen=True, refresh_per_second=2, console=Console(file=TerminalOutput(sys.stdout))) as live:
+    with Live(
+        screen=True, refresh_per_second=2, console=Console(file=t.cast(t.TextIO, TerminalOutput(sys.stdout)))
+    ) as live:
 
         def render(refresh: bool = False) -> None:
             live.update(_frame(state), refresh=refresh)
