@@ -61,6 +61,10 @@ The SSH-agent backend requires a reachable agent, `SSH_AUTH_SOCK`, and the selec
 remote development machine, connect with agent forwarding (`ssh -A` or `ForwardAgent yes`). The sudo password remains
 encrypted on disk; access depends on the selected SSH agent rather than a second keyring password.
 
+When a task needs sudo but no password is stored and nobody can be prompted (an unattended `EDWH_INPUT_MODE`, CI, or a
+coding agent without a terminal), it stops with `SudoRequired` and asks you to run `edwh sudo` once, instead of hanging
+on a password prompt.
+
 ## Linting
 
 `edwh lint` runs Ruff and Ty by default. Disable either tool for a specific project in its `pyproject.toml`:
@@ -71,7 +75,26 @@ ruff = false
 ty = false
 ```
 
+When the project has a `venv` or `.venv` directory, `edwh lint` must run from it (activate it, or run `venv/bin/edwh lint`).
+Otherwise Ty would resolve imports from another environment and report misleading errors. Projects can reuse this check
+with `@task(pre=[edwh.tasks.require_virtualenv])`.
+
 `edwh fmt` sorts imports and reformats Python code with Ruff.
+
+## Machine-readable results
+
+Set `EDWH_RESULT_FILE` to a path to get the outcome of the (last) task you run as a single JSON object, regardless of
+what the task prints:
+
+```json
+{"task": "lint", "ok": false, "result": {"mode": "ci", "results": {"linting (ruff)": false, "type checking (ty)": true}}, "error": null}
+```
+
+- `result` is the task's return value; a task can mark itself as failed without raising by returning `{"ok": false, ...}`.
+- `error` is `null` or `{"type", "message", "hint"}`, with `type` one of `sudo_required`, `virtualenv_required` or
+  `failed`.
+
+This is meant for CI and tools such as the MCP plugin; combine it with `EDWH_INPUT_MODE=defaults` to avoid prompts.
 
 ## Releasing plugins
 

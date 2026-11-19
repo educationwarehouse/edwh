@@ -83,6 +83,83 @@ def missing_required_input(key: str, prompt: str, secret: bool = False, env_path
     raise SystemExit(78)
 
 
+RESULT_FILE_ENV = "EDWH_RESULT_FILE"
+MAX_RESULT_MESSAGE = 2000
+
+
+class TaskAborted(SystemExit):
+    """
+    A task stopped for a reason the caller has to resolve, instead of working around it.
+
+    Subclasses `SystemExit` (code 1), so the CLI behaves as before;
+    callers such as the MCP plugin read `error_type`, `message` and `hint` from the result file.
+    """
+
+    error_type: t.ClassVar[str] = "failed"
+
+    def __init__(self, message: str, hint: str | None = None) -> None:
+        super().__init__(1)
+        self.message = message
+        self.hint = hint
+
+    def __str__(self) -> str:
+        return f"{self.message} {self.hint}" if self.hint else self.message
+
+
+class SudoRequired(TaskAborted):
+    """Sudo is needed but no password is available and nobody can be prompted."""
+
+    error_type = "sudo_required"
+
+
+class VirtualenvRequired(TaskAborted):
+    """The project has a virtualenv, but edwh is not running from it."""
+
+    error_type = "virtualenv_required"
+
+
+def _json_fallback(value: t.Any) -> t.Any:
+    """Serialize invoke's config proxies (task results end up in `ctx.result`) as dicts, anything else as text."""
+    if isinstance(value, invoke.config.DataProxy):
+        return dict(value)
+    return str(value)
+
+
+def write_task_result(
+    task: str | None,
+    ok: bool,
+    result: t.Any = None,
+    error: TaskAborted | BaseException | None = None,
+) -> bool:
+    """
+    Write the outcome of a task to `$EDWH_RESULT_FILE` as one JSON object, for non-human callers.
+
+    Only the first write wins (an existing non-empty file is left alone),
+    so a task that reports its own result is not overwritten by the generic fallback in the CLI.
+    Returns whether something was written.
+    """
+    path = os.environ.get(RESULT_FILE_ENV)
+    if not path:
+        return False
+
+    result_file = Path(path)
+    if result_file.is_file() and result_file.stat().st_size:
+        return False
+
+    error_payload: dict[str, str | None] | None = None
+    if isinstance(error, TaskAborted):
+        error_payload = {"type": error.error_type, "message": error.message, "hint": error.hint}
+    elif error is not None:
+        message = str(error) or type(error).__name__
+        if len(message) > MAX_RESULT_MESSAGE:
+            message = message[:MAX_RESULT_MESSAGE] + " [truncated]"
+        error_payload = {"type": "failed", "message": message, "hint": None}
+
+    payload = {"task": task, "ok": ok, "result": result, "error": error_payload}
+    result_file.write_text(json.dumps(payload, default=_json_fallback) + "\n")
+    return True
+
+
 def has_controlling_terminal() -> bool:
     """Whether this process can open its controlling terminal."""
     try:

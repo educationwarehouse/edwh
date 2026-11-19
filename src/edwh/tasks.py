@@ -65,6 +65,9 @@ from .helpers import (  # noqa F401 - import for export
     ColorFn,
     LineBufferHandler,
     NoopHandler,
+    SudoRequired,
+    TaskAborted,
+    VirtualenvRequired,
     active_compose_config_file_sets,
     active_compose_config_paths,
     confirm,
@@ -91,6 +94,7 @@ from .helpers import (  # noqa F401 - import for export
     shorten,
     unattended_input_mode,
     use_non_interactive_input,
+    write_task_result,
 )
 from .helpers import generate_password as _generate_password
 
@@ -1056,6 +1060,16 @@ def ensure_keyring_unlocked() -> bool:
     return True
 
 
+def nobody_can_type_input() -> bool:
+    """Unattended input mode, or no terminal/stdin to type in (CI, coding agents, MCP servers)."""
+    if get_input_mode() != "interactive" or not has_controlling_terminal():
+        return True
+    try:
+        return not sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        return True
+
+
 @task()
 def require_sudo(c: Context) -> bool:
     """
@@ -1088,11 +1102,22 @@ def require_sudo(c: Context) -> bool:
 
     if c.config.sudo.password:
         c.config.sudo.required_sudo = True
+        if nobody_can_type_input():
+            # invoke closes the command's stdin when ours is empty (e.g. /dev/null), after which the sudo
+            # responder can't send the stored password anymore. Set on the shared config (not `c.sudo`),
+            # since every task in this run gets its own context.
+            c.config.run.in_stream = False
         return True
 
-    if get_input_mode() != "interactive":
-        cprint("Configure sudo access before running unattended setup.", color="red", file=sys.stderr)
-        raise SystemExit(1)
+    if nobody_can_type_input():
+        # nobody can type a password here (unattended run, CI, or an agent without a terminal):
+        # stop with a clear, machine-readable reason instead of hanging on or failing a prompt.
+        error = SudoRequired(
+            "This task needs sudo, but no sudo password is available and nobody can be prompted.",
+            hint="Run `edwh sudo` in a terminal once to store the sudo password in the keyring, then retry.",
+        )
+        cprint(str(error), color="red", file=sys.stderr)
+        raise error
 
     if prompt_validate_sudo_pass(c):
         c.config.sudo.required_sudo = True
@@ -2695,6 +2720,37 @@ def sleep(_: Context, n: str) -> None:
     print("\r", "Sleeping for: 0 seconds", end="\n")
 
 
+def project_virtualenv(directory: Path | None = None) -> Path | None:
+    """Return the project's virtualenv (`venv` or `.venv` in `directory`, default cwd), if it has one."""
+    directory = directory or Path.cwd()
+    for name in ("venv", ".venv"):
+        candidate = directory / name
+        if (candidate / "pyvenv.cfg").is_file():
+            return candidate
+    return None
+
+
+@task()
+def require_virtualenv(_: Context) -> None:
+    """
+    Stop when the project has a virtualenv but edwh is not running from it.
+
+    Tools like `ty` resolve imports from the active environment, so running them from another
+    edwh installation gives misleading errors. Use as a pre-hook: `@task(pre=[require_virtualenv])`.
+    """
+    venv = project_virtualenv()
+    if venv is None or Path(sys.prefix).resolve() == venv.resolve():
+        return
+
+    error = VirtualenvRequired(
+        f"This project has a virtualenv ({venv}), but edwh is running from {sys.prefix}.",
+        hint=f"Activate it first (`source {venv}/bin/activate`) or run `{venv}/bin/edwh` "
+        f"(install edwh in that venv if it is missing).",
+    )
+    cprint(str(error), color="red", file=sys.stderr)
+    raise error
+
+
 def find_ruff() -> str:
     """
     Use ruff's own logic to find the required binary.
@@ -2742,14 +2798,17 @@ def _render_lint_result(_: Context, result: LintOutput) -> str | None:
     if not isinstance(result, dict):
         return None
 
-    if result.get("mode", "cli") != "json":
-        return None
-
     data = dict(result.get("results", {}))
+    ok = all(data.values())
 
-    print(json.dumps(data, indent=2, sort_keys=True))
+    # report before the SystemExit below, and with hook results included:
+    write_task_result("lint", ok=ok, result=result)
 
-    if not all(data.values()):
+    if result.get("mode", "cli") == "json":
+        print(json.dumps(data, indent=2, sort_keys=True))
+
+    if not ok:
+        # in every output mode, so CI pipelines (`--output ci`) actually fail on lint errors
         raise SystemExit(1)
 
     return None
@@ -2791,6 +2850,7 @@ def run_command_with_output(
     hookable=True,
     help={"output": "output mode: cli, ci, or json"},
     result_renderer=_render_lint_result,
+    pre=[require_virtualenv],
 )
 def lint(
     ctx: Context,

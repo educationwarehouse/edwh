@@ -3,13 +3,14 @@ import os
 import signal
 import sys
 import typing as t
+from importlib import import_module
 from pathlib import Path
 
 import ewok
 
 from . import local_tasks, tasks
 from .__about__ import __version__
-from .helpers import get_input_mode
+from .helpers import RESULT_FILE_ENV, TaskAborted, get_input_mode, write_task_result
 
 
 # https://docs.pyinvoke.org/en/stable/concepts/library.html
@@ -39,8 +40,11 @@ class EddieApp(ewok.App):
         """
 
         def is_tty():
-            # detect if we're in a terminal
-            return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+            # detect if we're in a terminal; stdout may already be closed at exit (e.g. by an MCP stdio transport)
+            try:
+                return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+            except ValueError:
+                return False
 
         def restore_terminal_state(*_: t.Any) -> None:
             """Safely restore the previously captured TTY settings."""
@@ -59,6 +63,43 @@ class EddieApp(ewok.App):
 
         signal.signal(signal.SIGINT, handle_signal)
         signal.signal(signal.SIGTERM, handle_signal)
+
+    def _make_executor(self) -> t.Any:
+        """Build the executor the same way `invoke.Program.execute` does."""
+        klass = self.executor_class
+        if config_path := self.config.tasks.executor_class:
+            module_path, _, class_name = config_path.rpartition(".")
+            klass = getattr(import_module(module_path), class_name)
+        return klass(self.collection, self.config, self.core)
+
+    def execute(self) -> None:
+        """
+        Execute the parsed tasks; with `$EDWH_RESULT_FILE` set, also report the outcome there as JSON.
+
+        Tasks that report their own result (e.g. `lint`) take precedence, see `write_task_result`.
+        A task can mark itself as failed without raising by returning a dict with `"ok": False`.
+        """
+        if not os.environ.get(RESULT_FILE_ENV):
+            return super().execute()
+
+        task_name = self.tasks[-1].name if self.tasks else None
+        try:
+            results = self._make_executor().execute(*self.tasks)
+        except TaskAborted as error:
+            write_task_result(task_name, ok=False, error=error)
+            raise
+        except SystemExit as error:
+            succeeded = error.code in (0, None)
+            write_task_result(task_name, ok=succeeded, error=None if succeeded else error)
+            raise
+        except BaseException as error:
+            write_task_result(task_name, ok=False, error=error)
+            raise
+
+        result = results.get(self.collection[task_name]) if task_name else None
+        ok = not (isinstance(result, dict) and result.get("ok") is False)
+        write_task_result(task_name, ok=ok, result=result)
+        return None
 
     def run(self, argv: list[str] | None = None, exit: bool = True) -> None:  # noqa: A002
         """Run the application with terminal‑safety fixes enabled."""
