@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.23.1 (2026-11-19)
+
+### Fix
+* **sudo:** preserve password setup while checking sudo access
+
 ## v1.23.0 (2026-11-19)
 
 ### Feature
