@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.23.0 (2026-11-19)
+
+### Feature
+* **cli:** report task results for unattended callers
+
 ## v1.22.0 (2026-11-12)
 
 ### Features
