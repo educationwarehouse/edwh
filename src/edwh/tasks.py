@@ -1088,15 +1088,15 @@ def require_sudo(c: Context) -> bool:
     """
     use_configured_ssh_agent_keyring()
 
+    # only load a stored password here, don't return early: the checks below decide whether sudo is usable,
+    # and the stored-password branch must still prepare unattended runs (see `in_stream` below).
     with contextlib.suppress(Exception):
         if current := keyring.get_password("edwh", "sudo"):
             c.config.sudo.password = current
-            c.config.sudo.required_sudo = True
-            # return True # fixme
 
     ran = c.run("sudo --non-interactive echo ''", warn=True, hide=True)
     if ran and ran.ok:
-        # prima
+        # sudo works without a password (NOPASSWD or a cached timestamp)
         c.config.sudo.required_sudo = True
         return True
 
