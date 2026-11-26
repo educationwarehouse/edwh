@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v1.24.0 (2026-11-26)
+
+### Feature
+* **worktree:** add per-run seed overrides and worktrees alias
+
 ## v1.23.1 (2026-11-19)
 
 ### Fix
