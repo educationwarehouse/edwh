@@ -2450,6 +2450,16 @@ def version(ctx: Context) -> None:
 # for meta tasks such as `plugins` and `self-update`, see meta.py
 
 
+@task()
+def worktrees(c: Context) -> None:
+    """
+    alias for worktree.list
+    """
+    from .local_tasks import worktree  # lazy: worktree imports from this module
+
+    return worktree.show_list(c)
+
+
 @task(
     name="help",
     help={

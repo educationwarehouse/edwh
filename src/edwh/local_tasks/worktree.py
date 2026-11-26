@@ -466,11 +466,18 @@ def setup_worktree(c: Context, show: bool = False) -> None:
     default=True,
     aliases=("new", "create"),
     iterable=["env"],
-    flags={"no_up": ("no-up",), "no_tui": ("no-tui",), "from_ref": ("from",), "force": ("force", "f")},
+    flags={
+        "no_up": ("no-up",),
+        "no_tui": ("no-tui",),
+        "no_seed": ("no-seed",),
+        "from_ref": ("from",),
+        "force": ("force", "f"),
+    },
     help={
         "branch": "Branch to work on. An existing upstream branch is checked out with tracking.",
         "from_ref": "Base for a new branch (default: HEAD of the current checkout).",
         "seed": f"Override the configured database seeding strategy ({'|'.join(SEEDS)}).",
+        "no_seed": "Do not seed the database, whatever the config says (same as --seed fresh).",
         "env": "Supply a requested reset hostname as KEY=VALUE; can be used multiple times.",
         "no_up": "Set the environment up but do not start it.",
         "yes": "Do not ask for confirmation (e.g. before pausing services to clone volumes).",
@@ -483,6 +490,7 @@ def add(
     branch: str,
     from_ref: str = "",
     seed: str = "",
+    no_seed: bool = False,
     no_up: bool = False,
     no_tui: bool = False,
     force: bool = False,
@@ -501,10 +509,7 @@ def add(
         if config is None:
             raise WorktreeError("Configuration was not saved, aborting.")
 
-    if seed:
-        if seed not in SEEDS:
-            raise WorktreeError(f"Unknown seed strategy {seed!r}, choose from {', '.join(SEEDS)}.")
-        config.seed = seed
+    config.seed = resolve_seed(config.seed, seed=seed, no_seed=no_seed)
 
     repo = repo_root(c)
     slug = slugify(branch)
@@ -592,6 +597,25 @@ def add(
     _report(c, run, branch, dst, collisions, force=force)
     if run.failed:
         raise invoke.exceptions.Exit(code=1) from None
+
+
+def resolve_seed(configured: str, *, seed: str = "", no_seed: bool = False) -> str:
+    """
+    The seeding strategy for this run: `--seed` / `--no-seed` beat the project's [worktree] seed.
+
+    "No seed" is `fresh`: the database starts empty and `migrate` fills it.
+    """
+    if no_seed:
+        if seed and seed != "fresh":
+            raise WorktreeError(f"--no-seed and --seed {seed} contradict each other, pick one.")
+        return "fresh"
+
+    if not seed:
+        return configured
+
+    if seed not in SEEDS:
+        raise WorktreeError(f"Unknown seed strategy {seed!r}, choose from {', '.join(SEEDS)}.")
+    return seed
 
 
 async def _step_git_add(c: Context, run: Run, *, repo: Path, branch: str, from_ref: str, dst: Path) -> None:

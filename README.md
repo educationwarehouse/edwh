@@ -146,12 +146,13 @@ removes it again, containers and volumes included. If no local branch exists, it
 upstream branches first and creates a tracking branch when it finds one.
 
 ```bash
-edwh worktree.setup                  # configure this project once (writes [worktree] to .toml)
-edwh worktree feature/login          # create + start
-edwh worktree feature/login --no-up  # create, do not start
-edwh worktree.list                   # branches, slugs, paths, ports, running containers
+edwh worktree.setup                    # configure this project once (writes [worktree] to .toml)
+edwh worktree feature/login            # create + start
+edwh worktree feature/login --no-up    # create, do not start
+edwh worktree feature/login --no-seed  # empty database, even when the config says clone/devdb
+edwh worktrees                         # alias for worktree.list (branches, slugs, paths, ports, running containers)
 cd $(edwh worktree.path feature/login)
-edwh worktree.rm feature/login       # containers, volumes, directory and branch
+edwh worktree.rm feature/login         # containers, volumes, directory and branch
 ```
 
 Worktrees live under `~/.cache/edwh/worktrees/<repo>-<slug>`; override with `$EDWH_WORKTREE_ROOT`
@@ -207,6 +208,9 @@ Seeding:
   first unless `--yes`. Note it copies everything: N worktrees means N copies of the full volume.
 * `devdb` - run `devdb.recover` after `up` using the trimmed `edwh-devdb-plugin` snapshot (put
   `migrate/data/snapshot/` in `copy`). Postgres only, much smaller than a clone.
+
+Override the configured strategy for a single worktree with `--seed fresh|clone|devdb`, or skip
+seeding entirely with `--no-seed` (same as `--seed fresh`).
 
 After seeding, a `worktree` task in your project's `tasks.py` runs last, inside the new worktree
 (e.g. `c.run("./bin/load-fixtures")`).

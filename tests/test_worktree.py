@@ -10,7 +10,14 @@ import yaml
 from ewok import Context
 
 from src.edwh.helpers import viewport
-from src.edwh.local_tasks.worktree import _ask_template, _step_git_add, branch_exists, owned_volume_names
+from src.edwh.local_tasks.worktree import (
+    WorktreeError,
+    _ask_template,
+    _step_git_add,
+    branch_exists,
+    owned_volume_names,
+    resolve_seed,
+)
 from src.edwh.pipeline import Run
 from src.edwh.tasks import (
     _dotenv_settings,
@@ -625,3 +632,29 @@ def test_owned_volume_names_excludes_external_even_with_the_project_prefix():
 def test_owned_volume_names_is_empty_when_compose_could_not_be_read():
     """Fail closed: an unreadable compose config must never authorise a `docker volume rm`."""
     assert owned_volume_names({}) == set()
+
+
+# -- seed override ------------------------------------------------------------------------
+
+
+def test_resolve_seed_keeps_the_configured_strategy_without_arguments():
+    assert resolve_seed("clone") == "clone"
+
+
+def test_resolve_seed_lets_seed_override_the_config():
+    assert resolve_seed("clone", seed="devdb") == "devdb"
+
+
+def test_resolve_seed_no_seed_means_fresh():
+    assert resolve_seed("clone", no_seed=True) == "fresh"
+    assert resolve_seed("clone", seed="fresh", no_seed=True) == "fresh"
+
+
+def test_resolve_seed_rejects_contradicting_arguments():
+    with pytest.raises(WorktreeError, match="contradict"):
+        resolve_seed("fresh", seed="clone", no_seed=True)
+
+
+def test_resolve_seed_rejects_an_unknown_strategy():
+    with pytest.raises(WorktreeError, match="Unknown seed"):
+        resolve_seed("clone", seed="nope")
