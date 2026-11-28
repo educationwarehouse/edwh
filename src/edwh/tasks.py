@@ -2508,11 +2508,18 @@ def show_help(ctx: Context, about: str) -> None:
         "short": "Oneline summary",
         "show_settings": "show settings per folder",
         "as_json": "output json",
+        "machine": "Also include every running Docker Compose project on this host (docker compose ls)",
+        "path": "Only discover under this directory (default: current directory and one level below)",
     },
-    flags={"show_settings": ("settings", "show-settings"), "as_json": ("j", "json", "as-json")},  # -s is for short
+    flags={
+        "show_settings": ("settings", "show-settings"),
+        "as_json": ("j", "json", "as-json"),  # -s is for short
+        "machine": ("machine", "all"),
+    },
 )
 def task_discover(
     ctx: Context,
+    path: str = "",
     du: bool = False,
     exposes: bool = False,
     ports: bool = False,
@@ -2520,8 +2527,12 @@ def task_discover(
     short: bool = False,
     show_settings: bool = False,
     as_json: bool = False,
+    machine: bool = False,
 ) -> None:
     """Discover docker environments per host.
+
+    By default only the current directory (or --path) and one level below it are scanned.
+    Use --machine (or --all) to also include every running Docker Compose project on this host.
 
     Use ansi2txt to save readable output to a file.
     """
@@ -2534,6 +2545,8 @@ def task_discover(
         short=short,
         as_json=as_json,
         settings=show_settings,
+        machine=machine,
+        path=path or None,
     )
 
 

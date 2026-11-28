@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shlex
 import sys
 import typing as t
 from contextlib import contextmanager
@@ -115,6 +116,8 @@ class Discover:
         short: bool = False,
         settings: bool = False,
         as_json: bool = False,
+        machine: bool = False,
+        path: str | None = None,
     ):
         self.ctx = ctx
         self.du = du
@@ -124,6 +127,10 @@ class Discover:
         self.short = short
         self.settings = settings
         self.as_json = as_json
+        # machine: also include every running Compose project on this host (`docker compose ls`)
+        self.machine = machine
+        # path: restrict discovery to this directory and below (None = no restriction)
+        self.path = path
 
         print_fn = noop if as_json else cprint
 
@@ -163,10 +170,14 @@ class Discover:
         return [path for compose_files in self.find_compose_projects() for path in compose_files]
 
     def find_local_compose_files(self) -> list[Path]:
+        # Fixed depth: the scope directory itself and one level below it (same as before --machine existed).
+        # The scope is quoted, the `*` is intentionally left for the shell to expand.
+        scope = shlex.quote(self.path or ".")
         paths = []
         try:
             ran = self.ctx.run(
-                "find ./docker-compose.yaml ./docker-compose.yml */docker-compose.yaml */docker-compose.yml",
+                f"find {scope}/docker-compose.yaml {scope}/docker-compose.yml "
+                f"{scope}/*/docker-compose.yaml {scope}/*/docker-compose.yml",
                 echo=False,
                 hide=True,
                 warn=True,
@@ -178,14 +189,21 @@ class Discover:
         return paths
 
     def find_compose_projects(self) -> list[list[Path]]:
-        # Active projects come first so their complete, ordered override list wins over
-        # the single default file found by the local scan.
-        active_file_sets = active_compose_config_file_sets(self.ctx)
-        compose_file_sets = active_file_sets + [[path] for path in self.find_local_compose_files()]
+        # Local scan first; with --machine the active projects are added in front, so their complete,
+        # ordered override list wins over the single default file found by the local scan.
+        compose_file_sets: list[list[Path]] = []
+        if self.machine:
+            compose_file_sets += active_compose_config_file_sets(self.ctx)
+        compose_file_sets += [[path] for path in self.find_local_compose_files()]
 
         ran = self.ctx.run("pwd -P", echo=False, hide=True)
         if not ran or not (working_directory := ran.stdout.strip()):
             raise EnvironmentError("Failed to determine the Compose discovery directory")
+
+        # Absolute scope on the target host; active projects outside it are dropped.
+        scope_key: Path | None = None
+        if self.path is not None:
+            scope_key = Path(os.path.normpath(Path(working_directory) / self.path))
 
         seen: set[Path] = set()
         projects: list[list[Path]] = []
@@ -194,6 +212,8 @@ class Discover:
             # These paths belong to the target host. Path.resolve() would resolve
             # relative paths on the machine running edwh, which is wrong over Fabric.
             project_key = Path(os.path.normpath(Path(working_directory) / project_directory))
+            if scope_key is not None and not project_key.is_relative_to(scope_key):
+                continue
             if project_key not in seen:
                 seen.add(project_key)
                 projects.append(compose_files)
@@ -339,6 +359,8 @@ def discover(
     short: bool = False,
     settings: bool = False,
     as_json: bool = False,
+    machine: bool = False,
+    path: str | None = None,
 ) -> None:
     d = Discover(
         ctx,
@@ -349,6 +371,8 @@ def discover(
         short=short,
         settings=settings,
         as_json=as_json,
+        machine=machine,
+        path=path,
     )
 
     return d.discover()
